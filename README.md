@@ -4,6 +4,8 @@
 
 [Website](https://glimdock.com) · [Download v0.1.0](https://github.com/gkostadinov/glimdock/releases/tag/v0.1.0) · [Setup guide](SETUP.md) · [Documentation](docs/README.md) · [Contribute](CONTRIBUTING.md)
 
+[![Build and check](https://github.com/gkostadinov/glimdock/actions/workflows/build.yml/badge.svg)](https://github.com/gkostadinov/glimdock/actions/workflows/build.yml)
+
 Glimdock is an open-source touchscreen dashboard for the machines that keep your
 home running. It pairs native ESP32-S3 firmware with a Rust collector on your LAN.
 See host load, real guest OS memory, storage health, temperatures, GPU telemetry
@@ -28,11 +30,6 @@ No cloud telemetry service, paid monitoring subscription or Proxmox login on the
 display is required. The collector samples host tools locally and publishes
 bounded snapshots. A separate unprivileged HTTP process serves the display using
 dedicated read and setup tokens. Klipper integrations are read-only monitoring.
-
-The Linux collector is written in Rust. It samples privileged host tools locally,
-publishes bounded snapshots, and serves them through a separate unprivileged HTTP
-process. The display holds dedicated read and setup tokens, not a Proxmox login.
-Printer integrations query Moonraker; they provide monitoring, not print controls.
 
 **This is a developer alpha for Waveshare ESP32-S3-Touch-LCD-2.8 V1**
 (ST7789 + CST328, 16 MiB flash, 8 MiB PSRAM). V2 uses a different touch controller
