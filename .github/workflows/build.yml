@@ -1,0 +1,49 @@
+name: Build and check
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.1
+      - run: cargo test --locked --manifest-path collector-rs/Cargo.toml
+      - run: python3 -m unittest discover -s tests -v
+      - run: pipx install platformio
+      - run: pio run --project-dir firmware --environment homelab_s3
+      - run: python3 tools/native-preview/test_gestures.py
+  linux:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install isolated Zig toolchain
+        run: |
+          python3 -m venv "$RUNNER_TEMP/zig-env"
+          "$RUNNER_TEMP/zig-env/bin/pip" install ziglang==0.13.0
+      - run: cargo install cargo-zigbuild --locked --version 0.23.4
+      - name: Build static Linux executable
+        run: |
+          mkdir -p "$RUNNER_TEMP/zig-bin"
+          printf '#!/bin/sh\nexec "%s" -m ziglang "$@"\n' "$RUNNER_TEMP/zig-env/bin/python" > "$RUNNER_TEMP/zig-bin/zig"
+          chmod +x "$RUNNER_TEMP/zig-bin/zig"
+          PATH="$RUNNER_TEMP/zig-bin:$PATH" cargo zigbuild --locked --release --manifest-path collector-rs/Cargo.toml --target ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glimdock-collector-${{ matrix.target }}
+          path: |
+            collector-rs/target/${{ matrix.target }}/release/glimdock-collector
+            LICENSE
+            LICENSE_POLICY.md
+            THIRD_PARTY_NOTICES.md
+            LICENSES/
+            collector-rs/Cargo.lock
+          if-no-files-found: error

@@ -1,0 +1,27 @@
+#ifndef LV_CONF_H
+#define LV_CONF_H
+#define LV_COLOR_DEPTH 16
+#define LV_USE_OS LV_OS_NONE
+#define LV_DEF_REFR_PERIOD 20
+#define LV_DPI_DEF 130
+#define LV_MEM_SIZE (512U * 1024U)
+#define LV_MEM_POOL_INCLUDE "lv_psram.h"
+#define LV_MEM_POOL_ALLOC homelab_lvgl_pool
+#define LV_USE_LOG 0
+#define LV_USE_ASSERT_NULL 1
+#define LV_USE_ASSERT_MALLOC 1
+#define LV_FONT_MONTSERRAT_8 1
+#define LV_FONT_MONTSERRAT_10 1
+#define LV_FONT_MONTSERRAT_12 1
+#define LV_FONT_MONTSERRAT_14 1
+#define LV_FONT_MONTSERRAT_18 1
+#define LV_FONT_MONTSERRAT_24 1
+#define LV_FONT_MONTSERRAT_28 1
+#define LV_FONT_MONTSERRAT_32 1
+#define LV_FONT_DEFAULT &lv_font_montserrat_12
+#define LV_USE_THEME_DEFAULT 0
+#define LV_USE_THEME_SIMPLE 0
+#define LV_USE_DEMO_WIDGETS 0
+#define LV_USE_DEMO_BENCHMARK 0
+#define LV_USE_DEMO_MUSIC 0
+#endif

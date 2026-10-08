@@ -1,0 +1,32 @@
+[Unit]
+Description=Homelab display bounded node configuration service
+Before=homelab-monitor-collector.service homelab-monitor-http.service
+
+[Service]
+Type=simple
+User=root
+Group=homelab-monitor
+WorkingDirectory=/opt/homelab-monitor
+ExecStart=/usr/bin/python3 -B -m agent.config_service
+RuntimeDirectory=homelab-monitor
+RuntimeDirectoryMode=02750
+RuntimeDirectoryPreserve=yes
+UMask=0077
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/etc/homelab-monitor /run/homelab-monitor
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=64M
+TasksMax=20
+
+[Install]
+WantedBy=multi-user.target

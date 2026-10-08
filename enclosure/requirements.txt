@@ -1,0 +1,6 @@
+cadquery==2.8.0
+trimesh==5.1.1
+numpy==2.5.3
+pillow==12.3.0
+shapely==2.1.2
+networkx==3.5

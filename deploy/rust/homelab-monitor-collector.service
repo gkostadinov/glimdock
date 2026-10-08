@@ -1,0 +1,33 @@
+[Unit]
+Description=Glimdock read-only privileged telemetry collector (Rust)
+After=pve-cluster.service network-online.target homelab-monitor-config.service
+Wants=network-online.target homelab-monitor-config.service
+
+[Service]
+Type=simple
+User=root
+# Proxmox pmxcfs/libqb requires root's primary group for local IPC.
+Group=root
+SupplementaryGroups=homelab-monitor
+WorkingDirectory=/opt/homelab-monitor
+ExecStart=/opt/homelab-monitor/glimdock-collector collect --config /etc/homelab-monitor/config.json --output /run/homelab-monitor/snapshot.json --snapshot-group homelab-monitor
+# The configuration service alone owns the shared runtime directory.
+UMask=0027
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=90
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/run/homelab-monitor
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

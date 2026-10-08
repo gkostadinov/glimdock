@@ -1,0 +1,225 @@
+#include "model.h"
+#include "config.h"
+#include "brand.h"
+#include "brand_portal.h"
+#include <ArduinoJson.h>
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
+#include <Preferences.h>
+#include <DNSServer.h>
+#include <WebServer.h>
+#include <esp_heap_caps.h>
+#include <time.h>
+#include <algorithm>
+#include <cstddef>
+#ifndef HOMELAB_DEFAULT_SETUP_TOKEN
+#define HOMELAB_DEFAULT_SETUP_TOKEN ""
+#endif
+Snapshot *publishedSnapshot=nullptr;
+SemaphoreHandle_t dataMutex=nullptr;
+NetworkState networkState;
+volatile bool requestSetup=false;
+namespace {
+struct Settings {String ssid,password,endpoint,token,setupToken,ca;};
+Settings cfg;
+ConnectionSettings connectionPublic;ConnectionUpdate pendingConnection;bool connectionPending=false;
+NodeConfiguration configurationPublic;NodeConfigDraft pendingNode;char pendingVersion[65]{},pendingDeleteId[64]{};uint8_t configPending=0;
+WebServer portal(80);DNSServer dns;
+bool portalActive=false;uint32_t restartAt=0,lastWifiAttempt=0;
+Snapshot *working=nullptr;
+char *body=nullptr;
+char requestedNode[64]{},rememberedNode[64]{};uint32_t selectionGeneration=0,lastSelectionPersist=0;bool forceFetch=false,selectionDirty=false,restoreChecked=false;
+struct PsramAllocator : ArduinoJson::Allocator {
+  struct alignas(std::max_align_t) Header { size_t size; };
+  size_t allocated=0;
+  static constexpr size_t limit=192*1024;
+  void *allocate(size_t n) override {
+    if(n>limit-allocated)return nullptr;
+    auto *h=(Header*)heap_caps_malloc(n+sizeof(Header),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+    if(!h)return nullptr;h->size=n;allocated+=n;return h+1;
+  }
+  void deallocate(void *p) override {if(!p)return;auto*h=((Header*)p)-1;allocated-=h->size;heap_caps_free(h);}
+  void *reallocate(void *p,size_t n) override {
+    if(!p)return allocate(n);auto *h=((Header*)p)-1;size_t old=h->size;
+    if(n>limit-(allocated-old))return nullptr;
+    auto *next=(Header*)heap_caps_realloc(h,n+sizeof(Header),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
+    if(!next)return nullptr;next->size=n;allocated=allocated-old+n;return next+1;
+  }
+};
+class BoundedBody:public Stream {
+ public: size_t used=0;bool overflow=false;size_t limit=MAX_JSON;explicit BoundedBody(size_t cap=MAX_JSON):limit(cap){}
+ size_t write(uint8_t c)override{return write(&c,1);}
+ size_t write(const uint8_t *data,size_t n)override{if(n>limit-used){overflow=true;return 0;}memcpy(body+used,data,n);used+=n;body[used]=0;return n;}
+ int available()override{return 0;}int read()override{return -1;}int peek()override{return -1;}void flush()override{}
+};
+void status(const char *message,uint32_t generation=UINT32_MAX){xSemaphoreTake(dataMutex,portMAX_DELAY);if(generation!=UINT32_MAX&&generation!=selectionGeneration){xSemaphoreGive(dataMutex);return;}bool changed=strcmp(networkState.message,message)!=0;strlcpy(networkState.message,message,sizeof(networkState.message));networkState.wifi=WiFi.status()==WL_CONNECTED;networkState.setup=portalActive;networkState.revision++;String ip=networkState.wifi?WiFi.localIP().toString():WiFi.softAPIP().toString();strlcpy(networkState.ip,ip.c_str(),sizeof(networkState.ip));xSemaphoreGive(dataMutex);if(changed)Serial.printf("Network: %s\n",message);}
+void copyText(char *to,size_t n,JsonVariantConst value,const char *fallback=""){if(value.is<const char*>())strlcpy(to,value.as<const char*>(),n);else strlcpy(to,fallback,n);}
+template<size_t N>void text(char (&to)[N],JsonVariantConst v,const char *fallback=""){copyText(to,N,v,fallback);}
+double number(JsonVariantConst v){return v.isNull()||!(v.is<double>()||v.is<int64_t>()||v.is<uint64_t>())?NAN:v.as<double>();}
+bool descriptor(JsonObjectConst o,NodeDescriptor&n){const char*id=o["id"]|"";if(!validNodeId(id))return false;text(n.id,o["id"]);text(n.type,o["type"]);if(strcmp(n.type,"proxmox")&&strcmp(n.type,"klipper"))return false;text(n.name,o["name"],n.id);text(n.address,o["address"]);text(n.status,o["status"],"unknown");return true;}
+bool parse(JsonDocument &doc,Snapshot &s){
+  if(doc["schema"].as<int>()!=1||!doc["host"].is<JsonObject>()||!doc["sequence"].is<uint64_t>()||!isfinite(number(doc["generated_at"])))return false;
+  new(&s)Snapshot{};s.valid=true;s.demo=doc["demo"]==true;s.sequence=doc["sequence"].as<uint64_t>();s.generated=number(doc["generated_at"]);s.received=millis();
+  if(doc["node"].is<JsonObjectConst>()&&!descriptor(doc["node"].as<JsonObjectConst>(),s.node))return false;
+  for(JsonObjectConst o:doc["nodes"].as<JsonArrayConst>()){NodeDescriptor n;if(!descriptor(o,n))continue;bool duplicate=false;for(int i=0;i<s.nNodes;i++)if(!strcmp(s.nodes[i].id,n.id))duplicate=true;if(duplicate)continue;if(s.nNodes>=MAX_NODES){s.truncated=true;break;}s.nodes[s.nNodes++]=n;}
+  JsonObjectConst printer=doc["printer"];if(printer){auto&p=s.printer;p.present=true;text(p.id,printer["id"]);text(p.name,printer["name"]);text(p.host,printer["host"]);text(p.hostName,printer["host_name"]);text(p.klippyState,printer["klippy_state"]);text(p.state,printer["state"]);text(p.message,printer["message"]);text(p.filename,printer["filename"]);text(p.progressBasis,printer["progress_basis"]);text(p.etaBasis,printer["eta_basis"]);text(p.error,printer["error"]);p.progress=number(printer["progress_pct"]);p.printDuration=number(printer["print_duration_s"]);p.totalDuration=number(printer["total_duration_s"]);p.currentLayer=number(printer["current_layer"]);p.totalLayers=number(printer["total_layers"]);p.filament=number(printer["filament_used_mm"]);p.slicerTime=number(printer["slicer_estimated_time_s"]);p.remaining=number(printer["remaining_s"]);p.eta=number(printer["eta_at"]);p.fan=number(printer["fan_pct"]);p.updated=number(printer["updated_at"]);p.age=number(printer["age_s"]);double ttl=number(printer["ttl_s"]);p.ttl=isfinite(ttl)&&ttl>=5&&ttl<=900?ttl:15;if(printer["filament_detected"].is<bool>())p.filamentDetected=printer["filament_detected"].as<bool>()?1:0;
+    for(JsonObjectConst o:printer["heaters"].as<JsonArrayConst>()){if(p.nHeaters>=MAX_HEATERS){s.truncated=true;break;}auto&h=p.heaters[p.nHeaters++];text(h.name,o["name"]);h.temp=number(o["temp_c"]);h.target=number(o["target_c"]);h.duty=number(o["duty_pct"]);}
+    for(JsonObjectConst o:printer["temperatures"].as<JsonArrayConst>()){if(p.nTemps>=MAX_PRINTER_TEMPS){s.truncated=true;break;}auto&t=p.temperatures[p.nTemps++];text(t.name,o["name"]);t.temp=number(o["temp_c"]);}
+  }
+  JsonObjectConst h=doc["host"];text(s.host,h["name"],"Proxmox");text(s.ip,h["ip"],"192.0.2.10");
+  if(!s.node.type[0]){strlcpy(s.node.type,"proxmox",sizeof(s.node.type));strlcpy(s.node.name,s.host,sizeof(s.node.name));strlcpy(s.node.address,s.ip,sizeof(s.node.address));strlcpy(s.node.status,"unknown",sizeof(s.node.status));}
+  s.uptime=number(h["uptime_s"]);s.cpu=number(h["cpu_pct"]);s.memUsed=number(h["mem_used_bytes"]);s.memTotal=number(h["mem_total_bytes"]);
+  s.swapUsed=number(h["swap_used_bytes"]);s.swapTotal=number(h["swap_total_bytes"]);s.arc=number(h["arc_bytes"]);s.iowait=number(h["io_wait_pct"]);
+  s.rx=number(h["net_rx_bps"]);s.tx=number(h["net_tx_bps"]);s.read=number(h["disk_read_bps"]);s.write=number(h["disk_write_bps"]);
+  for(JsonVariantConst v:h["cpu_cores"].as<JsonArrayConst>()){if(s.nCores>=MAX_CORES){s.truncated=true;break;}s.cores[s.nCores++]=number(v);}
+  for(int i=0;i<3;i++)s.load[i]=number(h["load"][i]);
+  JsonObjectConst p=doc["power"];s.watts=number(p["package_w"]);s.temp=number(p["cpu_temp_c"]);s.mhz=number(p["cpu_mhz"]);s.busyMhz=number(p["busy_mhz"]);
+  for(JsonPairConst pair:p["cstate_pct"].as<JsonObjectConst>()){if(s.nCstates>=10){s.truncated=true;break;}strlcpy(s.cstateNames[s.nCstates],pair.key().c_str(),12);s.cstates[s.nCstates++]=number(pair.value());}
+  for(JsonObjectConst o:doc["guests"].as<JsonArrayConst>()){
+    if(s.nGuests>=MAX_GUESTS){s.truncated=true;break;}Guest &g=s.guests[s.nGuests++];g.id=o["id"].as<int>();text(g.name,o["name"]);text(g.type,o["type"]);text(g.status,o["status"]);
+    g.cpu=number(o["cpu_pct"]);g.used=number(o["mem_used_bytes"]);g.total=number(o["mem_total_bytes"]);g.uptime=number(o["uptime_s"]);g.rx=number(o["net_rx_bps"]);g.tx=number(o["net_tx_bps"]);g.read=number(o["disk_read_bps"]);g.write=number(o["disk_write_bps"]);
+    text(g.memoryBasis,o["memory_basis"],"proxmox");text(g.memError,o["mem_error"]);g.available=number(o["mem_available_bytes"]);g.cache=number(o["mem_cache_bytes"]);g.noncache=number(o["mem_noncache_used_bytes"]);g.assigned=number(o["mem_assigned_bytes"]);g.hostMem=number(o["mem_host_bytes"]);g.pveUsed=number(o["pve_mem_used_bytes"]);g.pveTotal=number(o["pve_mem_total_bytes"]);g.memUpdated=number(o["mem_updated_at"]);g.memAge=number(o["mem_age_s"]);
+  }
+  for(JsonObjectConst o:doc["gpus"].as<JsonArrayConst>()){if(s.nGpus>=MAX_GPUS){s.truncated=true;break;}auto&g=s.gpus[s.nGpus++];text(g.id,o["id"]);text(g.name,o["name"],"GPU");text(g.vendor,o["vendor"]);text(g.kind,o["kind"],"unknown");text(g.owner,o["owner"],"unknown");text(g.driver,o["driver"]);text(g.status,o["status"],"inventory");text(g.utilizationKind,o["utilization_kind"],"gpu");text(g.error,o["error"]);g.utilization=number(o["utilization_pct"]);g.memUsed=number(o["mem_used_bytes"]);g.memTotal=number(o["mem_total_bytes"]);g.temp=number(o["temp_c"]);g.power=number(o["power_w"]);g.graphicsMhz=number(o["graphics_mhz"]);g.memoryMhz=number(o["memory_mhz"]);g.fan=number(o["fan_pct"]);g.updated=number(o["updated_at"]);g.age=number(o["age_s"]);}
+  for(JsonObjectConst o:doc["storage"].as<JsonArrayConst>()){if(s.nPools>=MAX_STORAGE){s.truncated=true;break;}Pool &v=s.pools[s.nPools++];text(v.id,o["id"]);text(v.name,o["name"]);text(v.status,o["status"]);v.used=number(o["used_bytes"]);v.total=number(o["total_bytes"]);}
+  for(JsonObjectConst o:doc["disks"].as<JsonArrayConst>()){if(s.nDisks>=MAX_DISKS){s.truncated=true;break;}Disk &d=s.disks[s.nDisks++];text(d.name,o["name"]);text(d.model,o["model"]);text(d.health,o["health"],"unknown");text(d.status,o["status"],"unknown");d.temp=number(o["temp_c"]);d.read=number(o["read_bps"]);d.write=number(o["write_bps"]);d.wear=number(o["wear_pct"]);d.mediaErrors=number(o["media_errors"]);d.powerHours=number(o["power_on_hours"]);d.spare=number(o["spare_pct"]);d.reallocated=number(o["reallocated_sectors"]);d.pending=number(o["pending_sectors"]);text(d.zfsStatus,o["zfs_status"]);d.zfsReadErrors=number(o["read_errors"]);d.zfsWriteErrors=number(o["write_errors"]);d.zfsChecksumErrors=number(o["checksum_errors"]);}
+  for(JsonObjectConst o:doc["sensors"].as<JsonArrayConst>()){if(s.nSensors>=MAX_SENSORS){s.truncated=true;break;}Sensor &v=s.sensors[s.nSensors++];text(v.id,o["id"]);text(v.name,o["name"]);text(v.chip,o["chip"]);text(v.kind,o["kind"]);text(v.unit,o["unit"]);v.value=number(o["value"]);v.crit=number(o["crit"]);v.high=number(o["high"]);}
+  for(JsonObjectConst o:doc["alerts"].as<JsonArrayConst>()){if(s.nAlerts>=MAX_ALERTS){s.truncated=true;break;}Alert &a=s.alerts[s.nAlerts++];text(a.id,o["id"]);text(a.message,o["message"]);text(a.severity,o["severity"]);}
+  for(JsonPairConst pair:doc["sources"].as<JsonObjectConst>()){if(s.nSources>=MAX_SOURCES){s.truncated=true;break;}Source &source=s.sources[s.nSources++];strlcpy(source.name,pair.key().c_str(),sizeof(source.name));JsonObjectConst o=pair.value().as<JsonObjectConst>();source.ok=o["ok"]==true;source.enabled=o["enabled"].isNull()||o["enabled"]==true;source.updated=number(o["updated_at"]);source.age=number(o["age_s"]);text(source.error,o["error"]);}
+  JsonObjectConst faults=doc["faults"];s.faultLookbackDays=faults["lookback_days"]|7;s.segfaults24h=number(faults["segfault_count_24h"]);s.faultEvents24h=number(faults["event_count_24h"]);s.lastFaultAt=number(faults["last_event_at"]);
+  for(JsonObjectConst o:faults["events"].as<JsonArrayConst>()){if(s.nFaults>=MAX_FAULTS){s.truncated=true;break;}Fault &f=s.faults[s.nFaults++];text(f.id,o["id"]);text(f.kind,o["kind"]);text(f.message,o["message"]);f.timestamp=number(o["timestamp"]);}
+  if(doc["limits"]["truncated"]==true)s.truncated=true;
+  for(JsonPairConst pair:doc["limits"]["truncated"].as<JsonObjectConst>())if(number(pair.value())>0)s.truncated=true;
+  // Prioritize thermal readings, retaining original order within each chip.
+  auto kindRank=[](const char *kind){return !strcmp(kind,"temperature")?0:!strcmp(kind,"fan")?1:!strcmp(kind,"voltage")?2:!strcmp(kind,"power")?3:!strcmp(kind,"current")?4:5;};
+  auto before=[&](const Sensor&a,const Sensor&b){int rank=kindRank(a.kind)-kindRank(b.kind);return rank?rank<0:strcmp(a.chip,b.chip)<0;};
+  for(int i=1;i<s.nSensors;i++){Sensor current=s.sensors[i];int j=i;while(j>0&&before(current,s.sensors[j-1])){s.sensors[j]=s.sensors[j-1];j--;}s.sensors[j]=current;}
+  return true;
+}
+String htmlEscape(const String &s){String out;out.reserve(s.length()+24);for(size_t i=0;i<s.length();i++){switch(s[i]){case '&':out+="&amp;";break;case '<':out+="&lt;";break;case '>':out+="&gt;";break;case '"':out+="&quot;";break;case '\'':out+="&#39;";break;default:out+=s[i];}}return out;}
+String setupPage(const String &error=""){
+  String h=F("<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'><title>Glimdock setup</title><style>body{margin:0;background:#080f18;color:#e8f0fa;font:16px system-ui}main{max-width:460px;padding:24px;margin:auto}h1{display:flex;align-items:center;gap:10px;font-size:30px;color:#e8f0fa;letter-spacing:-1px}h1 svg{flex:none}h1 .dot{color:#a991ff}label{display:block;margin:18px 0 6px}input,textarea,button{box-sizing:border-box;width:100%;padding:13px;border:1px solid #2a4059;border-radius:10px;background:#121f2f;color:#e8f0fa;font:inherit}button{background:#54d9f2;color:#080f18;font-weight:700;margin-top:24px}p{color:#9bafc8;line-height:1.5}.error{color:#ff827e}</style></head><body><main><h1>");h+=glimdock::PORTAL_LOGOTYPE;h+=F("</h1><p>Connect your desk display. Use the dedicated display token issued by your collector.</p>");
+  if(error.length())h+="<p class='error'>"+htmlEscape(error)+"</p>";
+  h+="<form method='post' action='/save'><label>Wi-Fi name</label><input name='ssid' maxlength='32' required value='"+htmlEscape(cfg.ssid)+"'><label>Wi-Fi password</label><input name='password' type='password' maxlength='64' autocomplete='new-password' placeholder='Leave blank to retain current password'><label>Snapshot endpoint</label><input name='endpoint' maxlength='240' required value='"+htmlEscape(cfg.endpoint)+"'><label>Display Bearer token</label><input name='token' type='password' maxlength='192' required autocomplete='new-password' placeholder='Paste the display token'><label>Setup token (optional; separate configuration access)</label><input name='setup_token' type='password' maxlength='192' autocomplete='new-password' placeholder='Blank retains token for the same endpoint'><label>HTTPS CA certificate (optional for HTTP)</label><textarea name='ca' rows='4' maxlength='4096' placeholder='-----BEGIN CERTIFICATE-----'>"+htmlEscape(cfg.ca)+"</textarea><button>Save &amp; connect</button></form><p>HTTP is intended for a trusted private LAN. HTTPS requires a CA certificate; insecure TLS fallback is disabled. Credentials are stored only on this display.</p></main></body></html>";
+  return h;
+}
+bool endpointValid(const String &u){return (u.startsWith("http://")||u.startsWith("https://"))&&u.length()<=240&&u.indexOf('@')<0&&u.indexOf(' ')<0&&u.indexOf('\r')<0&&u.indexOf('\n')<0;}
+bool saveSettings(const Settings&s){Preferences p;if(!p.begin("homelab",false))return false;p.putString("ssid",s.ssid);p.putString("password",s.password);p.putString("endpoint",s.endpoint);p.putString("token",s.token);p.putString("setup",s.setupToken);p.putString("ca",s.ca);bool ok=p.isKey("ssid")&&p.isKey("password")&&p.isKey("endpoint")&&p.isKey("token")&&p.isKey("setup")&&p.isKey("ca")&&p.getString("ssid")==s.ssid&&p.getString("password")==s.password&&p.getString("endpoint")==s.endpoint&&p.getString("token")==s.token&&p.getString("setup")==s.setupToken&&p.getString("ca")==s.ca;p.end();return ok;}
+void publishConnection(const char*message="",bool saved=false){xSemaphoreTake(dataMutex,portMAX_DELAY);connectionPublic.available=true;connectionPublic.saved=saved;strlcpy(connectionPublic.ssid,cfg.ssid.c_str(),sizeof(connectionPublic.ssid));strlcpy(connectionPublic.endpoint,cfg.endpoint.c_str(),sizeof(connectionPublic.endpoint));connectionPublic.passwordSaved=cfg.password.length();connectionPublic.displayTokenSaved=cfg.token.length();connectionPublic.setupTokenSaved=cfg.setupToken.length();connectionPublic.caSaved=cfg.ca.length();connectionPublic.busy=false;connectionPublic.saved=saved;strlcpy(connectionPublic.message,message,sizeof(connectionPublic.message));connectionPublic.revision++;networkState.revision++;xSemaphoreGive(dataMutex);}
+void connectionFailure(const char*message){xSemaphoreTake(dataMutex,portMAX_DELAY);connectionPublic.busy=false;connectionPublic.saved=false;strlcpy(connectionPublic.message,message,sizeof(connectionPublic.message));connectionPublic.revision++;networkState.revision++;xSemaphoreGive(dataMutex);}
+void applyConnection(){ConnectionUpdate update;xSemaphoreTake(dataMutex,portMAX_DELAY);bool pending=connectionPending;if(pending){update=pendingConnection;pendingConnection=ConnectionUpdate{};connectionPending=false;}xSemaphoreGive(dataMutex);if(!pending)return;Settings next=cfg;next.ssid=update.ssid;next.ssid.trim();next.endpoint=update.endpoint;next.endpoint.trim();bool sameEndpoint=next.endpoint==cfg.endpoint;next.password=update.clearPassword?String(""):update.password[0]?String(update.password):next.ssid==cfg.ssid?cfg.password:String("");next.token=update.displayToken[0]?String(update.displayToken):sameEndpoint?cfg.token:String("");next.setupToken=update.setupToken[0]?String(update.setupToken):sameEndpoint?cfg.setupToken:String("");next.token.trim();next.setupToken.trim();const char*error=nullptr;
+  if(next.ssid.isEmpty()||next.ssid.length()>32)error="Wi-Fi name must be 1-32 bytes.";else if(next.password.length()>64||(next.password.length()>0&&next.password.length()<8))error="Wi-Fi password needs 8-64 characters, or clear it for an open network.";else if(!endpointValid(next.endpoint))error="Enter a valid HTTP or HTTPS snapshot endpoint.";else if(next.token.isEmpty()||next.token.length()>192||next.token.indexOf('\n')>=0||next.token.indexOf('\r')>=0)error="Enter a display token for the new collector endpoint.";else if(next.setupToken.length()>192||next.setupToken.indexOf('\n')>=0||next.setupToken.indexOf('\r')>=0)error="Setup token must be at most 192 characters.";else if(next.endpoint.startsWith("https://")&&next.ca.indexOf("-----BEGIN CERTIFICATE-----")<0)error="HTTPS needs a saved CA certificate. Use advanced browser setup.";if(error){connectionFailure(error);return;}if(!saveSettings(next)){connectionFailure("Settings did not verify; please retry.");return;}cfg=next;
+  xSemaphoreTake(dataMutex,portMAX_DELAY);selectionGeneration++;if(!sameEndpoint){requestedNode[0]=0;rememberedNode[0]=0;restoreChecked=true;}NodeDescriptor selected=sameEndpoint?publishedSnapshot->node:NodeDescriptor{};clearForNode(*publishedSnapshot,selected);networkState.configured=true;networkState.loading=true;forceFetch=true;configurationPublic=NodeConfiguration{};xSemaphoreGive(dataMutex);
+  if(portalActive){portal.stop();dns.stop();WiFi.softAPdisconnect(true);portalActive=false;}WiFi.disconnect();WiFi.mode(WIFI_STA);WiFi.begin(cfg.ssid.c_str(),cfg.password.c_str());lastWifiAttempt=millis();publishConnection("Settings saved. Reconnecting...",true);status("Settings saved; reconnecting");
+}
+void setupPortal(){
+  if(portalActive)return;
+  portalActive=true;char pass[16];snprintf(pass,sizeof(pass),"%08lx%04lx",(unsigned long)esp_random(),(unsigned long)(esp_random()&0xffff));
+  WiFi.mode(WIFI_AP_STA);WiFi.softAP(glimdock::SETUP_SSID,pass);dns.start(53,"*",WiFi.softAPIP());
+  xSemaphoreTake(dataMutex,portMAX_DELAY);strlcpy(networkState.apPassword,pass,sizeof(networkState.apPassword));xSemaphoreGive(dataMutex);
+  portal.on("/",HTTP_GET,[]{portal.send(200,"text/html",setupPage());});
+  portal.on("/save",HTTP_POST,[]{
+    String ssid=portal.arg("ssid"),password=portal.arg("password"),endpoint=portal.arg("endpoint"),token=portal.arg("token"),ca=portal.arg("ca");ssid.trim();endpoint.trim();token.trim();
+    if(password.isEmpty()&&ssid==cfg.ssid)password=cfg.password;
+    String error;
+    if(ssid.isEmpty()||ssid.length()>32)error="Enter a Wi-Fi name (1-32 bytes).";
+    else if(password.length()>64||(password.length()>0&&password.length()<8))error="Wi-Fi password must be 8-64 characters, or blank for an open network.";
+    else if(!endpointValid(endpoint))error="Use a valid HTTP or HTTPS endpoint without embedded credentials.";
+    else if(token.isEmpty()||token.length()>192||token.indexOf('\n')>=0||token.indexOf('\r')>=0)error="Enter the dedicated display token (up to 192 characters).";
+    else if(ca.length()>4096||(endpoint.startsWith("https://")&&ca.indexOf("-----BEGIN CERTIFICATE-----")<0))error="HTTPS requires a PEM CA certificate.";
+    if(error.length()){portal.send(400,"text/html",setupPage(error));return;}
+    String setupToken=portal.arg("setup_token");setupToken.trim();if(setupToken.isEmpty()&&endpoint==cfg.endpoint)setupToken=cfg.setupToken;if(setupToken.length()>192||setupToken.indexOf('\n')>=0||setupToken.indexOf('\r')>=0){portal.send(400,"text/html",setupPage("Setup token must be at most 192 characters."));return;}
+    Settings next;next.ssid=ssid;next.password=password;next.endpoint=endpoint;next.token=token;next.setupToken=setupToken;next.ca=ca;bool ok=saveSettings(next);
+    if(!ok){portal.send(500,"text/html",setupPage("Device settings did not verify. Please try saving again."));return;}
+    portal.send(200,"text/html","<html><meta name='viewport' content='width=device-width,initial-scale=1'><body style='font:18px system-ui;background:#080f18;color:#e8f0fa;padding:32px'><h1>Settings saved</h1><p>The display will restart and connect. Its screen will report Wi-Fi or collector errors.</p></body></html>");restartAt=millis()+1200;
+  });
+  portal.onNotFound([]{portal.sendHeader("Location","http://192.168.4.1/",true);portal.send(302,"text/plain","");});portal.begin();status("Open 192.168.4.1 to configure");
+}
+String nodeEndpoint(const char*id){
+  // The snapshot API accepts only its selection query; configuration stores a base URL.
+  String endpoint=cfg.endpoint;int q=endpoint.indexOf('?'),fragment=endpoint.indexOf('#');int cut=q<0?fragment:fragment<0?q:min(q,fragment);if(cut>=0)endpoint=endpoint.substring(0,cut);
+  if(id[0]){char encoded[192];if(!encodeNodeId(id,encoded,sizeof(encoded)))return "";endpoint+="?node=";endpoint+=encoded;}return endpoint;
+}
+String configEndpoint(){String base=nodeEndpoint("");const char*suffix="/api/v1/snapshot";if(!base.endsWith(suffix))return "";return base.substring(0,base.length()-strlen(suffix))+"/api/v1/config";}
+void configStatus(const char*message){xSemaphoreTake(dataMutex,portMAX_DELAY);configurationPublic.busy=false;configurationPublic.applying=false;configurationPublic.saved=false;strlcpy(configurationPublic.message,message,sizeof(configurationPublic.message));configurationPublic.revision++;networkState.revision++;xSemaphoreGive(dataMutex);}
+bool parseConfiguration(JsonObjectConst o,NodeConfiguration&out){const char*version=o["version"]|"";if(o["schema"].as<int>()!=1||strlen(version)!=64||!o["nodes"].is<JsonArrayConst>())return false;for(size_t i=0;i<64;i++)if(!((version[i]>='0'&&version[i]<='9')||(version[i]>='a'&&version[i]<='f')))return false;out=NodeConfiguration{};out.available=true;strlcpy(out.version,version,sizeof(out.version));auto local=o["local_node"].as<JsonObjectConst>();text(out.localId,local["id"]);text(out.localName,local["name"]);text(out.localAddress,local["address"]);out.localEnabled=local["enabled"]==true;for(JsonObjectConst item:o["nodes"].as<JsonArrayConst>()){if(out.count>=MAX_NODES)return false;auto&n=out.nodes[out.count++];text(n.id,item["id"]);text(n.type,item["type"]);text(n.origin,item["origin"]);text(n.name,item["name"]);text(n.url,item["url"]);if(!validNodeId(n.id)||(strcmp(n.type,"local-proxmox")&&strcmp(n.type,"klipper")&&strcmp(n.type,"proxmox-feed")))return false;n.poll=number(item["poll_interval_s"]);n.timeout=number(item["timeout_s"]);n.ttl=number(item["ttl_s"]);n.hasSecret=item["has_secret"]==true;}return true;}
+void manageNodes(){uint8_t action;NodeConfigDraft draft;char version[65],id[64];xSemaphoreTake(dataMutex,portMAX_DELAY);action=configPending;if(action){draft=pendingNode;strlcpy(version,pendingVersion,sizeof(version));strlcpy(id,pendingDeleteId,sizeof(id));pendingNode=NodeConfigDraft{};pendingVersion[0]=0;pendingDeleteId[0]=0;configPending=0;}xSemaphoreGive(dataMutex);if(!action)return;
+  if(WiFi.status()!=WL_CONNECTED){configStatus("Connect Wi-Fi before managing collector nodes.");return;}if(cfg.setupToken.isEmpty()){configStatus("Pair the separate setup token in Wi-Fi & collector settings.");return;}String endpoint=configEndpoint();if(endpoint.isEmpty()){configStatus("Management needs a collector /api/v1/snapshot endpoint.");return;}WiFiClient plain;WiFiClientSecure secure;HTTPClient http;bool tls=endpoint.startsWith("https://");if(tls){if(cfg.ca.isEmpty()){configStatus("HTTPS needs a CA certificate in browser setup.");return;}secure.setCACert(cfg.ca.c_str());secure.setHandshakeTimeout(8);}http.setConnectTimeout(2500);http.setTimeout(3500);http.setReuse(false);http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);if(!(tls?http.begin(secure,endpoint):http.begin(plain,endpoint))){configStatus("Could not open collector settings.");return;}http.addHeader("Authorization","Bearer "+cfg.setupToken);http.addHeader("Accept","application/json");int code;
+  if(action==1)code=http.GET();else{PsramAllocator allocator;JsonDocument request(&allocator);request["action"]=action==2?"upsert":"delete";request["version"]=version;if(action==3)request["id"]=id;else{auto node=request["node"].to<JsonObject>();node["id"]=draft.node.id;node["type"]=draft.node.type;node["name"]=draft.node.name;if(strcmp(draft.node.type,"local-proxmox")){node["url"]=draft.node.url;node["poll_interval_s"]=draft.node.poll;node["timeout_s"]=draft.node.timeout;node["ttl_s"]=draft.node.ttl;if(draft.secret[0])node["secret"]=draft.secret;if(draft.clearSecret)node["clear_secret"]=true;}}String payload;if(request.overflowed()||measureJson(request)>4096){http.end();configStatus("Node settings exceed the request limit.");return;}serializeJson(request,payload);http.addHeader("Content-Type","application/json");code=http.POST(payload);}
+  if(http.getSize()>8192){http.end();configStatus("Collector settings response is too large.");return;}BoundedBody response(8192);int count=http.writeToStream(&response);http.end();if(code<0||count<0||response.overflow||!response.used){configStatus("Collector settings service is unreachable.");return;}PsramAllocator allocator;JsonDocument doc(&allocator);auto error=deserializeJson(doc,body,response.used,DeserializationOption::NestingLimit(8));if(error||doc.overflowed()){configStatus("Collector returned invalid settings data.");return;}if(code!=200&&code!=202){if(code==401||code==403)configStatus("Setup token rejected. Pair the separate configuration token.");else if(code==409){configStatus("Settings changed elsewhere. Refresh before saving again.");xSemaphoreTake(dataMutex,portMAX_DELAY);configPending=1;configurationPublic.busy=true;xSemaphoreGive(dataMutex);}else{const char*message=doc["error"].is<const char*>()?doc["error"].as<const char*>():code==503?"Collector settings temporarily unavailable.":"Node settings were rejected.";configStatus(message);}return;}NodeConfiguration next;if(!parseConfiguration(action==1?doc.as<JsonObjectConst>():doc["config"].as<JsonObjectConst>(),next)){configStatus("Unsupported collector settings schema.");return;}next.applying=code==202;next.saved=code==202;strlcpy(next.message,next.applying?"Saved. Collector is applying node settings...":"",sizeof(next.message));xSemaphoreTake(dataMutex,portMAX_DELAY);next.revision=configurationPublic.revision+1;configurationPublic=next;networkState.revision++;if(next.applying){NodeDescriptor selected;bool retained=false;publishedSnapshot->nNodes=next.count;for(int i=0;i<next.count;i++){auto&n=next.nodes[i];auto&descriptor=publishedSnapshot->nodes[i];descriptor=NodeDescriptor{};strlcpy(descriptor.id,n.id,sizeof(descriptor.id));strlcpy(descriptor.type,!strcmp(n.type,"klipper")?"klipper":"proxmox",sizeof(descriptor.type));strlcpy(descriptor.name,n.name,sizeof(descriptor.name));strlcpy(descriptor.address,!strcmp(n.type,"local-proxmox")?next.localAddress:n.url,sizeof(descriptor.address));strlcpy(descriptor.status,"applying",sizeof(descriptor.status));if(!strcmp(n.id,requestedNode)){selected=descriptor;retained=true;}}if(!retained){requestedNode[0]=0;selectionDirty=true;}selectionGeneration++;clearForNode(*publishedSnapshot,selected);networkState.loading=next.count>0;strlcpy(networkState.message,next.count?"Applying node settings...":"No nodes configured; open Settings",sizeof(networkState.message));forceFetch=true;}xSemaphoreGive(dataMutex);
+}
+void chooseLocked(const NodeDescriptor&node){strlcpy(requestedNode,node.id,sizeof(requestedNode));selectionGeneration++;clearForNode(*publishedSnapshot,node);networkState.loading=true;strlcpy(networkState.message,"Loading selected node",sizeof(networkState.message));networkState.revision++;forceFetch=true;selectionDirty=true;}
+void defaultAfterMissing(uint32_t generation){xSemaphoreTake(dataMutex,portMAX_DELAY);if(generation==selectionGeneration){requestedNode[0]=0;selectionGeneration++;NodeDescriptor unknown;clearForNode(*publishedSnapshot,unknown);networkState.loading=true;strlcpy(networkState.message,"Node removed; loading default",sizeof(networkState.message));networkState.revision++;forceFetch=true;selectionDirty=true;}xSemaphoreGive(dataMutex);}
+void persistSelection(){char id[64];uint32_t generation;uint32_t now=millis();xSemaphoreTake(dataMutex,portMAX_DELAY);bool dirty=selectionDirty;generation=selectionGeneration;strlcpy(id,requestedNode,sizeof(id));xSemaphoreGive(dataMutex);if(!dirty||now-lastSelectionPersist<1000)return;lastSelectionPersist=now;Preferences p;bool ok=p.begin("homelab",false);if(ok){p.putString("node",id);ok=p.isKey("node")&&p.getString("node")==id;p.end();}xSemaphoreTake(dataMutex,portMAX_DELAY);if(ok&&generation==selectionGeneration)selectionDirty=false;xSemaphoreGive(dataMutex);if(!ok)Serial.println("Node preference could not be verified");}
+bool fetch(){
+  char nodeId[64];uint32_t generation;xSemaphoreTake(dataMutex,portMAX_DELAY);strlcpy(nodeId,requestedNode,sizeof(nodeId));generation=selectionGeneration;xSemaphoreGive(dataMutex);String endpoint=nodeEndpoint(nodeId);
+  WiFiClient plain;WiFiClientSecure secure;HTTPClient http;bool tls=cfg.endpoint.startsWith("https://");
+  if(tls&&cfg.ca.isEmpty()){status("HTTPS needs a CA certificate",generation);return false;}
+  if(tls){secure.setCACert(cfg.ca.c_str());secure.setHandshakeTimeout(8);}
+  http.setConnectTimeout(2500);http.setTimeout(3500);http.setReuse(false);http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
+  bool begun=endpoint.length()&&(tls?http.begin(secure,endpoint):http.begin(plain,endpoint));
+  if(!begun){status("Invalid collector endpoint",generation);return false;}
+  http.addHeader("Authorization","Bearer "+cfg.token);http.addHeader("Accept","application/json");int code=http.GET();
+  if(code!=200){http.end();if(code==404&&nodeId[0])defaultAfterMissing(generation);else if(code==404){xSemaphoreTake(dataMutex,portMAX_DELAY);if(generation==selectionGeneration){new(publishedSnapshot)Snapshot{};networkState.loading=false;if(configurationPublic.applying){configurationPublic.applying=false;strlcpy(configurationPublic.message,"Node settings saved. No nodes configured.",sizeof(configurationPublic.message));configurationPublic.revision++;}}xSemaphoreGive(dataMutex);status("No nodes configured; open Settings",generation);}else if(code==401||code==403)status("Display token rejected",generation);else if(code<0)status("Collector unreachable",generation);else{char msg[80];snprintf(msg,sizeof(msg),"Collector HTTP %d",code);status(msg,generation);}return false;}
+  if(http.getSize()>int(MAX_JSON)){http.end();status("Snapshot exceeds 48 KiB",generation);return false;}
+  BoundedBody sink;int count=http.writeToStream(&sink);http.end();if(count<0||sink.overflow||sink.used==0){status(sink.overflow?"Snapshot exceeds 48 KiB":"Incomplete snapshot response",generation);return false;}
+  PsramAllocator allocator;JsonDocument doc(&allocator);DeserializationError error=deserializeJson(doc,body,sink.used,DeserializationOption::NestingLimit(12));if(error||doc.overflowed()){status("Invalid or oversized JSON snapshot",generation);return false;}if(!parse(doc,*working)){status("Unsupported snapshot schema",generation);return false;}
+  xSemaphoreTake(dataMutex,portMAX_DELAY);
+  if(!nodeReplyMatches(*working,nodeId,generation,selectionGeneration)){bool wrongNode=generation==selectionGeneration;xSemaphoreGive(dataMutex);if(wrongNode)defaultAfterMissing(generation);return false;}
+  if(!restoreChecked){restoreChecked=true;if(rememberedNode[0]&&strcmp(rememberedNode,working->node.id)){int restore=nodeIndexForId(*working,rememberedNode);if(restore>=0){publishedSnapshot->nNodes=working->nNodes;memcpy(publishedSnapshot->nodes,working->nodes,sizeof(working->nodes));chooseLocked(working->nodes[restore]);xSemaphoreGive(dataMutex);return false;}}}
+  if(publishedSnapshot->valid&&!strcmp(publishedSnapshot->node.id,working->node.id)&&publishedSnapshot->sequence==working->sequence)working->received=publishedSnapshot->received;
+  memcpy(publishedSnapshot,working,sizeof(Snapshot));networkState.loading=false;settleNodeConfiguration(configurationPublic);if(!requestedNode[0]&&validNodeId(working->node.id)){strlcpy(requestedNode,working->node.id,sizeof(requestedNode));if(strcmp(rememberedNode,requestedNode))selectionDirty=true;}xSemaphoreGive(dataMutex);status("Connected",generation);
+  static bool loggedSnapshot=false;static uint32_t lastSnapshotLog=0;static char loggedNode[64]{};uint32_t now=millis();
+  if(!loggedSnapshot||strcmp(loggedNode,working->node.id)||now-lastSnapshotLog>=60000){Serial.printf("Snapshot received: sequence %llu, guests %u, disks %u, sensors %u, GPUs %u, node_type %s, printer %s\n",(unsigned long long)working->sequence,unsigned(working->nGuests),unsigned(working->nDisks),unsigned(working->nSensors),unsigned(working->nGpus),working->node.type,working->printer.present?"yes":"no");strlcpy(loggedNode,working->node.id,sizeof(loggedNode));lastSnapshotLog=now;loggedSnapshot=true;}return true;
+}
+void worker(void*){
+  cfg.ssid=HOMELAB_DEFAULT_SSID;cfg.password=HOMELAB_DEFAULT_PASSWORD;cfg.endpoint=HOMELAB_DEFAULT_ENDPOINT;cfg.token=HOMELAB_DEFAULT_TOKEN;cfg.setupToken=HOMELAB_DEFAULT_SETUP_TOKEN;cfg.ca="";
+  Preferences p;if(p.begin("homelab",true)){
+    // Load saved settings as one set, so a later build cannot mix its password
+    // or token with a different network saved through the setup portal.
+    if(p.isKey("ssid")){cfg.ssid=p.getString("ssid","");cfg.password=p.getString("password","");cfg.endpoint=p.getString("endpoint",HOMELAB_DEFAULT_ENDPOINT);cfg.token=p.getString("token","");cfg.ca=p.getString("ca","");cfg.setupToken=p.getString("setup",cfg.endpoint==HOMELAB_DEFAULT_ENDPOINT?HOMELAB_DEFAULT_SETUP_TOKEN:"");}
+    String saved=p.getString("node","");if(validNodeId(saved.c_str()))strlcpy(rememberedNode,saved.c_str(),sizeof(rememberedNode));p.end();
+  }
+  networkState.configured=cfg.ssid.length()&&cfg.token.length();
+  publishConnection();
+  WiFi.persistent(false);WiFi.mode(WIFI_STA);WiFi.setAutoReconnect(true);WiFi.setSleep(false);
+  if(networkState.configured){WiFi.begin(cfg.ssid.c_str(),cfg.password.c_str());lastWifiAttempt=millis();status("Connecting to Wi-Fi");}else setupPortal();
+  uint32_t nextFetch=0;bool clockStarted=false;
+  for(;;){
+    uint32_t now=millis();
+    applyConnection();manageNodes();
+    persistSelection();xSemaphoreTake(dataMutex,portMAX_DELAY);bool fetchNow=forceFetch;forceFetch=false;xSemaphoreGive(dataMutex);if(fetchNow)nextFetch=now;
+    if(requestSetup){requestSetup=false;setupPortal();}
+    if(portalActive){dns.processNextRequest();portal.handleClient();}
+    if(restartAt&&int32_t(now-restartAt)>=0)ESP.restart();
+    if(networkState.configured){
+      if(WiFi.status()==WL_CONNECTED){
+        if(!clockStarted){configTime(0,0,"pool.ntp.org","time.google.com");clockStarted=true;}
+        if(int32_t(now-nextFetch)>=0){fetch();nextFetch=millis()+HOMELAB_POLL_MS;}
+      }else if(now-lastWifiAttempt>15000){status("Wi-Fi disconnected; reconnecting");WiFi.disconnect();WiFi.begin(cfg.ssid.c_str(),cfg.password.c_str());lastWifiAttempt=now;}
+    }
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+}
+bool requestNodeSelection(const char*id){if(!validNodeId(id)||!dataMutex||!publishedSnapshot||xSemaphoreTake(dataMutex,pdMS_TO_TICKS(2))!=pdTRUE)return false;int selected=nodeIndexForId(*publishedSnapshot,id);bool ok=selected>=0;if(ok&&strcmp(requestedNode,id)){NodeDescriptor node=publishedSnapshot->nodes[selected];chooseLocked(node);}xSemaphoreGive(dataMutex);return ok;}
+bool readConnectionSettings(ConnectionSettings&out){if(!dataMutex||xSemaphoreTake(dataMutex,pdMS_TO_TICKS(2))!=pdTRUE)return false;out=connectionPublic;xSemaphoreGive(dataMutex);return true;}
+bool requestConnectionUpdate(const ConnectionUpdate&update){if(!dataMutex||xSemaphoreTake(dataMutex,pdMS_TO_TICKS(2))!=pdTRUE)return false;bool ok=!connectionPublic.busy;if(ok){pendingConnection=update;connectionPending=true;connectionPublic.busy=true;connectionPublic.saved=false;strlcpy(connectionPublic.message,"Saving device settings...",sizeof(connectionPublic.message));connectionPublic.revision++;networkState.revision++;}xSemaphoreGive(dataMutex);return ok;}
+bool readNodeConfiguration(NodeConfiguration&out){if(!dataMutex||xSemaphoreTake(dataMutex,pdMS_TO_TICKS(2))!=pdTRUE)return false;out=configurationPublic;xSemaphoreGive(dataMutex);return true;}
+bool requestNodeConfiguration(){if(!dataMutex||xSemaphoreTake(dataMutex,pdMS_TO_TICKS(2))!=pdTRUE)return false;bool ok=!configurationPublic.busy;if(ok){configPending=1;configurationPublic.busy=true;configurationPublic.applying=false;configurationPublic.saved=false;strlcpy(configurationPublic.message,"Loading collector settings...",sizeof(configurationPublic.message));configurationPublic.revision++;networkState.revision++;}xSemaphoreGive(dataMutex);return ok;}
+bool requestNodeUpsert(const NodeConfigDraft&draft,const char*version){if(!version||strlen(version)!=64||(draft.node.id[0]&&!validNodeId(draft.node.id))||!dataMutex||xSemaphoreTake(dataMutex,pdMS_TO_TICKS(2))!=pdTRUE)return false;bool ok=!configurationPublic.busy;if(ok){pendingNode=draft;strlcpy(pendingVersion,version,sizeof(pendingVersion));configPending=2;configurationPublic.busy=true;configurationPublic.applying=false;configurationPublic.saved=false;strlcpy(configurationPublic.message,"Saving node settings...",sizeof(configurationPublic.message));configurationPublic.revision++;networkState.revision++;}xSemaphoreGive(dataMutex);return ok;}
+bool requestNodeDelete(const char*id,const char*version){if(!validNodeId(id)||!version||strlen(version)!=64||!dataMutex||xSemaphoreTake(dataMutex,pdMS_TO_TICKS(2))!=pdTRUE)return false;bool ok=!configurationPublic.busy;if(ok){strlcpy(pendingDeleteId,id,sizeof(pendingDeleteId));strlcpy(pendingVersion,version,sizeof(pendingVersion));configPending=3;configurationPublic.busy=true;configurationPublic.applying=false;configurationPublic.saved=false;strlcpy(configurationPublic.message,"Removing node...",sizeof(configurationPublic.message));configurationPublic.revision++;networkState.revision++;}xSemaphoreGive(dataMutex);return ok;}
+bool readSnapshot(Snapshot &out,NetworkState &state){if(!dataMutex||xSemaphoreTake(dataMutex,pdMS_TO_TICKS(2))!=pdTRUE)return false;state=networkState;bool available=publishedSnapshot!=nullptr;if(available)memcpy(&out,publishedSnapshot,sizeof(Snapshot));xSemaphoreGive(dataMutex);return available;}
+void startNetwork(){dataMutex=xSemaphoreCreateMutex();publishedSnapshot=(Snapshot*)heap_caps_malloc(sizeof(Snapshot),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);working=(Snapshot*)heap_caps_malloc(sizeof(Snapshot),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);body=(char*)heap_caps_malloc(MAX_JSON+1,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);if(!dataMutex||!publishedSnapshot||!working||!body){heap_caps_free(publishedSnapshot);heap_caps_free(working);heap_caps_free(body);publishedSnapshot=nullptr;working=nullptr;body=nullptr;strlcpy(networkState.message,"PSRAM/network allocation failed",sizeof(networkState.message));Serial.println("PSRAM/network allocation failed");return;}new(publishedSnapshot)Snapshot{};new(working)Snapshot{};if(xTaskCreatePinnedToCore(worker,"snapshot-http",12288,nullptr,1,nullptr,0)!=pdPASS){strlcpy(networkState.message,"Could not start network worker",sizeof(networkState.message));}}
+void makeDemo(Snapshot &s){
+  new(&s)Snapshot{};s.valid=true;s.demo=true;s.received=millis();s.sequence=millis()/1000;s.generated=time(nullptr);strlcpy(s.host,"proxmox",sizeof(s.host));strlcpy(s.ip,"192.0.2.10",sizeof(s.ip));
+  float wave=sin(millis()/12000.0f);s.cpu=18.4f+wave*7;s.memUsed=18.7*1073741824.0;s.memTotal=32.0*1073741824.0;s.temp=48+wave*2;s.watts=27.6+wave*4;s.mhz=1240;s.busyMhz=3260;s.uptime=8*86400;s.rx=2530000;s.tx=870000;s.read=12500000;s.write=3500000;s.iowait=1.2;s.arc=3.4*1073741824;s.swapUsed=0;s.swapTotal=4*1073741824.0;s.load[0]=1.14;s.load[1]=.92;s.load[2]=.81;
+  s.nCores=12;for(int i=0;i<12;i++)s.cores[i]=8+(i*7)%35+wave*3;s.nCstates=3;strlcpy(s.cstateNames[0],"C1",12);s.cstates[0]=4.3;strlcpy(s.cstateNames[1],"C6",12);s.cstates[1]=34.4;strlcpy(s.cstateNames[2],"C10",12);s.cstates[2]=48.2;
+  const char *names[]={"Home Assistant","Docker services","Windows lab"};s.nGuests=3;for(int i=0;i<3;i++){auto&g=s.guests[i];g.id=100+i;strlcpy(g.name,names[i],64);strlcpy(g.type,i==1?"lxc":"vm",8);strlcpy(g.status,"running",16);g.cpu=3.2+i*4;g.used=(1.2+i*2)*1073741824;g.total=(2+i*4)*1073741824.0;g.uptime=86400*3;g.rx=45000;g.tx=13000;g.read=123000;g.write=56000;}
+  for(int i=0;i<s.nGuests;i++){auto&g=s.guests[i];strlcpy(g.memoryBasis,"guest-os",sizeof(g.memoryBasis));g.available=g.total-g.used;g.assigned=g.total;g.hostMem=g.used+256*1048576;g.pveUsed=g.hostMem;g.pveTotal=g.total;g.memUpdated=s.generated;g.memAge=0;}
+  s.nGpus=2;for(int i=0;i<2;i++){auto&g=s.gpus[i];strlcpy(g.id,i?"demo:discrete":"demo:integrated",sizeof(g.id));strlcpy(g.name,i?"Discrete GPU (sample)":"Integrated GPU (sample)",sizeof(g.name));strlcpy(g.vendor,i?"NVIDIA":"Intel",sizeof(g.vendor));strlcpy(g.kind,i?"discrete":"integrated",sizeof(g.kind));strlcpy(g.owner,i?"vm:102":"host",sizeof(g.owner));strlcpy(g.status,i?"active":"inventory",sizeof(g.status));strlcpy(g.driver,i?"nvidia":"i915",sizeof(g.driver));g.updated=s.generated;g.age=0;if(i){g.utilization=24+wave*4;g.memUsed=2*1073741824.0;g.memTotal=8*1073741824.0;g.temp=48;g.power=35;g.graphicsMhz=1100;g.memoryMhz=5000;g.fan=0;}}
+  s.nPools=2;for(int i=0;i<2;i++){auto&p=s.pools[i];strlcpy(p.name,i?"local-lvm":"local",64);strlcpy(p.status,"available",20);p.used=i?320e9:24e9;p.total=i?1e12:128e9;}
+  s.nDisks=2;for(int i=0;i<2;i++){auto&d=s.disks[i];strlcpy(d.name,i?"sda":"nvme0n1",48);strlcpy(d.model,i?"Data SSD":"NVMe system SSD",64);strlcpy(d.health,"passed",20);strlcpy(d.status,"active",20);d.temp=i?35:42;d.read=4e6;d.write=1e6;}
+  s.nSensors=5;const char *sn[]={"CPU package","Core 0","NVMe composite","CPU fan","Vcore"};const char *sk[]={"temperature","temperature","temperature","fan","voltage"};for(int i=0;i<5;i++){auto&v=s.sensors[i];strlcpy(v.name,sn[i],64);strlcpy(v.chip,i<2?"coretemp":"motherboard",48);strlcpy(v.kind,sk[i],16);strlcpy(v.unit,i==3?"RPM":i==4?"V":"C",12);v.value=i==3?940:i==4?1.12:48-i*3;v.high=i<3?80:NAN;v.crit=i<3?100:NAN;}
+}

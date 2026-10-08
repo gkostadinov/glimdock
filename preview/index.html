@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Homelab · Desk monitor</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23080f18'/%3E%3Ctext x='8' y='24' font-family='sans-serif' font-size='24' fill='%2354d9f2'%3EH%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css?v=8">
+</head>
+<body>
+  <main class="exhibit">
+    <div class="caption"><span class="mark">H</span><span>HOMELAB<span class="subtitle">A quiet window into your server.</span></span></div>
+    <div class="device-wrap">
+      <div class="device"><div class="screen" id="screen">
+        <header><button id="home" aria-label="Back to overview" class="brand">H<span>HOMELAB</span></button><button id="hostname" class="node-picker" data-action="nodes" aria-label="Choose monitor node">Select node</button><button id="connection" class="connection">DEMO</button></header>
+        <div class="content" id="content"></div>
+        <nav aria-label="Monitor views" id="tabs"></nav>
+      </div></div>
+      <div class="stand"></div>
+    </div>
+    <div class="controls">
+      <label>Data source<select id="mode"><option value="demo">Demo · sample data</option><option value="live">Live · configured nodes</option></select></label>
+      <label id="scenario-label">Scenario<select id="scenario"><option value="healthy">Healthy</option><option value="hot">CPU temperature warning</option><option value="offline">Connection lost</option><option value="missing">Missing sensors</option></select></label>
+      <label>Theme<select id="theme"><option value="white">White</option><option value="dark">Dark</option></select></label>
+      <button id="rotate" aria-pressed="false">Auto rotate: off</button>
+      <button id="settings-button">Display settings</button>
+    </div>
+    <p class="note" id="note">Interactive design preview at 320 × 240. Demo values are illustrative. Tap cards and rows for details.</p>
+    <p class="note"><a href="/native/index.html">See the actual ESP32 firmware screens</a></p><div class="description"><span><i class="dot"></i>Three second refresh</span><span>Touch to explore</span><span>Read only monitoring</span></div>
+  </main>
+  <script src="app.js?v=10"></script>
+</body>
+</html>

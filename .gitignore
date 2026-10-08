@@ -1,0 +1,14 @@
+.pio/
+.venv/
+__pycache__/
+*.pyc
+output/
+.playwright-cli/
+firmware/include/secrets.h
+firmware/include/local_credentials.h
+firmware/build/
+*.env
+*.token
+.DS_Store
+collector-rs/target/
+enclosure/output/

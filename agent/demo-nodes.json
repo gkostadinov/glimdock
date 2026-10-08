@@ -1,0 +1,225 @@
+{
+  "schema": 2,
+  "demo": true,
+  "sequence": 1,
+  "generated_at": 1700000000,
+  "nodes": [
+    {
+      "id": "proxmox:example-proxmox",
+      "type": "proxmox",
+      "name": "Example homelab",
+      "address": "192.0.2.10",
+      "snapshot": {
+        "schema": 1,
+        "demo": true,
+        "sequence": 1,
+        "generated_at": 1700000000,
+        "host": {
+          "name": "example-proxmox",
+          "ip": "192.0.2.10",
+          "uptime_s": 86400,
+          "cpu_pct": 24,
+          "cpu_cores": [
+            10,
+            20,
+            30,
+            36
+          ],
+          "load": [
+            1,
+            1.2,
+            1.1
+          ],
+          "mem_used_bytes": 12884901888,
+          "mem_total_bytes": 34359738368,
+          "swap_used_bytes": 0,
+          "swap_total_bytes": 2147483648,
+          "arc_bytes": 0,
+          "io_wait_pct": 1,
+          "net_rx_bps": 500000,
+          "net_tx_bps": 1000000,
+          "disk_read_bps": 2000000,
+          "disk_write_bps": 1000000
+        },
+        "power": {
+          "package_w": 25,
+          "cpu_mhz": 1200,
+          "busy_mhz": 2400,
+          "cpu_temp_c": 50,
+          "cstate_pct": {
+            "CPU%c1": 30,
+            "CPU%c6": 50
+          }
+        },
+        "guests": [
+          {
+            "id": 100,
+            "name": "Example guest 1",
+            "type": "vm",
+            "status": "running",
+            "cpu_pct": 5,
+            "mem_used_bytes": 1073741824,
+            "mem_total_bytes": 4294967296,
+            "uptime_s": 3600,
+            "net_rx_bps": 1000,
+            "net_tx_bps": 2000,
+            "disk_read_bps": 1000,
+            "disk_write_bps": 2000
+          },
+          {
+            "id": 101,
+            "name": "Example guest 2",
+            "type": "vm",
+            "status": "running",
+            "cpu_pct": 5,
+            "mem_used_bytes": 1073741824,
+            "mem_total_bytes": 4294967296,
+            "uptime_s": 3600,
+            "net_rx_bps": 1000,
+            "net_tx_bps": 2000,
+            "disk_read_bps": 1000,
+            "disk_write_bps": 2000
+          },
+          {
+            "id": 102,
+            "name": "Example guest 3",
+            "type": "vm",
+            "status": "running",
+            "cpu_pct": 5,
+            "mem_used_bytes": 1073741824,
+            "mem_total_bytes": 4294967296,
+            "uptime_s": 3600,
+            "net_rx_bps": 1000,
+            "net_tx_bps": 2000,
+            "disk_read_bps": 1000,
+            "disk_write_bps": 2000
+          },
+          {
+            "id": 103,
+            "name": "Example guest 4",
+            "type": "vm",
+            "status": "running",
+            "cpu_pct": 5,
+            "mem_used_bytes": 1073741824,
+            "mem_total_bytes": 4294967296,
+            "uptime_s": 3600,
+            "net_rx_bps": 1000,
+            "net_tx_bps": 2000,
+            "disk_read_bps": 1000,
+            "disk_write_bps": 2000
+          },
+          {
+            "id": 104,
+            "name": "Example guest 5",
+            "type": "vm",
+            "status": "stopped",
+            "cpu_pct": 5,
+            "mem_used_bytes": 1073741824,
+            "mem_total_bytes": 4294967296,
+            "uptime_s": 3600,
+            "net_rx_bps": 1000,
+            "net_tx_bps": 2000,
+            "disk_read_bps": 1000,
+            "disk_write_bps": 2000
+          }
+        ],
+        "gpus": [
+          {
+            "id": "example-gpu-0",
+            "name": "Example integrated GPU",
+            "vendor": "Intel",
+            "kind": "integrated",
+            "owner": "host",
+            "status": "active",
+            "utilization_pct": 20,
+            "mem_used_bytes": 1073741824,
+            "mem_total_bytes": 8589934592,
+            "temp_c": 45,
+            "power_w": 30,
+            "age_s": 0
+          },
+          {
+            "id": "example-gpu-1",
+            "name": "Example discrete GPU",
+            "vendor": "NVIDIA",
+            "kind": "discrete",
+            "owner": "host",
+            "status": "active",
+            "utilization_pct": 20,
+            "mem_used_bytes": 1073741824,
+            "mem_total_bytes": 8589934592,
+            "temp_c": 45,
+            "power_w": 30,
+            "age_s": 0
+          }
+        ],
+        "storage": [
+          {
+            "id": "example-pool",
+            "name": "Example pool",
+            "used_bytes": 107374182400,
+            "total_bytes": 536870912000,
+            "status": "available"
+          }
+        ],
+        "disks": [
+          {
+            "name": "example-disk",
+            "model": "Example SSD",
+            "temp_c": 40,
+            "health": "passed",
+            "status": "active",
+            "read_bps": 1000,
+            "write_bps": 1000
+          }
+        ],
+        "sensors": [
+          {
+            "id": "example-temperature",
+            "name": "CPU package",
+            "chip": "coretemp",
+            "kind": "temperature",
+            "value": 50,
+            "unit": "\u00b0C",
+            "high": 80,
+            "crit": 100
+          }
+        ],
+        "alerts": [
+          {
+            "id": "example-advisory",
+            "severity": "info",
+            "message": "Synthetic demo data"
+          }
+        ],
+        "sources": {
+          "proxmox": {
+            "enabled": true,
+            "ok": true,
+            "age_s": 0
+          },
+          "sensors": {
+            "enabled": true,
+            "ok": true,
+            "age_s": 0
+          },
+          "smart": {
+            "enabled": true,
+            "ok": true,
+            "age_s": 0
+          },
+          "turbostat": {
+            "enabled": true,
+            "ok": true,
+            "age_s": 0
+          },
+          "zfs": {
+            "enabled": true,
+            "ok": true,
+            "age_s": 0
+          }
+        }
+      }
+    }
+  ]
+}
