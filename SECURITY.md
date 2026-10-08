@@ -4,9 +4,8 @@ Glimdock is an early local-network monitoring project. Only the newest developer
 release is maintained. The HTTP reader is not intended for direct internet exposure.
 
 Report vulnerabilities privately through [GitHub's security advisory form](https://github.com/gkostadinov/glimdock/security/advisories/new).
-Private vulnerability reporting is enabled for the public repository. General
-product support is available at support@glimdock.com; use GitHub's private form
-for sensitive vulnerability details.
+Private vulnerability reporting is enabled for the public repository. Use that
+private form for sensitive vulnerability details.
 Do not open a public issue containing exploitable credentials or a private snapshot.
 
 Include the version, relevant platform, steps to reproduce and a synthetic example.
