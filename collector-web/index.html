@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Glimdock · Collector</title>
+  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview"><img src="/assets/mark.svg" width="32" height="32" alt=""><span>glimdock<span class="brand-dot">.</span></span></a>
+      <span class="sidebar-label">COLLECTOR</span>
+      <nav aria-label="Collector views">
+        <button class="nav-button active" data-view="overview"><span aria-hidden="true">▦</span> Overview</button>
+        <button class="nav-button" data-view="nodes"><span aria-hidden="true">◇</span> Nodes <span class="nav-count" id="node-count">0</span></button>
+        <button class="nav-button" data-view="device"><span aria-hidden="true">▣</span> Display &amp; firmware</button>
+      </nav>
+      <div class="sidebar-bottom"><div class="connection-status"><span class="status-dot" id="connection-dot"></span><span id="connection-label">Not connected</span></div><button class="text-button" id="access-button">Collector access</button><small>One collector. All your devices.</small></div>
+    </aside>
+    <main>
+      <header class="page-header"><div><span class="eyebrow" id="page-eyebrow">LIVE MONITORING</span><h1 id="page-title">Your nodes, together.</h1><p id="page-description">A view of every device connected to your collector.</p></div><div class="header-actions"><span id="last-refresh" aria-live="off">Waiting for data</span><button class="button primary" id="add-node">+ Add node</button></div></header>
+      <div class="notice" id="notice" role="status" hidden></div>
+      <section id="view-overview" aria-label="All nodes overview">
+        <div class="summary-strip"><div><span class="strip-label">CONNECTED NODES</span><strong id="stat-nodes">0</strong></div><div><span class="strip-label">HEALTHY</span><strong id="stat-healthy">—</strong></div><div><span class="strip-label">NEED ATTENTION</span><strong id="stat-attention">—</strong></div><div><span class="strip-label">SENSORS</span><strong id="stat-sensors">—</strong></div></div>
+        <div class="bento-grid" id="node-cards"></div>
+        <div class="empty-state" id="overview-empty"><span class="empty-icon">◇</span><h2>Bring your first device into view.</h2><p>Add a server, printer or device feed. Host collection is optional.</p><button class="button primary" data-action="add">Add a node</button></div>
+      </section>
+      <section id="view-nodes" aria-label="Manage nodes" hidden>
+        <div class="section-heading"><h2>Configured nodes</h2><p id="node-capacity">Up to 4 active nodes per display.</p></div>
+        <div id="node-list" class="node-list"></div>
+        <div class="host-restore" id="host-restore" hidden><div><strong>Monitor the collector host</strong><p>Optionally add this computer as a generic server or a Proxmox node.</p></div><button class="button secondary" id="restore-host">Add collector host</button></div>
+        <p class="quiet-note">Device feeds can come from the Rust agent, SNMP adapters or platform APIs. Proxmox adds guest, GPU and storage information when configured.</p>
+      </section>
+      <section id="view-device" aria-label="Firmware emulator and update" hidden>
+        <div class="device-grid">
+          <article class="panel emulator-panel"><div class="section-heading"><div><span class="eyebrow">ACTUAL FIRMWARE</span><h2>Your desk display.</h2></div><span class="tag">320 × 240</span></div><div class="device-frame"><canvas id="firmware-canvas" width="320" height="240" tabindex="0" aria-label="Interactive Glimdock firmware display"></canvas></div><div class="emulator-state" id="emulator-state">Connect to the collector to load live firmware.</div><p class="quiet-note">The same firmware UI, fonts and LVGL renderer. Click or drag the screen to use it.</p><div class="emulator-controls"><button class="button secondary" id="emulator-restart">Restart preview</button><button class="text-button" id="emulator-screenshot">Save screen</button></div></article>
+          <article class="panel update-panel"><span class="eyebrow">USB UPDATE</span><h2>Keep your display current.</h2><p>Connect your Glimdock with a USB cable, then choose it in Chrome or Edge.</p><dl class="firmware-facts"><div><dt>Firmware</dt><dd id="firmware-version">Loading…</dd></div><div><dt>Hardware</dt><dd>ESP32-S3 · Waveshare V1</dd></div><div><dt>Orientation</dt><dd>USB-right landscape</dd></div></dl><p class="update-context" id="usb-context"></p><button class="button primary wide" id="flash-firmware" disabled>Connect &amp; update</button><progress id="flash-progress" value="0" max="100" hidden></progress><p id="flash-status" role="status"></p><details><summary>Update log</summary><pre id="flash-log" aria-live="off"></pre></details><div class="update-footer"><p>Saved Wi-Fi, collector settings and preferences are retained.</p><a id="firmware-source" href="/firmware/source-relink.tar.gz" download hidden>Firmware source &amp; relink materials</a></div></article>
+        </div>
+      </section>
+      <footer class="page-footer"><span>Glimdock collector</span><span>Refreshes every 3 seconds · Read-only device telemetry</span></footer>
+    </main>
+  </div>
+  <dialog id="access-dialog"><form id="access-form"><div class="dialog-heading"><div><span class="eyebrow">COLLECTOR ACCESS</span><h2>Connect your collector.</h2></div><button type="button" class="close-button" data-close="access-dialog" aria-label="Close">×</button></div><p>Access keys are kept in memory for this tab.</p><label>Display key<input id="display-key" type="password" autocomplete="off" spellcheck="false" placeholder="Key for reading telemetry"></label><label>Management key <span class="optional">optional</span><input id="management-key" type="password" autocomplete="off" spellcheck="false" placeholder="Key for adding and editing nodes"></label><p class="form-error" id="access-error" role="alert"></p><div class="dialog-actions"><button type="button" class="button secondary" id="disconnect">Disconnect</button><button type="submit" class="button primary">Connect</button></div></form></dialog>
+  <dialog id="node-dialog"><form id="node-form"><div class="dialog-heading"><div><span class="eyebrow" id="node-form-eyebrow">NEW NODE</span><h2 id="node-form-title">Add a device.</h2></div><button type="button" class="close-button" data-close="node-dialog" aria-label="Close">×</button></div><input id="node-id" type="hidden"><input id="node-origin" type="hidden" value="feed"><label>Name<input id="node-name" required maxlength="63" placeholder="Living room server" autocomplete="off"></label><div class="form-columns"><label>Node type<select id="node-type" aria-label="Node type"><option value="server">Server / device</option><option value="proxmox">Proxmox</option><option value="klipper">Klipper printer</option></select></label><label id="platform-field">Platform<select id="node-platform" aria-label="Platform"><option value="">Auto from device</option><option value="linux">Linux</option><option value="macos">macOS</option><option value="windows">Windows</option><option value="router">Router / appliance</option><option value="other">Other</option></select></label></div><div id="feed-fields"><label>Feed URL<input id="node-url" type="url" required maxlength="240" placeholder="http://device:8765/api/v1/snapshot" autocomplete="off"></label><p class="field-help" id="feed-help">Use the authenticated snapshot URL from your device's Rust agent.</p><label id="node-secret-label">Feed key<input id="node-secret" type="password" autocomplete="new-password" spellcheck="false" maxlength="256" placeholder="Key issued by the device agent"></label><label class="checkbox-row" id="clear-secret-row" hidden><input id="clear-secret" type="checkbox"> Remove the saved feed key</label><details class="advanced-fields"><summary>Polling &amp; freshness</summary><div class="form-columns three"><label>Poll interval (s)<input id="node-poll" type="number" min="2" max="300" step="0.5" value="3"></label><label>Timeout (s)<input id="node-timeout" type="number" min="0.5" max="3" step="0.1" value="2.5"></label><label>Expires after (s)<input id="node-ttl" type="number" min="5" max="900" step="1" value="15"></label></div></details></div><p class="host-note" id="host-fields" hidden>Collects telemetry directly on the computer running this collector. Select Proxmox only for a Proxmox host.</p><label class="checkbox-row"><input id="node-enabled" type="checkbox" checked> Monitoring enabled</label><p class="form-error" id="node-error" role="alert"></p><button type="button" class="button secondary" id="reload-node" hidden>Reload saved settings</button><div class="dialog-actions"><button type="button" class="button danger" id="delete-node" hidden>Remove node</button><button type="button" class="button secondary" data-close="node-dialog">Cancel</button><button type="submit" class="button primary" id="save-node">Save node</button></div></form></dialog>
+  <dialog id="delete-dialog"><form id="delete-form"><div class="dialog-heading"><h2>Remove this node?</h2><button type="button" class="close-button" data-close="delete-dialog" aria-label="Close">×</button></div><p id="delete-description"></p><p class="form-error" id="delete-error" role="alert"></p><div class="dialog-actions"><button type="button" class="button secondary" data-close="delete-dialog">Cancel</button><button type="submit" class="button danger">Remove node</button></div></form></dialog>
+</body>
+</html>

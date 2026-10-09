@@ -11,6 +11,7 @@ use std::{
     io::{Read, Write},
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
+    time::{Duration, Instant},
 };
 use url::Url;
 
@@ -23,7 +24,13 @@ pub const COLLECTOR_UNIT: &str = "homelab-monitor-collector.service";
 #[serde(default, deny_unknown_fields)]
 pub struct NodeConfig {
     pub id: String,
+    #[serde(default = "enabled_default")]
+    pub enabled: bool,
     pub name: String,
+    #[serde(rename = "type", skip_serializing_if = "is_proxmox")]
+    pub node_type: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub platform: String,
     pub url: String,
     pub poll_interval_s: f64,
     pub timeout_s: f64,
@@ -37,7 +44,10 @@ impl Default for NodeConfig {
     fn default() -> Self {
         Self {
             id: String::new(),
+            enabled: true,
             name: String::new(),
+            node_type: "proxmox".into(),
+            platform: String::new(),
             url: String::new(),
             poll_interval_s: 5.0,
             timeout_s: 2.5,
@@ -49,6 +59,13 @@ impl Default for NodeConfig {
 }
 impl NodeConfig {
     pub fn validate(&mut self, remote: bool) -> Result<()> {
+        if !matches!(self.node_type.as_str(), "proxmox" | "server")
+            || !valid_platform(&self.platform)
+            || (self.node_type == "proxmox" && !matches!(self.platform.as_str(), "" | "linux"))
+            || (!remote && (self.node_type != "proxmox" || !self.platform.is_empty()))
+        {
+            bail!("Invalid source type or platform");
+        }
         if !Regex::new(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,31}$")?.is_match(&self.id) {
             bail!("Invalid stable node ID");
         }
@@ -105,6 +122,25 @@ impl NodeConfig {
         Ok(())
     }
 }
+fn node_value(node: &NodeConfig, remote: bool) -> Value {
+    let mut value = serde_json::to_value(node).unwrap();
+    if remote {
+        value["type"] = json!(node.node_type);
+    }
+    value
+}
+fn enabled_default() -> bool {
+    true
+}
+fn is_proxmox(kind: &str) -> bool {
+    kind == "proxmox"
+}
+pub fn valid_platform(platform: &str) -> bool {
+    matches!(
+        platform,
+        "" | "linux" | "macos" | "windows" | "router" | "other"
+    )
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -112,7 +148,11 @@ pub struct Config {
     pub host_ip: String,
     pub node: String,
     pub display_name: String,
-    pub enable_proxmox: bool,
+    #[serde(alias = "enable_proxmox")]
+    pub enable_local: bool,
+    #[serde(rename = "local_node_id", skip_serializing_if = "String::is_empty")]
+    pub stable_local_id: String,
+    pub local_type: String,
     pub printers: Vec<NodeConfig>,
     pub remote_collectors: Vec<NodeConfig>,
     pub expected_running_guests: Vec<u64>,
@@ -157,7 +197,9 @@ impl Default for Config {
             host_ip: "127.0.0.1".into(),
             node: String::new(),
             display_name: String::new(),
-            enable_proxmox: true,
+            enable_local: true,
+            stable_local_id: String::new(),
+            local_type: "server".into(),
             printers: vec![],
             remote_collectors: vec![],
             expected_running_guests: vec![],
@@ -203,13 +245,34 @@ impl Config {
         let raw = read_bounded(path, 64 * 1024).context("Configuration unavailable")?;
         Self::from_value(strict_json(&raw).context("Invalid configuration JSON")?)
     }
-    pub fn from_value(value: Value) -> Result<Self> {
+    pub fn from_value(mut value: Value) -> Result<Self> {
+        // A saved legacy flag explicitly describes a Proxmox host. Fresh hubs
+        // use ordinary Linux telemetry; changing defaults must not change old IDs.
+        let legacy = value.get("enable_proxmox").is_some();
+        if legacy && value.get("local_type").is_none() {
+            value["local_type"] = json!("proxmox");
+        }
+        if let Some(remotes) = value
+            .get_mut("remote_collectors")
+            .and_then(Value::as_array_mut)
+        {
+            for node in remotes {
+                if node.get("type").is_none() && node.is_object() {
+                    node["type"] = json!(if legacy { "proxmox" } else { "server" });
+                }
+            }
+        }
         for (field, allowed_secret) in [
             ("printers", "api_key_file"),
             ("remote_collectors", "token_file"),
         ] {
             if let Some(nodes) = value.get(field).and_then(Value::as_array) {
                 for node in nodes {
+                    if field == "printers"
+                        && (node.get("type").is_some() || node.get("platform").is_some())
+                    {
+                        bail!("Unsupported printer field");
+                    }
                     if node
                         .get(if allowed_secret == "token_file" {
                             "api_key_file"
@@ -225,24 +288,42 @@ impl Config {
         }
         let mut config: Self = serde_json::from_value(value)
             .map_err(|_| anyhow::anyhow!("Invalid configuration fields"))?;
+        if config.stable_local_id.is_empty() {
+            config.stable_local_id = native_node_id(
+                if legacy {
+                    "proxmox"
+                } else {
+                    &config.local_type
+                },
+                &config.native_name(),
+            );
+        }
         config.validate()?;
         Ok(config)
     }
     pub fn validate(&mut self) -> Result<()> {
+        if !self.stable_local_id.is_empty() && !crate::server::valid_node_id(&self.stable_local_id)
+        {
+            bail!("Invalid local node identity");
+        }
+        if !matches!(self.local_type.as_str(), "proxmox" | "server") {
+            bail!("Invalid local node type");
+        }
         if self.host_ip.parse::<std::net::IpAddr>().is_err() {
             bail!("host_ip must be an IP address");
         }
         if !self.node.is_empty()
             && !Regex::new(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")?.is_match(&self.node)
         {
-            bail!("Invalid Proxmox node name");
+            bail!("Invalid local node name");
         }
         if self.display_name.chars().count() > 64 || self.display_name.chars().any(|c| c < ' ') {
             bail!("Invalid display name");
         }
-        if self.printers.len() + self.remote_collectors.len() + self.enable_proxmox as usize
-            > crate::MAX_NODES
-        {
+        if self.printers.len() + self.remote_collectors.len() > 16 {
+            bail!("At most 16 configured feeds are supported");
+        }
+        if self.enabled_node_count() > crate::MAX_NODES {
             bail!("At most four enabled nodes are supported");
         }
         for (nodes, remote) in [
@@ -316,6 +397,18 @@ impl Config {
         }
         Ok(())
     }
+    pub fn enabled_node_count(&self) -> usize {
+        self.enable_local as usize
+            + self.printers.iter().filter(|n| n.enabled).count()
+            + self.remote_collectors.iter().filter(|n| n.enabled).count()
+    }
+    pub fn local_platform(&self) -> &'static str {
+        if self.local_type == "proxmox" {
+            "linux"
+        } else {
+            native_platform()
+        }
+    }
     pub fn native_name(&self) -> String {
         if self.node.is_empty() {
             hostname()
@@ -323,6 +416,16 @@ impl Config {
             self.node.clone()
         }
     }
+    pub fn local_node_id(&self) -> String {
+        if self.stable_local_id.is_empty() {
+            native_node_id(&self.local_type, &self.native_name())
+        } else {
+            self.stable_local_id.clone()
+        }
+    }
+}
+pub fn native_platform() -> &'static str {
+    glimdock_agent::host::platform_name()
 }
 pub fn hostname() -> String {
     let mut buf = [0u8; 256];
@@ -336,6 +439,9 @@ pub fn hostname() -> String {
         .to_string()
 }
 pub fn proxmox_node_id(name: &str) -> String {
+    native_node_id("proxmox", name)
+}
+pub fn native_node_id(kind: &str, name: &str) -> String {
     let mut slug: String = name
         .chars()
         .map(|c| {
@@ -356,7 +462,7 @@ pub fn proxmox_node_id(name: &str) -> String {
     if slug.len() > 55 {
         slug = format!("{}-{}", &slug[..46], &sha256(name.as_bytes())[..8]);
     }
-    format!("proxmox:{slug}")
+    format!("{kind}:{slug}")
 }
 pub fn sha256(raw: &[u8]) -> String {
     format!("{:x}", Sha256::digest(raw))
@@ -502,7 +608,7 @@ impl ConfigManager {
     }
     pub fn projection(config: &Config, version: &str) -> Value {
         let native = config.native_name();
-        let identity = proxmox_node_id(&native);
+        let identity = config.local_node_id();
         let name = if config.display_name.is_empty() {
             native
         } else {
@@ -515,18 +621,18 @@ impl ConfigManager {
             ip.clone()
         };
         let mut nodes = Vec::new();
-        if config.enable_proxmox {
-            nodes.push(json!({"id":identity,"type":"local-proxmox","origin":"local","name":name,"url":format!("http://{authority}:8765/api/v1/snapshot"),"poll_interval_s":config.interval_s,"timeout_s":null,"ttl_s":15,"has_secret":false}));
+        if config.enable_local {
+            nodes.push(json!({"id":identity,"type":config.local_type,"platform":config.local_platform(),"origin":"host","enabled":true,"name":name,"url":format!("http://{authority}:8765/api/v1/snapshot"),"poll_interval_s":config.interval_s,"timeout_s":null,"ttl_s":15,"has_secret":false}));
         }
-        for (items, kind, prefix) in [
-            (&config.printers, "klipper", "klipper"),
-            (&config.remote_collectors, "proxmox-feed", "remote"),
+        for (items, prefix) in [
+            (&config.printers, "klipper"),
+            (&config.remote_collectors, "remote"),
         ] {
             for item in items {
-                nodes.push(json!({"id":format!("{prefix}:{}",item.id),"type":kind,"origin":"config","name":item.name,"url":item.url,"poll_interval_s":item.poll_interval_s,"timeout_s":item.timeout_s,"ttl_s":item.ttl_s,"has_secret":!(if prefix=="remote"{&item.token_file}else{&item.api_key_file}).is_empty()}));
+                nodes.push(json!({"id":format!("{prefix}:{}",item.id),"type":if prefix=="remote"{item.node_type.as_str()}else{"klipper"},"platform":item.platform,"origin":"feed","enabled":item.enabled,"name":item.name,"url":item.url,"poll_interval_s":item.poll_interval_s,"timeout_s":item.timeout_s,"ttl_s":item.ttl_s,"has_secret":!(if prefix=="remote"{&item.token_file}else{&item.api_key_file}).is_empty()}));
             }
         }
-        json!({"schema":1,"version":version,"max_nodes":4,"nodes":nodes,"local_node":{"id":identity,"name":name,"address":ip,"enabled":config.enable_proxmox}})
+        json!({"schema":1,"version":version,"max_nodes":4,"nodes":nodes,"local_node":{"id":identity,"type":config.local_type,"platform":config.local_platform(),"name":name,"address":ip,"origin":"host","enabled":config.enable_local}})
     }
     pub fn get(&self) -> std::result::Result<Value, ConfigError> {
         let (_, c, v) = self.load()?;
@@ -561,8 +667,19 @@ impl ConfigManager {
             .custom_flags(libc::O_NOFOLLOW)
             .open(parent.join(".config.lock"))
             .map_err(|_| ConfigError::new(503, "Configuration unavailable"))?;
-        lock.lock_exclusive()
-            .map_err(|_| ConfigError::new(503, "Configuration unavailable"))?;
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            match lock.try_lock_exclusive() {
+                Ok(()) => break,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if Instant::now() >= deadline {
+                        return Err(ConfigError::new(503, "Configuration is busy; retry saving"));
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Err(_) => return Err(ConfigError::new(503, "Configuration unavailable")),
+            }
+        }
         let (mut doc, config, actual) = self.load()?;
         if actual != version {
             return Err(ConfigError::new(
@@ -570,7 +687,17 @@ impl ConfigManager {
                 "Configuration changed; reload before saving",
             ));
         }
-        let local_id = proxmox_node_id(&config.native_name());
+        let local_id = config.local_node_id();
+        // Materialize legacy feed capabilities before a host edit replaces the
+        // legacy flag. An omitted Proxmox type must not turn into a server feed.
+        if doc.get("remote_collectors").is_some() {
+            doc["remote_collectors"] = config
+                .remote_collectors
+                .iter()
+                .map(|n| node_value(n, true))
+                .collect::<Vec<_>>()
+                .into();
+        }
         let old_secrets: HashSet<String> = config
             .printers
             .iter()
@@ -591,11 +718,14 @@ impl ConfigManager {
             }
             let id = request["id"].as_str().ok_or_else(bad)?;
             if id == local_id {
-                doc["enable_proxmox"] = json!(false);
+                doc["enable_local"] = json!(false);
+                doc["local_type"] = json!(config.local_type);
+                doc.as_object_mut().unwrap().remove("enable_proxmox");
+                doc["local_node_id"] = json!(local_id);
             } else {
                 let mut found = false;
                 for (field, prefix) in [("printers", "klipper"), ("remote_collectors", "remote")] {
-                    if let Some(items) = doc[field].as_array_mut() {
+                    if let Some(items) = doc.get_mut(field).and_then(Value::as_array_mut) {
                         items.retain(|n| {
                             let keep = format!("{prefix}:{}", n["id"].as_str().unwrap_or("")) != id;
                             found |= !keep;
@@ -616,6 +746,7 @@ impl ConfigManager {
                 ![
                     "id",
                     "type",
+                    "platform",
                     "name",
                     "url",
                     "poll_interval_s",
@@ -623,6 +754,9 @@ impl ConfigManager {
                     "ttl_s",
                     "secret",
                     "clear_secret",
+                    "enabled",
+                    "origin",
+                    "address",
                 ]
                 .contains(&k.as_str())
             }) {
@@ -653,9 +787,41 @@ impl ConfigManager {
             {
                 return Err(bad());
             }
-            if kind == "local-proxmox" {
+            let origin = node
+                .get("origin")
+                .map(|v| v.as_str().ok_or_else(bad))
+                .transpose()?;
+            if origin.is_some_and(|o| !["host", "feed"].contains(&o)) {
+                return Err(bad());
+            }
+            let enabled = node
+                .get("enabled")
+                .map(|v| v.as_bool().ok_or_else(bad))
+                .transpose()?;
+            if matches!(kind, "local-proxmox" | "local-server")
+                || (origin == Some("host") && matches!(kind, "proxmox" | "server"))
+                || (raw_id == local_id && matches!(kind, "proxmox" | "server"))
+            {
+                let local_type = if matches!(kind, "local-server" | "server") {
+                    "server"
+                } else {
+                    "proxmox"
+                };
                 if !["", local_id.as_str()].contains(&raw_id) || !candidate.is_empty() || clear {
                     return Err(bad());
+                }
+                if let Some(platform) = node.get("platform") {
+                    let platform = platform.as_str().ok_or_else(bad)?;
+                    if !platform.is_empty()
+                        && platform
+                            != if local_type == "proxmox" {
+                                "linux"
+                            } else {
+                                native_platform()
+                            }
+                    {
+                        return Err(bad());
+                    }
                 }
                 let current = Self::projection(&config, &actual);
                 let authority = if config.host_ip.contains(':') {
@@ -676,15 +842,41 @@ impl ConfigManager {
                         return Err(ConfigError::new(400, "Local node address is fixed"));
                     }
                 }
+                if let Some(address) = node.get("address") {
+                    let address = address.as_str().ok_or_else(bad)?;
+                    if address.parse::<std::net::IpAddr>().is_err() {
+                        return Err(bad());
+                    }
+                    doc["host_ip"] = json!(address);
+                }
+                if let Some(interval) = node.get("poll_interval_s") {
+                    doc["interval_s"] = interval.clone();
+                }
                 doc["display_name"] = json!(name.trim());
-                doc["enable_proxmox"] = json!(true);
+                doc["enable_local"] = json!(enabled.unwrap_or(true));
+                doc.as_object_mut().unwrap().remove("enable_proxmox");
+                doc["local_node_id"] = json!(local_id);
+                doc["local_type"] = json!(local_type);
             } else {
+                if origin == Some("host") || node.get("address").is_some() {
+                    return Err(bad());
+                }
                 let (field, prefix, key) = match kind {
                     "klipper" => ("printers", "klipper", "api_key_file"),
-                    "proxmox-feed" => ("remote_collectors", "remote", "token_file"),
+                    "proxmox-feed" | "proxmox" => ("remote_collectors", "remote", "token_file"),
+                    "server-feed" | "server" => ("remote_collectors", "remote", "token_file"),
                     _ => return Err(bad()),
                 };
-                if kind == "proxmox-feed" && !candidate.is_empty() && candidate.len() < 32 {
+                if prefix == "remote" && !candidate.is_empty() && candidate.len() < 32 {
+                    return Err(bad());
+                }
+                let platform = node
+                    .get("platform")
+                    .map(|v| v.as_str().ok_or_else(bad))
+                    .transpose()?;
+                if platform
+                    .is_some_and(|p| !valid_platform(p) || (kind == "klipper" && !p.is_empty()))
+                {
                     return Err(bad());
                 }
                 let existing = if field == "printers" {
@@ -696,10 +888,25 @@ impl ConfigManager {
                     generate_identity(raw_id, prefix, name, existing).map_err(|_| bad())?;
                 let old = existing.iter().find(|n| n.id == identity);
                 let mut updated = old
-                    .map(|n| serde_json::to_value(n).unwrap())
+                    .map(|n| node_value(n, prefix == "remote"))
                     .unwrap_or_else(|| json!({}));
                 updated["id"] = json!(identity);
                 updated["name"] = json!(name.trim());
+                updated["enabled"] =
+                    json!(enabled.unwrap_or_else(|| old.is_none_or(|n| n.enabled)));
+                if prefix == "remote" {
+                    updated["type"] = json!(if matches!(kind, "server-feed" | "server") {
+                        "server"
+                    } else {
+                        "proxmox"
+                    });
+                    if let Some(platform) = platform {
+                        updated["platform"] = json!(platform);
+                    } else if old.is_some_and(|n| n.node_type != updated["type"].as_str().unwrap())
+                    {
+                        updated["platform"] = json!("");
+                    }
+                }
                 for k in ["url", "poll_interval_s", "timeout_s", "ttl_s"] {
                     if let Some(v) = node.get(k) {
                         updated[k] = v.clone();
@@ -722,7 +929,7 @@ impl ConfigManager {
                 let mut values = existing
                     .iter()
                     .filter(|n| n.id != identity)
-                    .map(|n| serde_json::to_value(n).unwrap())
+                    .map(|n| node_value(n, prefix == "remote"))
                     .collect::<Vec<_>>();
                 values.push(updated);
                 doc[field] = values.into();
@@ -740,7 +947,11 @@ impl ConfigManager {
             ("remote_collectors", &validated.remote_collectors),
         ] {
             if doc.get(field).is_some() {
-                doc[field] = serde_json::to_value(items).unwrap();
+                doc[field] = items
+                    .iter()
+                    .map(|n| node_value(n, field == "remote_collectors"))
+                    .collect::<Vec<_>>()
+                    .into();
             }
         }
         let mut raw = serde_json::to_vec_pretty(&doc).map_err(|_| bad())?;

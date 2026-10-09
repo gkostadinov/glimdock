@@ -1,100 +1,63 @@
 #!/bin/sh
-# Review this file, then run on the Proxmox node as root:
-#   ./deploy/install.sh                  # installs, does not start services
-#   ./deploy/install.sh --start          # also enables/starts monitor services
-# No package installs, firewall changes, or storage/guest configuration changes
-# occur. Existing configuration/token files are retained on subsequent runs.
-# The collector uses read-only probes; only it runs as root. The HTTP service
-# receives a display-only random token, with no Proxmox credentials or actions.
-# Copy the token into the ESP32's local secrets file via a private channel.
-# Read it deliberately: python3 -c 'import pathlib; print(next(line.split("=",1)[1]
-# for line in pathlib.Path("/etc/homelab-monitor/server.env").read_text().splitlines()
-# if line.startswith("HOMELAB_DISPLAY_TOKEN=")))'
+# Install the Rust binary and compatible service names; preserve existing secrets.
+# Optional --start activates/restarts all three services. No package/firewall edits.
 set -eu
-
 START=false
-if [ "$#" -gt 1 ]; then
-    printf '%s\n' 'Usage: deploy/install.sh [--start]' >&2
-    exit 2
-fi
-if [ "$#" -eq 1 ]; then
-    if [ "$1" != '--start' ]; then
-        printf '%s\n' 'Usage: deploy/install.sh [--start]' >&2
-        exit 2
-    fi
-    START=true
-fi
-if [ "$(id -u)" -ne 0 ]; then
-    printf '%s\n' 'Run this installer as root on the Proxmox node.' >&2
-    exit 1
-fi
-command -v python3 >/dev/null
-command -v systemctl >/dev/null
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 SOURCE_DIR=$(dirname -- "$SCRIPT_DIR")
-
-# Dedicated nologin identity: no reusable host/Proxmox login credentials.
-if ! getent group homelab-monitor >/dev/null; then
-    groupadd --system homelab-monitor
-fi
+BINARY="$SOURCE_DIR/target/release/glimdock-collector"
+[ -x "$BINARY" ] || BINARY="$SOURCE_DIR/bin/glimdock-collector"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --start) START=true; shift ;;
+        --binary) [ "$#" -ge 2 ] || { printf '%s\n' '--binary needs a file.' >&2; exit 2; }; BINARY=$2; shift 2 ;;
+        *) printf '%s\n' 'Usage: deploy/install.sh [--binary FILE] [--start]' >&2; exit 2 ;;
+    esac
+done
+[ "$(id -u)" -eq 0 ] || { printf '%s\n' 'Run as root on the Linux collector host.' >&2; exit 1; }
+[ "$(uname -s)" = Linux ] || { printf '%s\n' 'Linux is required.' >&2; exit 1; }
+command -v systemctl >/dev/null
+[ -f "$BINARY" ] && [ -x "$BINARY" ] || { printf '%s\n' 'Supply the matching Linux release binary with --binary.' >&2; exit 1; }
+"$BINARY" --version
+if ! getent group homelab-monitor >/dev/null; then groupadd --system homelab-monitor; fi
 if ! id homelab-monitor >/dev/null 2>&1; then
     useradd --system --gid homelab-monitor --home-dir /nonexistent --no-create-home --shell /usr/sbin/nologin homelab-monitor
 fi
-install -d -o root -g root -m 0755 /opt/homelab-monitor /opt/homelab-monitor/agent
+install -d -o root -g root -m 0755 /opt/homelab-monitor
 install -d -o root -g root -m 0700 /etc/homelab-monitor
-for filename in __init__.py collector.py server.py config_service.py remote_feeds.py faults.py guest_telemetry.py gpus.py printers.py truenas_probe.py demo.json demo-nodes.json; do
-    install -o root -g root -m 0644 "$SOURCE_DIR/agent/$filename" "/opt/homelab-monitor/agent/$filename"
-done
 if [ ! -e /etc/homelab-monitor/config.json ]; then
-    install -o root -g root -m 0600 "$SOURCE_DIR/agent/config.example.json" /etc/homelab-monitor/config.json
+    install -o root -g root -m 0600 "$SCRIPT_DIR/config.example.json" /etc/homelab-monitor/config.json
 fi
+"$BINARY" validate-config --config /etc/homelab-monitor/config.json
+umask 077
+random_token() { od -An -N32 -tx1 /dev/urandom | tr -d ' \n'; }
 if [ ! -e /etc/homelab-monitor/server.env ]; then
-    python3 - <<'PY'
-import os
-import ipaddress
-import json
-from pathlib import Path
-import secrets
-path = Path('/etc/homelab-monitor/server.env')
-config = json.loads(Path('/etc/homelab-monitor/config.json').read_text())
-bind = str(ipaddress.ip_address(config.get('host_ip', '127.0.0.1')))
-fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-with os.fdopen(fd, 'w') as stream:
-    stream.write(f'HOMELAB_BIND={bind}\nHOMELAB_PORT=8765\n')
-    stream.write('HOMELAB_DISPLAY_TOKEN=' + secrets.token_urlsafe(32) + '\n')
-    stream.write('HOMELAB_SETUP_TOKEN=' + secrets.token_urlsafe(32) + '\n')
-PY
+    # Fresh installs are deliberately loopback-only until the owner chooses a LAN bind.
+    (set -C; {
+        printf '%s\n' 'HOMELAB_BIND=127.0.0.1' 'HOMELAB_PORT=8765'
+        printf 'HOMELAB_DISPLAY_TOKEN=%s\n' "$(random_token)"
+        printf 'HOMELAB_SETUP_TOKEN=%s\n' "$(random_token)"
+    } > /etc/homelab-monitor/server.env)
+elif ! rg_setup=$(sed -n '/^HOMELAB_SETUP_TOKEN=/p' /etc/homelab-monitor/server.env) || [ -z "$rg_setup" ]; then
+    ENV_TEMP=$(mktemp /etc/homelab-monitor/.server-env.XXXXXX)
+    trap 'rm -f "$ENV_TEMP"' EXIT HUP INT TERM
+    cat /etc/homelab-monitor/server.env > "$ENV_TEMP"
+    printf '\nHOMELAB_SETUP_TOKEN=%s\n' "$(random_token)" >> "$ENV_TEMP"
+    chmod 0600 "$ENV_TEMP"
+    mv -f "$ENV_TEMP" /etc/homelab-monitor/server.env
+    trap - EXIT HUP INT TERM
 fi
-# Upgrades preserve all existing environment values, adding only a missing,
-# separate setup credential. Neither token is printed by the installer.
-python3 - <<'PY'
-import os
-from pathlib import Path
-import secrets
-import tempfile
-path = Path('/etc/homelab-monitor/server.env')
-raw = path.read_text()
-if not any(line.startswith('HOMELAB_SETUP_TOKEN=') for line in raw.splitlines()):
-    fd, temporary = tempfile.mkstemp(prefix='.server-env-', dir=path.parent)
-    with os.fdopen(fd, 'w') as stream:
-        os.fchmod(stream.fileno(), 0o600)
-        stream.write(raw.rstrip('\n') + '\nHOMELAB_SETUP_TOKEN=' + secrets.token_urlsafe(32) + '\n')
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temporary, path)
-PY
+install -o root -g root -m 0755 "$BINARY" /opt/homelab-monitor/.glimdock-collector.new
+mv -f /opt/homelab-monitor/.glimdock-collector.new /opt/homelab-monitor/glimdock-collector
 for service in homelab-monitor-config homelab-monitor-collector homelab-monitor-http; do
     install -o root -g root -m 0644 "$SCRIPT_DIR/$service.service" "/etc/systemd/system/$service.service"
 done
 systemctl daemon-reload
 if [ "$START" = true ]; then
-    systemctl enable --now homelab-monitor-config.service homelab-monitor-collector.service homelab-monitor-http.service
-    # Restart also applies updated source files on subsequent installations.
-    systemctl restart homelab-monitor-collector.service homelab-monitor-http.service
-    printf '%s\n' 'Services active. Check: systemctl status homelab-monitor-config homelab-monitor-collector homelab-monitor-http'
+    systemctl enable homelab-monitor-config.service homelab-monitor-collector.service homelab-monitor-http.service
+    systemctl restart homelab-monitor-config.service homelab-monitor-collector.service homelab-monitor-http.service
+    printf '%s\n' 'Rust services active. Inspect their systemctl status and /healthz.'
 else
-    printf '%s\n' 'Installed. Review /etc/homelab-monitor/config.json and server.env, then:'
-    printf '%s\n' 'systemctl enable --now homelab-monitor-config.service homelab-monitor-collector.service homelab-monitor-http.service'
+    printf '%s\n' 'Installed without starting services. Review config.json and server.env, then follow SETUP.md.'
 fi
-printf '%s\n' 'Separate display and setup tokens retained in /etc/homelab-monitor/server.env (root only).'
-printf '%s\n' 'Health endpoint: http://<HOMELAB_BIND>:<HOMELAB_PORT>/healthz (values in server.env).'
+printf '%s\n' 'Existing configuration and tokens retained. Credentials were not printed.'

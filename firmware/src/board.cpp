@@ -3,6 +3,8 @@
 #include "board.h"
 #include "config.h"
 #include "touch_state.h"
+#include <Arduino.h>
+#include <lvgl.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <esp_heap_caps.h>
@@ -12,7 +14,7 @@ constexpr int CS=42,DC=41,RST=39,BL=5,INT_PIN=4,TOUCH_RST=2;
 SPIClass lcd(FSPI);
 volatile bool touchIRQ=false;
 TouchState touchState;
-alignas(4) uint8_t drawBuffer[320*24*2];
+alignas(4) uint8_t drawBuffer[HOMELAB_VIEWPORT_WIDTH*24*2];
 void command(uint8_t c){lcd.beginTransaction(SPISettings(80000000,MSBFIRST,SPI_MODE0));digitalWrite(CS,LOW);digitalWrite(DC,LOW);lcd.transfer(c);digitalWrite(CS,HIGH);lcd.endTransaction();}
 void bytes(const uint8_t *d,size_t n){lcd.beginTransaction(SPISettings(80000000,MSBFIRST,SPI_MODE0));digitalWrite(CS,LOW);digitalWrite(DC,HIGH);lcd.writeBytes(d,n);digitalWrite(CS,HIGH);lcd.endTransaction();}
 void reg(uint8_t c,std::initializer_list<uint8_t> d){command(c);bytes(d.begin(),d.size());}
@@ -50,13 +52,8 @@ void touch(lv_indev_t *input,lv_indev_data_t *data){
   noteTouch(pressed);
   if(consumeWakeTouch){data->state=LV_INDEV_STATE_RELEASED;return;}
   if(pressed){
-#if HOMELAB_ROTATION == 1
-    data->point.x=y;data->point.y=239-x;
-#elif HOMELAB_ROTATION == 3
-    data->point.x=319-y;data->point.y=x;
-#else
-#error "Use landscape HOMELAB_ROTATION 1 or 3"
-#endif
+    const BoardTouchPoint point=boardRotateTouch(x,y,HOMELAB_ROTATION);
+    data->point.x=point.x;data->point.y=point.y;
     data->state=LV_INDEV_STATE_PRESSED;
   }else data->state=LV_INDEV_STATE_RELEASED;
 }
@@ -73,11 +70,7 @@ void boardInit(){
   ledcSetup(5,20000,10);ledcAttachPin(BL,5);boardBacklight(0);
   lcd.begin(40,-1,45);digitalWrite(RST,LOW);delay(50);digitalWrite(RST,HIGH);delay(170);
   command(0x29);delay(120);command(0x11);delay(120);
-#if HOMELAB_ROTATION == 1
-  reg(0x36,{0x60});
-#else
-  reg(0x36,{0xa0});
-#endif
+  reg(0x36,{boardMadctlForRotation(HOMELAB_ROTATION)});
   reg(0x3a,{0x05});reg(0xb0,{0x00,0xe8}); // RAMCTRL ENDIAN: little-endian RGB565.
   reg(0xb2,{0x0c,0x0c,0x00,0x33,0x33});reg(0xb7,{0x75});reg(0xbb,{0x1a});
   reg(0xc0,{0x2c});reg(0xc2,{0x01,0xff});reg(0xc3,{0x13});reg(0xc4,{0x20});reg(0xc6,{0x0f});
@@ -91,9 +84,15 @@ void boardInit(){
   touchWrite(0xd109);attachInterrupt(INT_PIN,irq,FALLING);
   Serial.printf("Waveshare V1: touch %s; PSRAM %u bytes\n",good?"ready":"unavailable",ESP.getPsramSize());
 #if HOMELAB_COLOR_TEST
-  static uint16_t line[320];const uint16_t colors[]={0xf800,0x07e0,0x001f,0xffff};
-  for(int y=0;y<240;y++){for(int x=0;x<320;x++)line[x]=colors[x/80];reg(0x2a,{0,0,1,63});reg(0x2b,{0,uint8_t(y),0,uint8_t(y)});command(0x2c);bytes((uint8_t*)line,sizeof(line));}
+  static uint16_t line[HOMELAB_VIEWPORT_WIDTH];const uint16_t colors[]={0xf800,0x07e0,0x001f,0xffff};
+  const int lastX=HOMELAB_VIEWPORT_WIDTH-1;
+  for(int y=0;y<HOMELAB_VIEWPORT_HEIGHT;y++){
+    for(int x=0;x<HOMELAB_VIEWPORT_WIDTH;x++)line[x]=colors[(x*4)/HOMELAB_VIEWPORT_WIDTH];
+    reg(0x2a,{0,0,uint8_t(lastX>>8),uint8_t(lastX)});
+    reg(0x2b,{uint8_t(y>>8),uint8_t(y),uint8_t(y>>8),uint8_t(y)});
+    command(0x2c);bytes((uint8_t*)line,sizeof(line));
+  }
   boardBacklight(80);delay(3000);
 #endif
 }
-void boardLvglInit(){lv_init();lv_tick_set_cb([]()->uint32_t{return millis();});lv_display_t *display=lv_display_create(320,240);lv_display_set_color_format(display,LV_COLOR_FORMAT_RGB565);lv_display_set_flush_cb(display,flush);lv_display_set_buffers(display,drawBuffer,nullptr,sizeof(drawBuffer),LV_DISPLAY_RENDER_MODE_PARTIAL);lv_indev_t *input=lv_indev_create();lv_indev_set_type(input,LV_INDEV_TYPE_POINTER);lv_indev_set_scroll_limit(input,8);lv_indev_set_read_cb(input,touch);}
+void boardLvglInit(){lv_init();lv_tick_set_cb([]()->uint32_t{return millis();});lv_display_t *display=lv_display_create(HOMELAB_VIEWPORT_WIDTH,HOMELAB_VIEWPORT_HEIGHT);lv_display_set_color_format(display,LV_COLOR_FORMAT_RGB565);lv_display_set_flush_cb(display,flush);lv_display_set_buffers(display,drawBuffer,nullptr,sizeof(drawBuffer),LV_DISPLAY_RENDER_MODE_PARTIAL);lv_indev_t *input=lv_indev_create();lv_indev_set_type(input,LV_INDEV_TYPE_POINTER);lv_indev_set_scroll_limit(input,8);lv_indev_set_read_cb(input,touch);}

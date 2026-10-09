@@ -2,14 +2,14 @@ use anyhow::{bail, Result};
 use clap::{Parser, Subcommand};
 use glimdock_collector::{
     config::{Config, SOCKET_PATH},
-    runtime, server,
+    hub, runtime, server,
 };
 use std::{net::SocketAddr, path::PathBuf};
 #[derive(Parser)]
 #[command(
     name = "glimdock-collector",
     version,
-    about = "Glimdock native Linux/Proxmox/Klipper monitoring runtime"
+    about = "Glimdock host-agnostic telemetry hub and web console"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -17,6 +17,23 @@ struct Cli {
 }
 #[derive(Subcommand)]
 enum Commands {
+    /// Run the central collector, node management, and web console together (Linux/macOS).
+    Run {
+        /// Private saved configuration, keys, and live snapshots.
+        #[arg(long, default_value = ".glimdock")]
+        state_dir: PathBuf,
+        /// Use an existing private configuration instead of STATE_DIR/config.json.
+        #[arg(long)]
+        config: Option<PathBuf>,
+        #[arg(long, default_value = "127.0.0.1")]
+        bind: String,
+        #[arg(long, default_value_t = 8765)]
+        port: u16,
+        #[arg(long, requires = "key")]
+        cert: Option<PathBuf>,
+        #[arg(long, requires = "cert")]
+        key: Option<PathBuf>,
+    },
     /// Collect atomic schema2 snapshots with independent source freshness.
     Collect {
         #[arg(long, default_value = "/etc/homelab-monitor/config.json")]
@@ -27,6 +44,9 @@ enum Commands {
         snapshot_group: Option<String>,
         #[arg(long)]
         once: bool,
+        /// Reload validated node edits without a service manager (useful on macOS).
+        #[arg(long)]
+        watch_config: bool,
     },
     /// Collect one initialized snapshot, then exit.
     Once {
@@ -47,6 +67,9 @@ enum Commands {
         port: u16,
         #[arg(long)]
         token_file: Option<PathBuf>,
+        /// Serve the same console on loopback and bridge its fixed APIs to this hub origin.
+        #[arg(long)]
+        upstream: Option<String>,
         #[arg(long)]
         setup_token_file: Option<PathBuf>,
         #[arg(long,default_value=SOCKET_PATH)]
@@ -90,17 +113,42 @@ fn main() {
 }
 async fn run() -> Result<()> {
     match Cli::parse().command {
+        Commands::Run {
+            state_dir,
+            config,
+            bind,
+            port,
+            cert,
+            key,
+        } => {
+            let ip = if bind == "localhost" {
+                "127.0.0.1"
+            } else {
+                &bind
+            }
+            .parse()?;
+            hub::run(hub::RunOptions {
+                state_dir,
+                config,
+                address: SocketAddr::new(ip, port),
+                cert,
+                key,
+            })
+            .await
+        }
         Commands::Collect {
             config,
             output,
             snapshot_group,
             once,
+            watch_config,
         } => {
             runtime::run(
                 Config::read(&config)?,
                 &output,
                 once,
                 snapshot_group.as_deref(),
+                if watch_config { Some(&config) } else { None },
             )
             .await
         }
@@ -114,6 +162,7 @@ async fn run() -> Result<()> {
                 &output,
                 true,
                 snapshot_group.as_deref(),
+                None,
             )
             .await
         }
@@ -122,14 +171,17 @@ async fn run() -> Result<()> {
             bind,
             port,
             token_file,
+            upstream,
             setup_token_file,
             config_socket,
             demo,
             cert,
             key,
         } => {
-            if demo && !matches!(bind.as_str(), "127.0.0.1" | "::1" | "localhost") {
-                bail!("Demo requires loopback bind");
+            if (demo || upstream.is_some())
+                && !matches!(bind.as_str(), "127.0.0.1" | "::1" | "localhost")
+            {
+                bail!("Demo and credential bridge require loopback bind");
             }
             let ip = if bind == "localhost" {
                 "127.0.0.1"
@@ -143,12 +195,15 @@ async fn run() -> Result<()> {
             } else {
                 server::load_token(setup_token_file.as_deref(), true)?
             };
-            let state = server::HttpState::new(
+            let mut state = server::HttpState::new(
                 server::SnapshotStore::new(snapshot, demo),
                 display,
                 setup,
                 config_socket,
             )?;
+            if let Some(origin) = upstream {
+                state = state.with_upstream(&origin)?;
+            }
             server::serve(
                 SocketAddr::new(ip, port),
                 state,
@@ -167,9 +222,7 @@ async fn run() -> Result<()> {
             let config = Config::read(&config)?;
             println!(
                 "Valid configuration: {} enabled nodes",
-                config.enable_proxmox as usize
-                    + config.printers.len()
-                    + config.remote_collectors.len()
+                config.enabled_node_count()
             );
             Ok(())
         }

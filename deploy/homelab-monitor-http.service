@@ -1,5 +1,5 @@
 [Unit]
-Description=Homelab display authenticated snapshot reader
+Description=Glimdock authenticated snapshot reader (Rust)
 After=homelab-monitor-collector.service homelab-monitor-config.service network-online.target
 Wants=homelab-monitor-collector.service homelab-monitor-config.service network-online.target
 
@@ -9,7 +9,7 @@ User=homelab-monitor
 Group=homelab-monitor
 WorkingDirectory=/opt/homelab-monitor
 EnvironmentFile=/etc/homelab-monitor/server.env
-ExecStart=/usr/bin/python3 -B -m agent.server --bind ${HOMELAB_BIND} --port ${HOMELAB_PORT}
+ExecStart=/opt/homelab-monitor/glimdock-collector serve --snapshot /run/homelab-monitor/snapshot.json --bind ${HOMELAB_BIND} --port ${HOMELAB_PORT} --config-socket /run/homelab-monitor/config.sock
 UMask=0077
 Restart=on-failure
 RestartSec=5

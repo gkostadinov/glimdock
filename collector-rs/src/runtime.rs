@@ -16,7 +16,10 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
-use tokio::{sync::Mutex, task::JoinHandle};
+use tokio::{
+    sync::{oneshot, watch, Mutex},
+    task::JoinHandle,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SourceStatus {
@@ -91,6 +94,36 @@ pub fn bounded_snapshot(mut snapshot: Value) -> Value {
             json!(count.saturating_sub(actual.min(*cap) as u64));
         snapshot["limits"][format!("max_{field}")] = json!(cap);
     }
+    // Portable agents already bound these nested inventories. Recompute their
+    // omissions from the original count and retained rows rather than copying
+    // arbitrary upstream truncation entries or adding the same omissions twice.
+    for (parent, field, count_key, cap) in [
+        ("host", "cpu_cores", "cpu_cores", 64),
+        ("platform", "interfaces", "network_interfaces", 16),
+    ] {
+        let actual = snapshot[parent][field].as_array().map_or(0, Vec::len);
+        let reported = snapshot["limits"]["counts"][count_key].as_u64();
+        if snapshot[parent][field].is_array() || reported.is_some() {
+            let count = reported.unwrap_or(actual as u64).max(actual as u64);
+            if let Some(items) = snapshot
+                .get_mut(parent)
+                .and_then(|object| object.get_mut(field))
+                .and_then(Value::as_array_mut)
+            {
+                items.truncate(cap);
+            }
+            snapshot["limits"]["counts"][count_key] = json!(count);
+            snapshot["limits"]["truncated"][count_key] =
+                json!(count.saturating_sub(actual.min(cap) as u64));
+            snapshot["limits"][format!("max_{count_key}")] = json!(cap);
+        }
+    }
+    if let Some(names) = snapshot["limits"]
+        .get_mut("network_interfaces")
+        .and_then(Value::as_array_mut)
+    {
+        names.truncate(16);
+    }
     snapshot["limits"]["max_payload_bytes"] = json!(MAX_PAYLOAD);
     if let Some(alerts) = snapshot["alerts"].as_array_mut() {
         alerts.truncate(24);
@@ -131,7 +164,10 @@ pub fn bounded_snapshot(mut snapshot: Value) -> Value {
         .is_some_and(|v| v.values().any(|n| n.as_u64().unwrap_or(0) > 0));
     if truncated {
         let alerts = snapshot["alerts"].as_array_mut().unwrap();
-        if !alerts.iter().any(|a| a["id"] == "capacity") {
+        if !alerts
+            .iter()
+            .any(|a| a["id"] == "capacity" || a["id"] == "display/truncated")
+        {
             alerts.insert(0,json!({"id":"capacity","severity":"warning","message":"Some telemetry was omitted to fit display capacity"}));
             alerts.truncate(24);
         }
@@ -204,6 +240,13 @@ struct Source {
     status: SourceStatus,
     data: Option<Value>,
 }
+impl Drop for Source {
+    fn drop(&mut self) {
+        if let Some(handle) = &self.handle {
+            handle.abort();
+        }
+    }
+}
 impl Source {
     fn new(config: NodeConfig, remote: bool) -> Result<Self> {
         let reader = if remote {
@@ -269,29 +312,90 @@ impl Source {
         }
     }
 }
+enum LocalCollector {
+    Linux(Box<crate::probes::LocalCollector>),
+    Portable(Box<glimdock_agent::host::HostCollector>),
+}
+impl LocalCollector {
+    fn new(config: &Config) -> Result<Self> {
+        if config.local_type == "proxmox" && !cfg!(target_os = "linux") {
+            anyhow::bail!("Local Proxmox collection requires a Linux Proxmox host; configure it as a remote feed on this hub");
+        }
+        if cfg!(target_os = "linux") {
+            Ok(Self::Linux(Box::new(crate::probes::LocalCollector::new(
+                config,
+            ))))
+        } else {
+            let native = config.native_name();
+            let collector =
+                glimdock_agent::host::HostCollector::new(glimdock_agent::host::HostConfig {
+                    name: if config.display_name.is_empty() {
+                        native
+                    } else {
+                        config.display_name.clone()
+                    },
+                    address: config.host_ip.clone(),
+                    interval_s: config.interval_s.min(300.),
+                    network_interfaces: config.network_interfaces.clone(),
+                    ..Default::default()
+                })?;
+            Ok(Self::Portable(Box::new(collector)))
+        }
+    }
+    async fn collect(&mut self, config: &Config, sequence: u64) -> Value {
+        match self {
+            Self::Linux(collector) => collector.collect(config, sequence).await,
+            Self::Portable(collector) => {
+                use glimdock_agent::Collector as _;
+                let now = crate::epoch();
+                match collector.sample(now, crate::probes::monotonic()) {
+                    Ok(mut snapshot) => {
+                        snapshot["sequence"] = json!(sequence);
+                        snapshot["node"]["id"] = json!(config.local_node_id());
+                        snapshot
+                    }
+                    Err(_) => {
+                        let mut snapshot =
+                            empty_snapshot(&config.native_name(), &config.host_ip, sequence, now);
+                        snapshot["platform"] = json!({"os":config::native_platform(),"architecture":std::env::consts::ARCH});
+                        snapshot["sources"]["host"] = json!({"enabled":true,"ok":false,"updated_at":null,"age_s":null,"error":"Native host collection unavailable"});
+                        snapshot
+                    }
+                }
+            }
+        }
+    }
+    async fn initialize(&mut self) {
+        if let Self::Linux(collector) = self {
+            collector.initialize().await;
+        }
+    }
+}
 pub struct Collector {
     config: Config,
-    local: Option<crate::probes::LocalCollector>,
+    local: Option<LocalCollector>,
     printers: Vec<Source>,
     remotes: Vec<Source>,
     sequence: u64,
 }
 impl Collector {
     pub fn new(config: Config) -> Result<Self> {
-        let local = if config.enable_proxmox {
-            Some(crate::probes::LocalCollector::new(&config))
+        let local = if config.enable_local {
+            Some(LocalCollector::new(&config)?)
         } else {
             None
         };
         let printers = config
             .printers
             .iter()
+            .filter(|c| c.enabled)
             .cloned()
             .map(|c| Source::new(c, false))
             .collect::<Result<Vec<_>>>()?;
         let remotes = config
             .remote_collectors
             .iter()
+            .filter(|c| c.enabled)
             .cloned()
             .map(|c| Source::new(c, true))
             .collect::<Result<Vec<_>>>()?;
@@ -310,7 +414,7 @@ impl Collector {
         if let Some(local) = self.local.as_mut() {
             let snapshot = local.collect(&self.config, self.sequence).await;
             let native = self.config.native_name();
-            nodes.push(json!({"id":config::proxmox_node_id(&native),"type":"proxmox","name":if self.config.display_name.is_empty(){native}else{self.config.display_name.clone()},"address":self.config.host_ip,"snapshot":bounded_snapshot(snapshot)}));
+            nodes.push(json!({"id":self.config.local_node_id(),"type":self.config.local_type,"platform":self.config.local_platform(),"name":if self.config.display_name.is_empty(){native}else{self.config.display_name.clone()},"address":self.config.host_ip,"snapshot":bounded_snapshot(snapshot)}));
         }
         for source in &mut self.printers {
             source.advance(now).await;
@@ -332,7 +436,16 @@ impl Collector {
                 self.sequence,
                 now,
             ));
-            nodes.push(json!({"id":format!("remote:{}",source.config.id),"type":"proxmox","name":source.config.name,"address":source_address(&source.config.url),"snapshot":snapshot}));
+            let platform = if source.config.platform.is_empty() {
+                source
+                    .data
+                    .as_ref()
+                    .and_then(|d| d["node_platform"].as_str())
+                    .unwrap_or("")
+            } else {
+                &source.config.platform
+            };
+            nodes.push(json!({"id":format!("remote:{}",source.config.id),"type":source.config.node_type,"platform":platform,"name":source.config.name,"address":source_address(&source.config.url),"snapshot":snapshot}));
         }
         for node in &mut nodes {
             node["status"] = json!(crate::server::node_status(&node["snapshot"], now));
@@ -388,7 +501,35 @@ pub fn prepare_directory(path: &Path, group: Option<&str>) -> Result<()> {
     }
     Ok(())
 }
-pub async fn run(config: Config, output: &Path, once: bool, group: Option<&str>) -> Result<()> {
+pub async fn run(
+    config: Config,
+    output: &Path,
+    once: bool,
+    group: Option<&str>,
+    reload_path: Option<&Path>,
+) -> Result<()> {
+    let (stop, shutdown) = watch::channel(false);
+    let work = run_controlled(config, output, once, group, reload_path, shutdown, None);
+    tokio::pin!(work);
+    tokio::select! {
+        result = &mut work => result,
+        _ = shutdown_signal() => {
+            let _ = stop.send(true);
+            work.await
+        }
+    }
+}
+
+/// The integrated hub owns shutdown and waits until the first publication exists.
+pub async fn run_controlled(
+    config: Config,
+    output: &Path,
+    once: bool,
+    group: Option<&str>,
+    reload_path: Option<&Path>,
+    mut shutdown: watch::Receiver<bool>,
+    mut ready: Option<oneshot::Sender<()>>,
+) -> Result<()> {
     prepare_directory(output, group)?;
     let parent = output.parent().unwrap();
     let lock = OpenOptions::new()
@@ -400,17 +541,44 @@ pub async fn run(config: Config, output: &Path, once: bool, group: Option<&str>)
     lock.try_lock_exclusive()
         .context("Another collector is already running")?;
     let period = Duration::from_secs_f64(config.interval_s);
+    let mut reload_hash = reload_path
+        .and_then(|path| config::read_bounded(path, 64 * 1024).ok())
+        .map(|bytes| config::sha256(&bytes));
     let mut collector = Collector::new(config)?;
     let mut interval = tokio::time::interval(period);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    let stop = async {
-        tokio::select! {_ = tokio::signal::ctrl_c()=>{},_ = shutdown_signal()=>{}}
-    };
-    tokio::pin!(stop);
     loop {
-        tokio::select! {_ = &mut stop=>return Ok(()),_ = interval.tick()=>{}};
+        tokio::select! {_ = wait_for_shutdown(&mut shutdown)=>return Ok(()),_ = interval.tick()=>{}};
+        if let Some(path) = reload_path {
+            if let Ok(bytes) = config::read_bounded(path, 64 * 1024) {
+                let hash = config::sha256(&bytes);
+                if reload_hash.as_ref() != Some(&hash) {
+                    reload_hash = Some(hash);
+                    match config::strict_json(&bytes)
+                        .and_then(Config::from_value)
+                        .and_then(Collector::new)
+                    {
+                        Ok(mut replacement) => {
+                            replacement.sequence = collector.sequence;
+                            interval = tokio::time::interval(Duration::from_secs_f64(
+                                replacement.config.interval_s,
+                            ));
+                            interval
+                                .set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                            collector = replacement;
+                        }
+                        Err(_) => {
+                            eprintln!("Configuration reload rejected; previous inventory retained")
+                        }
+                    }
+                }
+            }
+        }
         let sample = collector.sample().await?;
         config::atomic_write(output, &serde_json::to_vec(&sample)?, 0o640)?;
+        if let Some(ready) = ready.take() {
+            let _ = ready.send(());
+        }
         if once {
             collector.initialize().await;
             tokio::time::sleep(Duration::from_secs(1)).await;
@@ -423,13 +591,25 @@ pub async fn run(config: Config, output: &Path, once: bool, group: Option<&str>)
         }
     }
 }
-async fn shutdown_signal() {
+pub async fn wait_for_shutdown(shutdown: &mut watch::Receiver<bool>) {
+    while !*shutdown.borrow_and_update() {
+        if shutdown.changed().await.is_err() {
+            break;
+        }
+    }
+}
+pub async fn shutdown_signal() {
     #[cfg(unix)]
     {
         if let Ok(mut signal) =
             tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         {
-            signal.recv().await;
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {},
+                _ = signal.recv() => {},
+            }
+            return;
         }
     }
+    let _ = tokio::signal::ctrl_c().await;
 }

@@ -5,6 +5,36 @@ use crate::{
 };
 use serde_json::{json, Value};
 use std::{fs, path::Path};
+/// Fixed local filesystem capacity probe for ordinary Linux hosts.
+pub fn read_filesystems() -> anyhow::Result<Value> {
+    let output = command("df", &["-P", "-B1", "-l"], 5., false)?;
+    Ok(json!({"storage":parse_filesystems(&output.stdout)}))
+}
+pub fn parse_filesystems(input: &str) -> Vec<Value> {
+    let mut storage = Vec::new();
+    let mut mounts = std::collections::HashSet::new();
+    for line in input.lines().skip(1) {
+        let fields = line.split_whitespace().collect::<Vec<_>>();
+        if fields.len() < 6 || matches!(fields[0], "tmpfs" | "devtmpfs" | "udev" | "shm") {
+            continue;
+        }
+        let (Ok(total), Ok(used)) = (fields[1].parse::<u64>(), fields[2].parse::<u64>()) else {
+            continue;
+        };
+        if total == 0 || used > total {
+            continue;
+        }
+        let mount = fields[5..].join(" ");
+        if !mounts.insert(mount.clone()) {
+            continue;
+        }
+        storage.push(json!({"id":format!("filesystem/{}",text(&mount,160)),"name":text(&mount,96),"type":"filesystem","device":text(fields[0],96),"status":"active","used_bytes":used,"total_bytes":total,"healthy":null}));
+        if storage.len() >= 256 {
+            break;
+        }
+    }
+    storage
+}
 pub fn parse_smart(d: &Value, name: &str, code: i32) -> Value {
     let messages = d["smartctl"]["messages"]
         .as_array()
@@ -169,6 +199,16 @@ pub fn read_zfs() -> anyhow::Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn filesystem_capacity_is_exact_and_ignores_virtual_or_invalid_entries() {
+        let input="Filesystem 1-blocks Used Available Capacity Mounted on\n/dev/root 10000 4000 6000 40% /\ntmpfs 1000 100 900 10% /run\n/dev/data 9000 1000 8000 12% /media/My Disk\n/dev/root 10000 4000 6000 40% /\n/dev/bad 100 200 0 200% /bad\n/dev/missing - - - - /missing\n";
+        let rows = parse_filesystems(input);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0]["total_bytes"], 10000);
+        assert_eq!(rows[0]["used_bytes"], 4000);
+        assert_eq!(rows[1]["name"], "/media/My Disk");
+        assert!(rows[0]["healthy"].is_null());
+    }
     #[test]
     fn standby_unknown() {
         let v = parse_smart(

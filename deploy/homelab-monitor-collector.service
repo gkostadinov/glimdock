@@ -1,18 +1,17 @@
 [Unit]
-Description=Homelab read-only privileged telemetry collector
-After=pve-cluster.service network-online.target homelab-monitor-config.service
+Description=Glimdock read-only privileged telemetry collector (Rust)
+After=network-online.target homelab-monitor-config.service
 Wants=network-online.target homelab-monitor-config.service
 
 [Service]
 Type=simple
 User=root
-# pmxcfs/libqb rejects pvesh IPC when root's primary group is non-root.
+# Proxmox pmxcfs/libqb requires root's primary group for local IPC.
 Group=root
 SupplementaryGroups=homelab-monitor
 WorkingDirectory=/opt/homelab-monitor
-ExecStart=/usr/bin/python3 -B -m agent.collector --config /etc/homelab-monitor/config.json --snapshot-group homelab-monitor
-# The config service owns the shared root:homelab-monitor runtime directory.
-# Declaring it here would make systemd reset config.sock to primary gid0.
+ExecStart=/opt/homelab-monitor/glimdock-collector collect --config /etc/homelab-monitor/config.json --output /run/homelab-monitor/snapshot.json --snapshot-group homelab-monitor
+# The configuration service alone owns the shared runtime directory.
 UMask=0027
 Restart=on-failure
 RestartSec=5

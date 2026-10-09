@@ -3,6 +3,7 @@ pub mod config;
 pub mod faults;
 pub mod gpus;
 pub mod guests;
+pub mod hub;
 pub mod printers;
 pub mod probes;
 pub mod procfs;

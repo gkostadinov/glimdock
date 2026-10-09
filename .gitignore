@@ -11,4 +11,8 @@ firmware/build/
 *.token
 .DS_Store
 collector-rs/target/
-enclosure/output/
+device-agent-rs/target/
+target/
+collector-web/node_modules/
+commercial/site/node_modules/
+.glimdock/

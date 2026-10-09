@@ -1,0 +1,23 @@
+{
+  "id": "router",
+  "name": "Router API",
+  "platform": "router",
+  "url": "https://router.example.test/api/telemetry",
+  "token_file": "",
+  "interval_s": 3,
+  "timeout_s": 2.5,
+  "ttl_s": 15,
+  "host": [
+    {"field": "cpu_pct", "path": ["system", "cpu_percent"]},
+    {"field": "uptime_s", "path": ["system", "uptime_seconds"]},
+    {"field": "mem_used_bytes", "path": ["system", "memory_used_kib"], "scale": 1024},
+    {"field": "mem_total_bytes", "path": ["system", "memory_total_kib"], "scale": 1024}
+  ],
+  "power": [],
+  "sensors": [
+    {"id": "board", "name": "Board temperature", "path": ["sensors", "temperature_millicelsius"],
+     "kind": "temperature", "unit": "°C", "scale": 0.001, "high": 70, "crit": 85},
+    {"id": "supply", "name": "Supply voltage", "path": ["sensors", "voltage"],
+     "kind": "voltage", "unit": "V"}
+  ]
+}

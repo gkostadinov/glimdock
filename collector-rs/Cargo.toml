@@ -1,12 +1,13 @@
 [package]
 name = "glimdock-collector"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 rust-version = "1.88"
-description = "Bounded, read-only Linux, Proxmox and Klipper telemetry for Glimdock"
+description = "Bounded, read-only host, device, Proxmox and Klipper telemetry for Glimdock"
 license = "MIT"
 
 [dependencies]
+glimdock-agent = { path = "../device-agent-rs" }
 anyhow = "1"
 axum = "0.8"
 axum-server = { version = "0.8", features = ["tls-rustls-no-provider"] }
@@ -31,9 +32,3 @@ url = "2"
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
-
-[profile.release]
-lto = "thin"
-codegen-units = 1
-strip = "symbols"
-panic = "abort"

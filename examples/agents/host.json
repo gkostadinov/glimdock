@@ -1,0 +1,9 @@
+{
+  "id": "office-server",
+  "name": "Office server",
+  "platform": "auto",
+  "address": "192.0.2.20",
+  "interval_s": 3,
+  "network_interfaces": [],
+  "storage_mounts": []
+}

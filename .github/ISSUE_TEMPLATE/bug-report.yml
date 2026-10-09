@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a reproducible collector, firmware or display problem.
+description: Report a reproducible collector, node management, browser update or display problem.
 title: "[Bug]: "
 body:
   - type: markdown
@@ -9,7 +9,7 @@ body:
     id: version
     attributes:
       label: Glimdock version
-      placeholder: v0.1.0 or commit SHA
+      placeholder: v0.2.0 development commit or release version
     validations:
       required: true
   - type: textarea
@@ -17,7 +17,7 @@ body:
     attributes:
       label: Platform
       description: Collector OS/architecture and board revision, if relevant.
-      placeholder: Proxmox/Linux x86_64; Waveshare V1 CST328
+      placeholder: "Collector: macOS arm64; device: Windows x86_64 or SNMP router; display: Waveshare V1 CST328"
     validations:
       required: true
   - type: textarea

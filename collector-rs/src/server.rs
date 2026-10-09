@@ -7,7 +7,7 @@ use crate::{
 use anyhow::{bail, Result};
 use axum::{
     body::{to_bytes, Body},
-    extract::{Request, State},
+    extract::{ConnectInfo, Request, State},
     http::header,
     response::Response,
     Router,
@@ -26,8 +26,13 @@ use subtle::ConstantTimeEq;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{UnixListener, UnixStream},
-    sync::{Notify, Semaphore},
+    sync::{watch, Notify, Semaphore},
+    task::JoinSet,
 };
+
+mod web_assets {
+    include!(concat!(env!("OUT_DIR"), "/web_assets.rs"));
+}
 
 pub const FRESH_SECONDS: f64 = 15.;
 pub fn valid_node_id(identity: &str) -> bool {
@@ -119,8 +124,30 @@ impl SnapshotStore {
                     return Err(StoreError::Unavailable);
                 }
                 let name = document["host"]["name"].as_str().unwrap_or("local");
-                let id = config::proxmox_node_id(name);
-                document = json!({"schema":2,"generated_at":stamp,"sequence":document["sequence"],"nodes":[{"id":id,"type":"proxmox","name":name,"address":document["host"]["ip"].as_str().unwrap_or(""),"snapshot":document}]});
+                let node = if document.get("node").is_some() {
+                    descriptor(&document["node"])?
+                } else {
+                    let pve = (document["sources"]["proxmox"].is_object()
+                        && document["sources"]["proxmox"]["enabled"] != false)
+                        || document["guests"].as_array().is_some_and(|g| !g.is_empty());
+                    let kind = if pve { "proxmox" } else { "server" };
+                    let platform = if pve {
+                        "linux"
+                    } else {
+                        document["platform"]["os"]
+                            .as_str()
+                            .filter(|p| config::valid_platform(p) && !p.is_empty())
+                            .unwrap_or(if document["sources"]["proc"].is_object() {
+                                "linux"
+                            } else {
+                                config::native_platform()
+                            })
+                    };
+                    json!({"id":config::native_node_id(kind,name),"type":kind,"platform":platform,"name":name,"address":document["host"]["ip"].as_str().unwrap_or("")})
+                };
+                let mut record = node;
+                record["snapshot"] = document;
+                document = json!({"schema":2,"generated_at":stamp,"sequence":record["snapshot"]["sequence"],"nodes":[record]});
             }
             Some(2) => {}
             _ => return Err(StoreError::Unavailable),
@@ -179,6 +206,7 @@ impl SnapshotStore {
             .map(|node| {
                 let mut meta = descriptor(node)?;
                 meta["status"] = json!(node_status(&node["snapshot"], now));
+                meta["summary"] = node_summary(&node["snapshot"], now);
                 Ok(meta)
             })
             .collect()
@@ -194,17 +222,29 @@ impl SnapshotStore {
         let document = self.document(now)?;
         let nodes = document["nodes"].as_array().unwrap();
         if nodes.is_empty() {
-            return Err(StoreError::NoNodes);
+            if selector.is_some() {
+                return Err(StoreError::UnknownNode);
+            }
+            let stamp = document["generated_at"]
+                .as_f64()
+                .ok_or(StoreError::Unavailable)?;
+            let mut empty = crate::runtime::empty_snapshot(
+                "No nodes configured",
+                "",
+                document["sequence"].as_u64().unwrap_or(0),
+                stamp,
+            );
+            empty["nodes"] = json!([]);
+            empty["sources"] = json!({"collector":{"enabled":false,"ok":false,"updated_at":stamp,"age_s":(now-stamp).max(0.),"error":"No nodes configured"}});
+            empty["alerts"] = json!([{"id":"setup/no-nodes","severity":"warning","message":"No nodes configured"}]);
+            return Ok((empty, (now - stamp).max(0.)));
         }
         let selected = match selector {
             Some(id) => nodes
                 .iter()
                 .find(|n| n["id"] == id)
                 .ok_or(StoreError::UnknownNode)?,
-            None => nodes
-                .iter()
-                .find(|n| n["type"] == "proxmox")
-                .unwrap_or(&nodes[0]),
+            None => &nodes[0],
         };
         let mut snapshot = selected["snapshot"].clone();
         let stamp = snapshot["generated_at"]
@@ -230,6 +270,37 @@ impl SnapshotStore {
         }
         Ok((snapshot, (now - stamp).max(0.)))
     }
+    /// All bounded node snapshots for the web emulator. This has the same
+    /// display-token role as a selected snapshot and never contains configuration.
+    pub fn snapshots(&self, now: f64) -> std::result::Result<Value, StoreError> {
+        let mut document = self.document(now)?;
+        let metadata = Self::metadata(&document, now)?;
+        for (record, meta) in document["nodes"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .zip(metadata)
+        {
+            record["status"] = meta["status"].clone();
+            record["summary"] = meta["summary"].clone();
+            record["snapshot"] = bounded_snapshot(record["snapshot"].take());
+        }
+        if serde_json::to_vec(&document)
+            .map_err(|_| StoreError::Unavailable)?
+            .len()
+            > MAX_AGGREGATE
+        {
+            return Err(StoreError::Unavailable);
+        }
+        Ok(document)
+    }
+    pub fn fresh(&self, now: f64) -> bool {
+        self.document(now).is_ok_and(|d| {
+            d["generated_at"]
+                .as_f64()
+                .is_some_and(|stamp| now - stamp <= FRESH_SECONDS)
+        })
+    }
     pub fn nodes(&self, now: f64) -> std::result::Result<Value, StoreError> {
         let document = self.document(now)?;
         Ok(
@@ -237,11 +308,89 @@ impl SnapshotStore {
         )
     }
 }
+/// Small, finite summaries share one policy between the physical display,
+/// node registry, and browser. Expired/offline samples never show old metrics.
+pub fn node_summary(snapshot: &Value, now: f64) -> Value {
+    let status = node_status(snapshot, now);
+    let stamp = snapshot["feed"]["updated_at"]
+        .as_f64()
+        .or_else(|| snapshot["printer"]["updated_at"].as_f64())
+        .or_else(|| snapshot["generated_at"].as_f64());
+    let ttl = crate::finite(&snapshot["feed"]["ttl_s"], 5., 900.)
+        .or_else(|| crate::finite(&snapshot["printer"]["ttl_s"], 5., 900.))
+        .unwrap_or(FRESH_SECONDS);
+    let age = stamp.map(|t| (now - t).max(0.));
+    let live = matches!(status, "healthy" | "degraded") && age.is_some_and(|a| a <= ttl);
+    let cpu = live
+        .then(|| crate::finite(&snapshot["host"]["cpu_pct"], 0., 100.))
+        .flatten();
+    let memory = if live {
+        crate::number(&snapshot["host"]["mem_used_bytes"])
+            .zip(crate::number(&snapshot["host"]["mem_total_bytes"]).filter(|t| *t > 0.))
+            .and_then(|(used, total)| (used >= 0. && used <= total).then_some(used * 100. / total))
+    } else {
+        None
+    };
+    let temperature = if live {
+        crate::finite(&snapshot["power"]["cpu_temp_c"], -50., 500.)
+            .or_else(|| {
+                snapshot["printer"]["heaters"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .find_map(|h| crate::finite(&h["temp_c"], -50., 500.))
+            })
+            .or_else(|| {
+                snapshot["sensors"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter(|s| s["kind"] == "temperature")
+                    .filter_map(|s| crate::finite(&s["value"], -50., 500.))
+                    .reduce(f64::max)
+            })
+    } else {
+        None
+    };
+    let count = |field: &str| {
+        if !live {
+            return None;
+        }
+        snapshot["limits"]["counts"][field]
+            .as_u64()
+            .or_else(|| snapshot[field].as_array().map(|a| a.len() as u64))
+    };
+    let print_state = if live {
+        snapshot["printer"]["state"].as_str().filter(|s| {
+            [
+                "standby",
+                "printing",
+                "paused",
+                "complete",
+                "cancelled",
+                "error",
+                "unknown",
+            ]
+            .contains(s)
+        })
+    } else {
+        None
+    };
+    json!({"status":status,"cpu_percent":cpu,"memory_percent":memory,
+        "temperature_c":temperature,"progress_percent":if live {crate::finite(&snapshot["printer"]["progress_pct"],0.,100.)}else{None},
+        "print_state":print_state,"sensors":count("sensors"),"guests":count("guests"),
+        "generated_at":stamp,"age_s":age,"ttl_s":ttl})
+}
 fn descriptor(record: &Value) -> std::result::Result<Value, StoreError> {
     let id = record["id"].as_str().ok_or(StoreError::Unavailable)?;
     let kind = record["type"].as_str().ok_or(StoreError::Unavailable)?;
     let name = record["name"].as_str().ok_or(StoreError::Unavailable)?;
     let address = record["address"].as_str().ok_or(StoreError::Unavailable)?;
+    let platform = record
+        .get("platform")
+        .map(|p| p.as_str().ok_or(StoreError::Unavailable))
+        .transpose()?
+        .unwrap_or("");
     if !valid_node_id(id)
         || !Regex::new(r"^[a-z][a-z0-9_-]{0,31}$")
             .unwrap()
@@ -249,10 +398,11 @@ fn descriptor(record: &Value) -> std::result::Result<Value, StoreError> {
         || name.is_empty()
         || name.chars().count() > 96
         || address.len() > 255
+        || !config::valid_platform(platform)
     {
         return Err(StoreError::Unavailable);
     }
-    Ok(json!({"id":id,"type":kind,"name":name,"address":address}))
+    Ok(json!({"id":id,"type":kind,"platform":platform,"name":name,"address":address}))
 }
 
 #[derive(Clone)]
@@ -262,6 +412,9 @@ pub struct HttpState {
     setup_token: Option<String>,
     config_socket: PathBuf,
     clients: Arc<Semaphore>,
+    upstream: Option<(String, reqwest::Client)>,
+    bridge_https: bool,
+    local_console: bool,
 }
 impl HttpState {
     pub fn new(
@@ -283,7 +436,37 @@ impl HttpState {
             setup_token,
             config_socket,
             clients: Arc::new(Semaphore::new(12)),
+            upstream: None,
+            bridge_https: false,
+            local_console: false,
         })
+    }
+    /// A single-server hub trusts only genuine loopback clients using a local
+    /// Host and same-origin browser writes. LAN requests still use bearer roles.
+    pub fn with_local_console(mut self) -> Self {
+        self.local_console = true;
+        self
+    }
+    /// A loopback-only companion serves the identical console and injects
+    /// private credentials only into the fixed, configured collector origin.
+    pub fn with_upstream(mut self, origin: &str) -> Result<Self> {
+        let parsed = url::Url::parse(origin)?;
+        if !matches!(parsed.scheme(), "http" | "https")
+            || parsed.host_str().is_none()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+            || !matches!(parsed.path(), "" | "/")
+            || parsed.port() == Some(0)
+        {
+            bail!("Upstream must be a fixed HTTP(S) origin without credentials");
+        }
+        self.upstream = Some((
+            parsed.origin().ascii_serialization(),
+            crate::runtime::http_client(5.)?,
+        ));
+        Ok(self)
     }
 }
 pub fn validate_token(token: &str, setup: bool) -> Result<()> {
@@ -357,6 +540,145 @@ fn reply(code: u16, body: Value, head: bool, age: Option<f64>) -> Response {
 fn error(code: u16, message: &str, head: bool) -> Response {
     reply(code, json!({"error":message}), head, None)
 }
+fn asset_reply(bytes: &'static [u8], content_type: &'static str, head: bool) -> Response {
+    Response::builder().status(200)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(header::CONTENT_LENGTH, bytes.len())
+        .header(header::CACHE_CONTROL, "no-store")
+        .header("X-Content-Type-Options", "nosniff")
+        .header("Referrer-Policy", "no-referrer")
+        .header("Permissions-Policy", "serial=(self)")
+        .header("Content-Security-Policy", "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'self'")
+        .body(if head { Body::empty() } else { Body::from(bytes) }).unwrap()
+}
+fn local_bridge_request(request: &Request, write: bool, https: bool) -> bool {
+    let Some(authority) = request
+        .headers()
+        .get(header::HOST)
+        .and_then(|h| h.to_str().ok())
+    else {
+        return false;
+    };
+    let Ok(url) = url::Url::parse(&format!(
+        "{}://{authority}",
+        if https { "https" } else { "http" }
+    )) else {
+        return false;
+    };
+    if !matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]"))
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.path() != "/"
+    {
+        return false;
+    }
+    let origin = request
+        .headers()
+        .get(header::ORIGIN)
+        .and_then(|h| h.to_str().ok());
+    if write && origin.is_none() {
+        return false;
+    }
+    if let Some(origin) = origin {
+        if origin != url.origin().ascii_serialization() {
+            return false;
+        }
+    }
+    if request
+        .headers()
+        .get("sec-fetch-site")
+        .is_some_and(|v| v == "cross-site")
+    {
+        return false;
+    }
+    true
+}
+async fn proxy_api(
+    state: &HttpState,
+    request: Request,
+    path: &str,
+    query: &str,
+    head: bool,
+) -> Response {
+    let method = request.method().as_str();
+    let config = path == "/api/v1/config";
+    if !(matches!(method, "GET" | "HEAD") || (config && method == "POST"))
+        || (config && !query.is_empty())
+    {
+        return error(404, "not found", head);
+    }
+    let token = if config {
+        state.setup_token.as_deref()
+    } else {
+        Some(state.display_token.as_str())
+    };
+    let Some(token) = token else {
+        return error(401, "management key unavailable", head);
+    };
+    let (origin, client) = state.upstream.as_ref().unwrap();
+    let mut endpoint = format!("{origin}{path}");
+    if !query.is_empty() {
+        endpoint.push('?');
+        endpoint.push_str(query);
+    }
+    // Incoming Authorization, cookies and arbitrary headers never cross the bridge.
+    let mut outgoing = client
+        .request(
+            if head {
+                reqwest::Method::GET
+            } else {
+                request.method().clone()
+            },
+            endpoint,
+        )
+        .bearer_auth(token);
+    if method == "POST" {
+        if request
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.split(';').next().unwrap_or("").trim())
+            != Some("application/json")
+            || request.headers().contains_key(header::TRANSFER_ENCODING)
+        {
+            return error(400, "invalid configuration request", head);
+        }
+        let raw = match tokio::time::timeout(
+            Duration::from_secs(5),
+            to_bytes(request.into_body(), MAX_REQUEST - 128),
+        )
+        .await
+        {
+            Ok(Ok(v)) if !v.is_empty() => v,
+            _ => return error(400, "invalid configuration request", head),
+        };
+        if config::strict_json(&raw).is_err() {
+            return error(400, "invalid configuration request", head);
+        }
+        outgoing = outgoing
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(raw.to_vec());
+    }
+    let Ok(mut result) = outgoing.send().await else {
+        return error(503, "collector unavailable", head);
+    };
+    let status = result.status().as_u16();
+    let limit = if config { MAX_RESPONSE } else { MAX_AGGREGATE };
+    let mut bytes = Vec::new();
+    loop {
+        match result.chunk().await {
+            Ok(Some(chunk)) if bytes.len() + chunk.len() <= limit => {
+                bytes.extend_from_slice(&chunk)
+            }
+            Ok(None) => break,
+            _ => return error(503, "collector response unavailable", head),
+        }
+    }
+    let Ok(value) = config::strict_json(&bytes) else {
+        return error(503, "collector response unavailable", head);
+    };
+    reply(status, value, head, None)
+}
 pub fn router(state: HttpState) -> Router {
     Router::new().fallback(handler).with_state(state)
 }
@@ -368,11 +690,53 @@ async fn handler(State(state): State<HttpState>, request: Request) -> Response {
     let method = request.method().as_str();
     let path = request.uri().path().to_string();
     let query = request.uri().query().unwrap_or("").to_string();
+    let local_console = state.local_console
+        && request
+            .extensions()
+            .get::<ConnectInfo<SocketAddr>>()
+            .is_some_and(|ConnectInfo(peer)| peer.ip().is_loopback())
+        && local_bridge_request(&request, method == "POST", state.bridge_https);
+    if state.upstream.is_some()
+        && !local_bridge_request(&request, method == "POST", state.bridge_https)
+    {
+        return error(
+            403,
+            "local bridge requires a same-origin loopback request",
+            head,
+        );
+    }
+    if ["GET", "HEAD"].contains(&method) && path == "/api/v1/web/info" && query.is_empty() {
+        return reply(
+            200,
+            json!({"schema":1,"local_bridge":state.upstream.is_some() || local_console,"management_available":state.setup_token.is_some()}),
+            head,
+            None,
+        );
+    }
+    if ["GET", "HEAD"].contains(&method) {
+        if let Some((bytes, mime)) = web_assets::asset(&path) {
+            return asset_reply(bytes, mime, head);
+        }
+    }
+    if state.upstream.is_some()
+        && [
+            "/api/v1/config",
+            "/api/v1/snapshot",
+            "/api/v1/snapshots",
+            "/api/v1/nodes",
+            "/healthz",
+        ]
+        .contains(&path.as_str())
+    {
+        return proxy_api(&state, request, &path, &query, head).await;
+    }
     if path == "/api/v1/config" && query.is_empty() {
         if !["GET", "HEAD", "POST"].contains(&method) {
             return error(404, "not found", head);
         }
-        if !authorized(&request, state.setup_token.as_deref()) {
+        if !(authorized(&request, state.setup_token.as_deref())
+            || (local_console && !request.headers().contains_key(header::AUTHORIZATION)))
+        {
             return error(401, "unauthorized", head);
         }
         let mut body = None;
@@ -433,22 +797,21 @@ async fn handler(State(state): State<HttpState>, request: Request) -> Response {
             Err(_) => error(503, "configuration service unavailable", head),
         }
     } else if ["GET", "HEAD"].contains(&method) && path == "/healthz" && query.is_empty() {
-        let ok = state
-            .store
-            .read(None, crate::epoch())
-            .is_ok_and(|(_, age)| age <= FRESH_SECONDS);
+        let ok = state.store.fresh(crate::epoch());
         reply(if ok { 200 } else { 503 }, json!({"ok":ok}), head, None)
     } else if ["GET", "HEAD"].contains(&method)
-        && ["/api/v1/snapshot", "/api/v1/nodes"].contains(&path.as_str())
+        && ["/api/v1/snapshot", "/api/v1/nodes", "/api/v1/snapshots"].contains(&path.as_str())
     {
-        if path == "/api/v1/nodes" && !query.is_empty() {
+        if path != "/api/v1/snapshot" && !query.is_empty() {
             return error(404, "not found", head);
         }
         let pairs = url::form_urlencoded::parse(query.as_bytes()).collect::<Vec<_>>();
         if pairs.iter().any(|(key, _)| key != "node") {
             return error(404, "not found", head);
         }
-        if !authorized(&request, Some(&state.display_token)) {
+        if !(authorized(&request, Some(&state.display_token))
+            || (local_console && !request.headers().contains_key(header::AUTHORIZATION)))
+        {
             return error(401, "unauthorized", head);
         }
         let selector = if query.is_empty() {
@@ -458,7 +821,9 @@ async fn handler(State(state): State<HttpState>, request: Request) -> Response {
         } else {
             return error(400, "invalid node selector", head);
         };
-        let result = if path == "/api/v1/nodes" {
+        let result = if path == "/api/v1/snapshots" {
+            state.store.snapshots(crate::epoch()).map(|v| (v, None))
+        } else if path == "/api/v1/nodes" {
             state.store.nodes(crate::epoch()).map(|v| (v, None))
         } else {
             state
@@ -477,32 +842,91 @@ async fn handler(State(state): State<HttpState>, request: Request) -> Response {
         error(404, "not found", head)
     }
 }
+/// Bound and TLS-validated before any integrated worker is started.
+pub struct HttpServer {
+    listener: std::net::TcpListener,
+    state: HttpState,
+    tls: Option<axum_server::tls_rustls::RustlsConfig>,
+}
+impl HttpServer {
+    pub async fn bind(
+        address: SocketAddr,
+        mut state: HttpState,
+        cert: Option<&Path>,
+        key: Option<&Path>,
+    ) -> Result<Self> {
+        if cert.is_some() != key.is_some() {
+            bail!("Certificate and key must be supplied together");
+        }
+        if state.upstream.is_some() && !address.ip().is_loopback() {
+            bail!("Credential bridge requires loopback bind");
+        }
+        state.bridge_https = cert.is_some();
+        let tls = if let (Some(cert), Some(key)) = (cert, key) {
+            Some(
+                axum_server::tls_rustls::RustlsConfig::from_pem_file(cert, key)
+                    .await
+                    .map_err(|_| anyhow::anyhow!("TLS certificate configuration failed"))?,
+            )
+        } else {
+            None
+        };
+        let listener = std::net::TcpListener::bind(address)?;
+        listener.set_nonblocking(true)?;
+        Ok(Self {
+            listener,
+            state,
+            tls,
+        })
+    }
+    pub fn local_addr(&self) -> Result<SocketAddr> {
+        Ok(self.listener.local_addr()?)
+    }
+    pub async fn run(self, mut shutdown: watch::Receiver<bool>) -> Result<()> {
+        let handle = axum_server::Handle::new();
+        let app = router(self.state).into_make_service_with_connect_info::<SocketAddr>();
+        let graceful = async {
+            crate::runtime::wait_for_shutdown(&mut shutdown).await;
+            handle.graceful_shutdown(Some(Duration::from_secs(5)));
+        };
+        let serve = async {
+            if let Some(tls) = self.tls {
+                axum_server::from_tcp_rustls(self.listener, tls)?
+                    .handle(handle.clone())
+                    .serve(app)
+                    .await?;
+            } else {
+                axum_server::from_tcp(self.listener)?
+                    .handle(handle.clone())
+                    .serve(app)
+                    .await?;
+            }
+            Ok::<_, anyhow::Error>(())
+        };
+        tokio::pin!(serve, graceful);
+        tokio::select! {
+            result = &mut serve => result,
+            _ = &mut graceful => serve.await,
+        }
+    }
+}
 pub async fn serve(
     address: SocketAddr,
     state: HttpState,
     cert: Option<&Path>,
     key: Option<&Path>,
 ) -> Result<()> {
-    if cert.is_some() != key.is_some() {
-        bail!("Certificate and key must be supplied together");
+    let server = HttpServer::bind(address, state, cert, key).await?;
+    let (stop, shutdown) = watch::channel(false);
+    let work = server.run(shutdown);
+    tokio::pin!(work);
+    tokio::select! {
+        result = &mut work => result,
+        _ = crate::runtime::shutdown_signal() => {
+            let _ = stop.send(true);
+            work.await
+        }
     }
-    let app = router(state);
-    if let (Some(cert), Some(key)) = (cert, key) {
-        let config = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert, key)
-            .await
-            .map_err(|_| anyhow::anyhow!("TLS certificate configuration failed"))?;
-        axum_server::bind_rustls(address, config)
-            .serve(app.into_make_service())
-            .await?;
-    } else {
-        let listener = tokio::net::TcpListener::bind(address).await?;
-        axum::serve(listener, app)
-            .with_graceful_shutdown(async {
-                let _ = tokio::signal::ctrl_c().await;
-            })
-            .await?;
-    }
-    Ok(())
 }
 async fn read_line_bounded(stream: &mut UnixStream, bound: usize) -> Result<Vec<u8>> {
     let mut result = Vec::new();
@@ -555,41 +979,61 @@ pub async fn forward_config(
     .await
     .map_err(|_| anyhow::anyhow!("Configuration service timed out"))?
 }
-pub async fn config_service(
+/// Private configuration listener prepared before the HTTP console is ready.
+pub struct ConfigurationService {
+    listener: UnixListener,
     config_path: PathBuf,
-    socket_path: PathBuf,
-    group: Option<&str>,
     apply: bool,
-) -> Result<()> {
-    prepare_directory(&socket_path, group)?;
-    if let Ok(metadata) = fs::symlink_metadata(&socket_path) {
-        if !metadata.file_type().is_socket() {
-            bail!("Configuration path is not a socket");
-        }
-        fs::remove_file(&socket_path)?;
-    }
-    let listener = UnixListener::bind(&socket_path)?;
-    fs::set_permissions(&socket_path, fs::Permissions::from_mode(0o660))?;
-    if let Some(group) = group {
-        let group = std::ffi::CString::new(group)?;
-        let gid = unsafe {
-            let item = libc::getgrnam(group.as_ptr());
-            if item.is_null() {
-                bail!("Socket group unavailable");
+}
+impl ConfigurationService {
+    pub fn bind(
+        config_path: PathBuf,
+        socket_path: &Path,
+        group: Option<&str>,
+        apply: bool,
+    ) -> Result<Self> {
+        prepare_directory(socket_path, group)?;
+        if let Ok(metadata) = fs::symlink_metadata(socket_path) {
+            if !metadata.file_type().is_socket() {
+                bail!("Configuration path is not a socket");
             }
-            (*item).gr_gid
-        };
-        let path = std::ffi::CString::new(socket_path.as_os_str().as_encoded_bytes())?;
-        if unsafe { libc::chown(path.as_ptr(), u32::MAX, gid) } != 0 {
-            bail!("Socket ownership update failed");
+            fs::remove_file(socket_path)?;
         }
+        let listener = UnixListener::bind(socket_path)?;
+        fs::set_permissions(socket_path, fs::Permissions::from_mode(0o660))?;
+        if let Some(group) = group {
+            let group = std::ffi::CString::new(group)?;
+            let gid = unsafe {
+                let item = libc::getgrnam(group.as_ptr());
+                if item.is_null() {
+                    bail!("Socket group unavailable");
+                }
+                (*item).gr_gid
+            };
+            let path = std::ffi::CString::new(socket_path.as_os_str().as_encoded_bytes())?;
+            if unsafe { libc::chown(path.as_ptr(), u32::MAX, gid) } != 0 {
+                bail!("Socket ownership update failed");
+            }
+        }
+        if group.is_none() {
+            fs::set_permissions(socket_path, fs::Permissions::from_mode(0o600))?;
+        }
+        Ok(Self {
+            listener,
+            config_path,
+            apply,
+        })
     }
-    let manager = Arc::new(ConfigManager::new(config_path));
-    let clients = Arc::new(Semaphore::new(8));
-    let notify = Arc::new(Notify::new());
-    if apply {
-        let queue = notify.clone();
-        tokio::spawn(async move {
+    pub async fn run(self, mut shutdown: watch::Receiver<bool>) -> Result<()> {
+        let manager = Arc::new(ConfigManager::new(self.config_path));
+        let clients = Arc::new(Semaphore::new(8));
+        let notify = Arc::new(Notify::new());
+        let apply = self.apply;
+        let listener = self.listener;
+        let mut jobs = JoinSet::new();
+        if apply {
+            let queue = notify.clone();
+            jobs.spawn(async move {
             loop {
                 queue.notified().await;
                 tokio::time::sleep(Duration::from_millis(250)).await;
@@ -605,15 +1049,23 @@ pub async fn config_service(
                 }
             }
         });
-    }
-    loop {
-        let (mut stream, _) = listener.accept().await?;
-        let Ok(permit) = clients.clone().try_acquire_owned() else {
-            continue;
-        };
-        let manager = manager.clone();
-        let notify = notify.clone();
-        tokio::spawn(async move {
+        }
+        loop {
+            let (mut stream, _) = tokio::select! {
+                _ = crate::runtime::wait_for_shutdown(&mut shutdown) => {
+                    jobs.abort_all();
+                    while jobs.join_next().await.is_some() {}
+                    return Ok(());
+                },
+                _ = jobs.join_next(), if !jobs.is_empty() => continue,
+                accepted = listener.accept() => accepted?,
+            };
+            let Ok(permit) = clients.clone().try_acquire_owned() else {
+                continue;
+            };
+            let manager = manager.clone();
+            let notify = notify.clone();
+            jobs.spawn(async move {
             let _permit = permit;
             let response = match tokio::time::timeout(
                 Duration::from_secs(5),
@@ -677,5 +1129,33 @@ pub async fn config_service(
                 let _ = tokio::time::timeout(Duration::from_secs(5), stream.write_all(&raw)).await;
             }
         });
+        }
+    }
+}
+struct SocketCleanup(PathBuf);
+impl Drop for SocketCleanup {
+    fn drop(&mut self) {
+        if fs::symlink_metadata(&self.0).is_ok_and(|meta| meta.file_type().is_socket()) {
+            let _ = fs::remove_file(&self.0);
+        }
+    }
+}
+pub async fn config_service(
+    config_path: PathBuf,
+    socket_path: PathBuf,
+    group: Option<&str>,
+    apply: bool,
+) -> Result<()> {
+    let service = ConfigurationService::bind(config_path, &socket_path, group, apply)?;
+    let _cleanup = SocketCleanup(socket_path);
+    let (stop, shutdown) = watch::channel(false);
+    let work = service.run(shutdown);
+    tokio::pin!(work);
+    tokio::select! {
+        result = &mut work => result,
+        _ = crate::runtime::shutdown_signal() => {
+            let _ = stop.send(true);
+            work.await
+        }
     }
 }

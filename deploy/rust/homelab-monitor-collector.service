@@ -1,6 +1,6 @@
 [Unit]
 Description=Glimdock read-only privileged telemetry collector (Rust)
-After=pve-cluster.service network-online.target homelab-monitor-config.service
+After=network-online.target homelab-monitor-config.service
 Wants=network-online.target homelab-monitor-config.service
 
 [Service]

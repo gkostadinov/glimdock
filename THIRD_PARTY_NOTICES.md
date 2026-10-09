@@ -1,6 +1,7 @@
 # Third-party notices
 
-Reviewed 8 October 2026. Original Glimdock software uses the root project
+Reviewed 8 October 2026; native device-agent inventory added 9 October 2026.
+Original Glimdock software uses the root project
 license; third-party components retain their own terms. The original enclosure
 is separately scoped by `LICENSE_POLICY.md`. A dependency license does not
 relicense either the Waveshare module or its manufacturer reference CAD.
@@ -108,7 +109,52 @@ LLVM notices above apply to runtime code, rather than asserting a license for
 the whole toolchain. Changing the compiler, target runtime or linker-supplied
 runtime requires updating this inventory.
 
+## Native device agent
+
+`device-agent-rs/` builds the native Rust `glimdock-agent` for OS telemetry and
+SNMP/JSON device adapters. Its dependency graph is separate from the Linux hub's
+graph. [LICENSES/Rust-Device-Agent/inventory.json](LICENSES/Rust-Device-Agent/inventory.json)
+records the exact locked versions, declared SPDX expressions, registry checksums,
+target membership and hashes of retained notices for Linux musl `x86_64` and
+`aarch64`, macOS `x86_64` and `aarch64`, and Windows `x86_64` MSVC. Normal and
+build dependencies are retained conservatively; dev-only crates are excluded.
+See its [regeneration instructions](LICENSES/Rust-Device-Agent/README.md).
+
+Native OS reads use `sysinfo` and `battery`; authenticated HTTP, JSON mapping and
+HTTPS use the locked Rust networking/serialization dependencies, including
+Rustls and ring. These crates keep their individual licenses and copyright
+notices. Platform-specific crates appear only in their applicable target graphs.
+The original software's MIT license does not replace those terms.
+
+The published `objc2-core-foundation` and `objc2-io-kit` 0.3.2 tarballs omit the
+repository's licensing document. Their published Cargo VCS metadata pins
+`madsmtm/objc2` commit `7b1abfd750a2cacaea71d6a56ecfb83cb7de560b`; the exact
+[upstream licensing document](https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md)
+is retained for each crate with its source URL, commit and content hash. It
+states their alternative Zlib/Apache-2.0/MIT licenses and includes the upstream
+Apple SDK licensing note. The source package does not redistribute macOS
+frameworks, Windows system DLLs or SDKs. Toolchain/runtime notices above remain
+separate from application Cargo inventories; distributed native binaries need
+the notices applicable to their actual toolchain and target runtime.
+
+SNMP mode invokes a separately installed Net-SNMP `snmpget` executable. Net-SNMP
+is neither linked into `glimdock-agent` nor bundled by the source export or CI
+artifacts. Its [official license](https://www.net-snmp.org/about/license.html)
+contains multiple component copyright notices and BSD-style terms; a separate
+Net-SNMP distribution retains the notices supplied with that exact version.
+
 ## Source and binary distribution
+
+The embedded collector web interface uses `esptool-js` 0.7.0 (Apache-2.0),
+`@noble/hashes` 2.4.0 (MIT), and the locked esptool-js dependency `pako`
+(MIT AND Zlib) for browser USB flashing, image verification and compression.
+Exact license texts and the Zlib source notice are served in
+`collector-web/assets/licenses/`; `collector-web/package-lock.json` records
+the exact package versions and integrity checksums. The local Space Grotesk
+font retains its SIL Open Font License in `assets/Space-Grotesk-OFL.txt`.
+The actual firmware WebAssembly renderer retains its LVGL, ArduinoJson and
+font notices in `collector-web/emulator/`. Emscripten and esbuild are build
+tools; their presence does not replace the licenses of bundled runtime code.
 
 The public source package excludes personalized firmware, private configuration,
 installed dependency directories and the manufacturer's reference STEP file.
@@ -119,7 +165,18 @@ crate notices. Its notices and exact corresponding source travel with each
 binary archive; this firmware dependency inventory is not a substitute for that
 Linux inventory.
 
-No public ESP32 firmware binary is included in this source release. When
+The general source export includes no personalized ESP32 firmware binary. The
+separate collector web firmware bundle is built with
+`tools/build-web-firmware.py` and accompanied by its
+`firmware/source-relink.tar.gz`. That archive retains the exact installed
+Arduino core/library sources and selected board variant, LVGL and ArduinoJson
+sources/notices, original application source/object files, library archives,
+actual compile/link commands, linker map, package versions and SDK link inventory.
+Its rebuild helper uses an isolated pinned PlatformIO package cache and can
+relink unchanged application objects with modified Arduino sources. The SDK
+and toolchain packages are fetched at the recorded versions; their applicable
+notices are included. No private pairing defaults or runtime data enter this
+public bundle. When
 redistributing a prebuilt firmware image or a finished flashed product, retain
 these notices and accompany it with the actual corresponding LGPL library
 source, any modifications, and application/build materials sufficient to rebuild
@@ -196,3 +253,14 @@ binary. The complete terms in each file prevail over the summaries above.
 | [Rust-1.98.1-libm-LICENSE.txt](LICENSES/Rust-1.98.1-libm-LICENSE.txt) | `3823dda7cf046602f4b4e77ec8e227863dc4736037cc85bb33d9f19febe16bb7` | [upstream](https://raw.githubusercontent.com/rust-lang/rust/48a229ceaefd4985c50990b14116b6d856af0985/library/compiler-builtins/libm/LICENSE.txt) |
 | [Space-Grotesk-OFL-1.1.txt](LICENSES/Space-Grotesk-OFL-1.1.txt) | `c6dec685825f73b18c20926fddc65e8315642e12986f15db0699170940a09efc` | [upstream](https://github.com/floriankarsten/space-grotesk/blob/master/OFL.txt) |
 | [Waveshare-CST328-Apache-2.0.txt](LICENSES/Waveshare-CST328-Apache-2.0.txt) | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` | [upstream](https://github.com/waveshareteam/Waveshare-ESP32-components/blob/30d0ac3b8b6b27ebd402c5852819cbe0dab92749/display/touch/esp_lcd_touch_cst328/license.txt) |
+
+
+## Shared Rust workspace 0.2.0
+
+The current collector and device-agent packages share the root `Cargo.lock`.
+`LICENSES/Rust/inventory.json` records the four-target dependency audit for Linux
+x86_64/aarch64, macOS arm64 and Windows x86_64: 197 crate inventories and 365
+retained notice files. Existing standalone-agent notice files remain retained
+as an earlier inventory; the shared workspace inventory governs current builds.
+The inventory is regenerated with `tools/cargo-notices.py`, using the root
+workspace lockfile discovered through Cargo metadata.
