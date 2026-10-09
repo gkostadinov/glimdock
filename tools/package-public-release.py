@@ -10,7 +10,7 @@ import argparse, ast, hashlib, io, ipaddress, json, os, re, shutil, tarfile, tem
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
-    'Cargo.toml','Cargo.lock','.gitignore','README.md','SETUP.md','BUILDING.md','CONTRIBUTING.md','SECURITY.md','LICENSE','LICENSE_POLICY.md','THIRD_PARTY_NOTICES.md',
+    'Cargo.toml','Cargo.lock','.gitignore','.gitattributes','README.md','SETUP.md','BUILDING.md','CONTRIBUTING.md','SECURITY.md','LICENSE','LICENSE_POLICY.md','THIRD_PARTY_NOTICES.md',
     '.github/workflows/build.yml','.github/ISSUE_TEMPLATE/bug-report.yml','.github/ISSUE_TEMPLATE/feature-request.yml',
     '.github/ISSUE_TEMPLATE/config.yml','.github/pull_request_template.md','docs/architecture.md','docs/DRIVER_PROVENANCE.md',
     'collector-rs/Cargo.toml','collector-rs/build.rs','collector-rs/helpers/qga-bridge.pl','collector-rs/docs/TELEMETRY.md',
@@ -110,15 +110,15 @@ def candidate():
         if any(value in data for value in literals): raise ValueError(f'Private build default rejected in {name}')
         if re.search(rb'-----BEGIN (?:OPENSSH |RSA |EC |DSA )?PRIVATE KEY-----\r?\n(?:[A-Za-z0-9+/=]+\r?\n){2,}-----END ', data): raise ValueError(f'Private key rejected in {name}')
     public=json.loads(sources['collector-web/firmware/manifest.json'])
-    assert (public['schema'], public['chip'], public['board'], public['rotation'], public['flash_size']) == (1, 'ESP32-S3', 'waveshare-v1', 3, 16777216)
-    assert [(part['offset'],part['path']) for part in public['parts']] == [(0,'/firmware/bootloader.bin'),(0x8000,'/firmware/partitions.bin'),(0xe000,'/firmware/boot_app0.bin'),(0x10000,'/firmware/firmware.bin')]
+    assert (public['schema'], public['chip'], public['board'], public['rotation'], public['flash_size']) == (1, 'ESP32-S3', 'waveshare-v1', 3, 16777216), 'Unexpected public firmware schema, board, rotation, or flash size'
+    assert [(part['offset'],part['path']) for part in public['parts']] == [(0,'/firmware/bootloader.bin'),(0x8000,'/firmware/partitions.bin'),(0xe000,'/firmware/boot_app0.bin'),(0x10000,'/firmware/firmware.bin')], 'Unexpected public firmware segment offsets or paths'
     for part in public['parts']:
         data=sources['collector-web'+part['path']]
-        assert len(data)==part['size'] and hashlib.sha256(data).hexdigest()==part['sha256']
+        assert len(data)==part['size'] and hashlib.sha256(data).hexdigest()==part['sha256'], f"Firmware segment size/SHA-256 mismatch: {part['path']}"
         start=part['offset'];end=(start+len(data)+4095)&~4095
-        assert not (start<0xe000 and end>0x9000)
+        assert not (start<0xe000 and end>0x9000), f"Firmware segment overlaps saved pairing NVS: {part['path']}"
     archive=sources['collector-web'+public['source_relink']]
-    assert len(archive)==public['source_relink_size'] and hashlib.sha256(archive).hexdigest()==public['source_relink_sha256']
+    assert len(archive)==public['source_relink_size'] and hashlib.sha256(archive).hexdigest()==public['source_relink_sha256'], 'Firmware source/relink archive size/SHA-256 mismatch'
     with tarfile.open(fileobj=io.BytesIO(archive),mode='r:gz') as bundle:
         for member in bundle:
             path=Path(member.name)
@@ -129,12 +129,12 @@ def candidate():
             data=bundle.extractfile(member).read()
             if any(value in data for value in literals): raise ValueError('Private build default rejected in source/relink member')
     emulator=json.loads(sources['collector-web/emulator/manifest.json'])
-    assert emulator['public_build'] and (emulator['width'],emulator['height'],emulator['rotation']) == (320,240,3)
+    assert emulator['public_build'] and (emulator['width'],emulator['height'],emulator['rotation']) == (320,240,3), 'Unexpected public emulator dimensions or rotation'
     for name,asset in emulator['assets'].items():
         data=sources['collector-web/emulator/'+name]
-        assert len(data)==asset['bytes'] and hashlib.sha256(data).hexdigest()==asset['sha256']
+        assert len(data)==asset['bytes'] and hashlib.sha256(data).hexdigest()==asset['sha256'], f'Emulator asset size/SHA-256 mismatch: {name}; text files require an LF checkout (.gitattributes)'
     for name,expected in emulator['sources'].items():
-        assert hashlib.sha256(sources[name]).hexdigest()==expected, f'Emulator source is stale: {name}'
+        assert hashlib.sha256(sources[name]).hexdigest()==expected, f'Emulator source is stale or has different line endings: {name}; text files require an LF checkout (.gitattributes)'
     version=tomllib.loads(sources['Cargo.toml'].decode())['workspace']['package']['version']
     manifest={'schema':2,'version':version,'status':'host-agnostic collector developer release','source_file_count':len(sources),'sanitization_counts':counts,'runtime':'native Rust','embedded_console':True,'public_firmware':True,'firmware_version':public['version'],'legacy_runtime':False,'manufacturer_references':False,'live_telemetry':False,'files':{name:hashlib.sha256(data).hexdigest() for name,data in sorted(sources.items())}}
     return sources,manifest

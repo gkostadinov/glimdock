@@ -1,0 +1,18 @@
+# Generated asset manifests bind exact bytes. Preserve LF on every platform,
+# including Windows runners with core.autocrlf enabled.
+* text=auto eol=lf
+
+# Fonts, firmware, WebAssembly, archives and raster assets retain their bytes.
+*.woff2 -text
+*.wasm -text
+*.bin -text
+*.gz -text
+*.zip -text
+*.png -text
+*.jpg -text
+*.jpeg -text
+*.webp -text
+*.ico -text
+*.pdf -text
+*.stl -text
+*.3mf -text
