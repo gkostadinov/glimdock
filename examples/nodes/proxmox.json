@@ -1,0 +1,21 @@
+{
+  "host_ip": "127.0.0.1",
+  "node": "",
+  "display_name": "",
+  "enable_local": true,
+  "local_type": "proxmox",
+  "interval_s": 3,
+  "printers": [],
+  "remote_collectors": [],
+  "network_interfaces": [],
+  "disk_devices": [],
+  "smart_devices": [],
+  "enable_turbostat": true,
+  "enable_smart": true,
+  "enable_zfs": true,
+  "enable_gpus": true,
+  "enable_faults": true,
+  "expected_running_guests": [],
+  "qga_guest_ids": [],
+  "enable_proxmox": true
+}

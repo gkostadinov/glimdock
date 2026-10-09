@@ -1,0 +1,29 @@
+{
+  "format": 1,
+  "implementation": "production firmware UI, LVGL software renderer, production snapshot/config parser",
+  "public_build": true,
+  "width": 320,
+  "height": 240,
+  "rotation": 3,
+  "lvgl": "9.3.0",
+  "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+  "sources": {
+    "firmware/src/main.cpp": "df1fad8f0871ad6fa903552080dd3fffa35208957d1028b467958a8c2d048870",
+    "firmware/src/model.h": "7de80e37f9db4d6265243c1727a996cae0e0d387ed249e87d1cfdcb68a9f6693",
+    "firmware/src/network.cpp": "206fa045f6ec5106fce3aa8262e53a627816043ced324ca4ee0ba4a23936f9c0",
+    "firmware/include/lv_conf.h": "30287193318240073f56c867dd3babc77d363bcae79095724b6eef22aff88238",
+    "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
+    "tools/web-emulator/emulator.cpp": "d87160b0a3020b544dfede4a1764f89b2259f7e2d11aafd10b1cd50179ab65de"
+  },
+  "assets": {
+    "firmware.js": {
+      "sha256": "52d6eb409963a85ef977e678a30c98ebecb9f9115b3ab07ddfe8548ed83740f5",
+      "bytes": 16932
+    },
+    "firmware.wasm": {
+      "sha256": "e2c394bc4f8da8a149c70b96d178616a43b514947c2bfa645af13c4426a3b0c9",
+      "bytes": 945653
+    }
+  },
+  "licenses": "LICENSES.txt"
+}

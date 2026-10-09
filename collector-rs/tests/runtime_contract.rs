@@ -38,7 +38,7 @@ fn local(now: f64) -> Value {
 fn manager() -> (tempfile::TempDir, ConfigManager) {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("config.json");
-    fs::write(&path,br#"{"node":"vm","host_ip":"192.0.2.2","qga_guest_ids":[100],"truenas_ssh_key":"/private/nas-key"}"#).unwrap();
+    fs::write(&path,br#"{"enable_proxmox":true,"node":"vm","host_ip":"192.0.2.2","qga_guest_ids":[100],"truenas_ssh_key":"/private/nas-key"}"#).unwrap();
     (dir, ConfigManager::new(path))
 }
 fn upsert(manager: &ConfigManager, node: Value) -> Result<Value, config::ConfigError> {
@@ -262,6 +262,63 @@ fn bounded_inventory_reports_omissions_and_stays_below_wire_cap() {
     assert!(serde_json::to_vec(&bounded).unwrap().len() <= MAX_PAYLOAD);
 }
 #[test]
+fn rebounding_portable_inventory_preserves_omissions_without_duplicate_counts_or_alerts() {
+    let mut sample = local(1000.);
+    sample["platform"] = json!({"os":"macos","interfaces":(0..16).map(|i| json!({"name":format!("en{i}")})).collect::<Vec<_>>()});
+    sample["host"]["cpu_cores"] = json!([1, 2, 3, 4]);
+    sample["limits"]["counts"]["network_interfaces"] = json!(22);
+    sample["limits"]["truncated"] = json!({"network_interfaces":6});
+    sample["alerts"] = json!([{"id":"display/truncated","severity":"warning","message":"Display capacity reached; some items omitted"}]);
+    let bounded = runtime::bounded_snapshot(sample);
+    assert_eq!(
+        bounded["platform"]["interfaces"].as_array().unwrap().len(),
+        16
+    );
+    assert_eq!(bounded["limits"]["counts"]["network_interfaces"], 22);
+    assert_eq!(bounded["limits"]["truncated"]["network_interfaces"], 6);
+    assert_eq!(bounded["limits"]["max_network_interfaces"], 16);
+    assert_eq!(bounded["alerts"].as_array().unwrap().len(), 1);
+    assert_eq!(bounded["alerts"][0]["id"], "display/truncated");
+    assert_eq!(runtime::bounded_snapshot(bounded.clone()), bounded);
+    assert!(serde_json::to_vec(&bounded).unwrap().len() <= MAX_PAYLOAD);
+}
+
+#[test]
+fn nested_inventory_bounds_derive_only_unsigned_known_omission_metadata() {
+    let mut sample = local(1000.);
+    sample["platform"] =
+        json!({"interfaces":(0..22).map(|i| json!({"name":format!("en{i}")})).collect::<Vec<_>>()});
+    sample["host"]["cpu_cores"] = json!((0..67).collect::<Vec<_>>());
+    sample["limits"]["network_interfaces"] =
+        json!((0..22).map(|i| format!("en{i}")).collect::<Vec<_>>());
+    sample["limits"]["counts"] = json!({"network_interfaces":"900","cpu_cores":-4});
+    sample["limits"]["truncated"] =
+        json!({"network_interfaces":900,"cpu_cores":900,"invented_inventory":u64::MAX});
+    let bounded = runtime::bounded_snapshot(sample);
+    assert_eq!(
+        bounded["platform"]["interfaces"].as_array().unwrap().len(),
+        16
+    );
+    assert_eq!(bounded["host"]["cpu_cores"].as_array().unwrap().len(), 64);
+    assert_eq!(
+        bounded["limits"]["network_interfaces"]
+            .as_array()
+            .unwrap()
+            .len(),
+        16
+    );
+    assert_eq!(bounded["limits"]["counts"]["network_interfaces"], 22);
+    assert_eq!(bounded["limits"]["truncated"]["network_interfaces"], 6);
+    assert_eq!(bounded["limits"]["counts"]["cpu_cores"], 67);
+    assert_eq!(bounded["limits"]["truncated"]["cpu_cores"], 3);
+    assert!(bounded["limits"]["truncated"]
+        .get("invented_inventory")
+        .is_none());
+    assert_eq!(bounded["alerts"].as_array().unwrap().len(), 1);
+    assert_eq!(runtime::bounded_snapshot(bounded.clone()), bounded);
+    assert!(serde_json::to_vec(&bounded).unwrap().len() <= MAX_PAYLOAD);
+}
+#[test]
 fn oversized_base_cannot_exceed_wire_cap() {
     let mut sample = local(1000.);
     sample["power"]["malformed"] = json!("x".repeat(MAX_PAYLOAD * 2));
@@ -412,13 +469,22 @@ fn record(id: &str, kind: &str, sample: Value) -> Value {
     json!({"id":id,"type":kind,"name":id,"address":"192.0.2.2","snapshot":sample})
 }
 #[test]
-fn empty_registry_is_readable_for_setup_but_has_no_default_snapshot() {
+fn empty_registry_is_readable_for_setup_and_clears_default_display_snapshot() {
     let (_dir, s) = store(vec![], 1000.);
     assert_eq!(s.nodes(1000.).unwrap()["nodes"], json!([]));
-    assert!(matches!(s.read(None, 1000.), Err(StoreError::NoNodes)));
+    let empty = s.read(None, 1000.).unwrap().0;
+    assert_eq!(empty["schema"], 1);
+    assert_eq!(empty["nodes"], json!([]));
+    assert!(empty.get("node").is_none());
+    assert!(empty["host"]["cpu_pct"].is_null());
+    assert_eq!(empty["alerts"][0]["id"], "setup/no-nodes");
+    assert!(matches!(
+        s.read(Some("server:missing"), 1000.),
+        Err(StoreError::UnknownNode)
+    ));
 }
 #[test]
-fn selected_registry_retains_only_its_sources_and_default_is_proxmox() {
+fn selected_registry_retains_only_its_sources_and_default_is_first_node() {
     let p = printers::printer_snapshot(&source(), &SourceStatus::default(), None, 1, 1000.);
     let (_dir, s) = store(
         vec![
@@ -427,7 +493,7 @@ fn selected_registry_retains_only_its_sources_and_default_is_proxmox() {
         ],
         1000.,
     );
-    assert_eq!(s.read(None, 1000.).unwrap().0["node"]["id"], "proxmox:vm");
+    assert_eq!(s.read(None, 1000.).unwrap().0["node"]["id"], "klipper:p");
     let selected = s.read(Some("klipper:p"), 1000.).unwrap().0;
     assert!(selected["sources"].get("proc").is_none());
     assert_eq!(selected["nodes"].as_array().unwrap().len(), 2);
@@ -552,7 +618,7 @@ async fn http_empty_nodes_health_and_setup_remain_distinct() {
     let app = server::router(HttpState::new(s, "d".repeat(43), None, PathBuf::new()).unwrap());
     assert_eq!(
         http(app.clone(), "GET", "/healthz", None, None).await,
-        (503, json!({"ok":false}))
+        (200, json!({"ok":true}))
     );
     assert_eq!(
         http(
@@ -566,10 +632,11 @@ async fn http_empty_nodes_health_and_setup_remain_distinct() {
         .1["nodes"],
         json!([])
     );
-    assert_eq!(
-        http(app, "GET", "/api/v1/snapshot", Some(&"d".repeat(43)), None).await,
-        (404, json!({"error":"no nodes"}))
-    );
+    let empty = http(app, "GET", "/api/v1/snapshot", Some(&"d".repeat(43)), None).await;
+    assert_eq!(empty.0, 200);
+    assert_eq!(empty.1["nodes"], json!([]));
+    assert!(empty.1["host"]["mem_total_bytes"].is_null());
+    assert_eq!(empty.1["sources"]["collector"]["enabled"], false);
 }
 #[tokio::test]
 async fn config_socket_protocol_restores_local_and_reports_conflicts() {
@@ -606,7 +673,7 @@ async fn config_socket_protocol_restores_local_and_reports_conflicts() {
 #[tokio::test]
 async fn disabled_local_collector_never_launches_probes() {
     let mut collector = runtime::Collector::new(Config {
-        enable_proxmox: false,
+        enable_local: false,
         ..Default::default()
     })
     .unwrap();
@@ -791,4 +858,663 @@ fn generated_timestamp_must_be_a_json_number() {
     sample["generated_at"] = json!("1000");
     let mut reader = RemoteCollectorReader::new(source()).unwrap();
     assert!(reader.validate(sample, 1000.).is_err());
+}
+
+#[test]
+fn server_configuration_validates_platforms_and_preserves_legacy_defaults() {
+    assert_eq!(Config::default().local_type, "server");
+    assert_eq!(NodeConfig::default().node_type, "proxmox");
+    for platform in ["linux", "macos", "windows", "router", "other", ""] {
+        let cfg = Config::from_value(json!({"local_type":"server","remote_collectors":[{"id":"device","type":"server","platform":platform,"url":"http://device"}]})).unwrap();
+        assert_eq!(cfg.remote_collectors[0].platform, platform);
+    }
+    for value in [
+        json!({"local_type":"windows"}),
+        json!({"remote_collectors":[{"id":"device","type":"router","url":"http://device"}]}),
+        json!({"remote_collectors":[{"id":"device","type":"proxmox","platform":"macos","url":"http://device"}]}),
+        json!({"remote_collectors":[{"id":"device","type":"proxmox","platform":"router","url":"http://device"}]}),
+        json!({"remote_collectors":[{"id":"device","type":"server","platform":"unrecognized","url":"http://device"}]}),
+        json!({"remote_collectors":[{"id":"device","type":"server","url":"http://device","ttl_s":5}]}),
+        json!({"printers":[{"id":"printer","type":"server","url":"http://printer"}]}),
+    ] {
+        assert!(Config::from_value(value).is_err());
+    }
+}
+
+#[test]
+fn manager_preserves_local_identity_and_server_secret_contract() {
+    let (_dir, manager) = manager();
+    let local = upsert(
+        &manager,
+        json!({"type":"local-server","id":"proxmox:vm","name":"Linux Host","platform":config::native_platform()}),
+    )
+    .unwrap();
+    assert_eq!(local["config"]["local_node"]["id"], "proxmox:vm");
+    assert_eq!(local["config"]["local_node"]["type"], "server");
+    assert_eq!(local["config"]["nodes"][0]["type"], "server");
+    assert!(upsert(
+        &manager,
+        json!({"type":"local-server","name":"Linux Host","platform":"windows"})
+    )
+    .is_err());
+    assert!(upsert(
+        &manager,
+        json!({"type":"server-feed","name":"Router","url":"http://router","secret":"too-short"})
+    )
+    .is_err());
+    let result = upsert(&manager, json!({"type":"server-feed","name":"Router","url":"http://router","platform":"router","secret":"s".repeat(43)})).unwrap();
+    assert_eq!(result["config"]["nodes"][1]["type"], "server");
+    assert_eq!(result["config"]["nodes"][1]["platform"], "router");
+    assert_eq!(result["config"]["nodes"][1]["has_secret"], true);
+    assert!(!result.to_string().contains(&"s".repeat(43)));
+    let cfg = Config::read(&manager.path).unwrap();
+    assert_eq!(cfg.remote_collectors[0].node_type, "server");
+    assert_eq!(cfg.remote_collectors[0].platform, "router");
+    upsert(
+        &manager,
+        json!({"type":"server-feed","id":"remote:Router","name":"Router Renamed"}),
+    )
+    .unwrap();
+    assert_eq!(
+        Config::read(&manager.path).unwrap().remote_collectors[0].platform,
+        "router"
+    );
+    upsert(
+        &manager,
+        json!({"type":"local-proxmox","id":"proxmox:vm","name":"PVE","platform":"linux"}),
+    )
+    .unwrap();
+    assert_eq!(manager.get().unwrap()["local_node"]["id"], "proxmox:vm");
+    assert_eq!(manager.get().unwrap()["local_node"]["type"], "proxmox");
+    assert_eq!(manager.get().unwrap()["local_node"]["platform"], "linux");
+    assert_eq!(manager.get().unwrap()["nodes"][0]["platform"], "linux");
+}
+
+fn device_sample(now: f64, platform: &str) -> Value {
+    let mut sample = local(now);
+    sample["node"] = json!({"id":"server:device","type":"server","platform":platform,"name":"Device","address":"192.0.2.2"});
+    sample["platform"] = json!({"os":platform,"architecture":"arm64","interfaces":[{"name":"eth0","rx_bps":120}],"battery":{"percent":70}});
+    sample
+}
+
+#[test]
+fn device_feeds_preserve_platform_telemetry_and_reject_wrong_descriptors() {
+    for platform in ["macos", "linux", "windows", "router", "other"] {
+        let config = NodeConfig {
+            node_type: "server".into(),
+            ..source()
+        };
+        let mut reader = RemoteCollectorReader::new(config).unwrap();
+        let result = reader
+            .validate(device_sample(1000., platform), 1000.)
+            .unwrap();
+        assert_eq!(result["node_platform"], platform);
+        assert_eq!(result["snapshot"]["platform"]["architecture"], "arm64");
+        assert_eq!(
+            result["snapshot"]["platform"]["interfaces"][0]["rx_bps"],
+            120
+        );
+        assert!(result["snapshot"].get("node").is_none());
+    }
+    for patch in [
+        json!({"node":{"type":"proxmox"}}),
+        json!({"node":{"type":"server","platform":"invalid"}}),
+        json!({"node":{"type":"server","platform":false}}),
+        json!({"node":null}),
+        json!({"platform":[]}),
+        json!({"demo":true}),
+        json!({"printer":{}}),
+    ] {
+        let mut sample = device_sample(1000., "linux");
+        for (key, value) in patch.as_object().unwrap() {
+            sample[key] = value.clone();
+        }
+        let mut reader = RemoteCollectorReader::new(NodeConfig {
+            node_type: "server".into(),
+            ..source()
+        })
+        .unwrap();
+        assert!(reader.validate(sample, 1000.).is_err());
+    }
+    let mut reader = RemoteCollectorReader::new(NodeConfig {
+        node_type: "server".into(),
+        ..source()
+    })
+    .unwrap();
+    assert!(reader.validate(local(1000.), 1000.).is_err());
+    let mut legacy = RemoteCollectorReader::new(source()).unwrap();
+    assert!(legacy
+        .validate(device_sample(1000., "linux"), 1000.)
+        .is_err());
+    let mut mismatched = RemoteCollectorReader::new(NodeConfig {
+        node_type: "server".into(),
+        platform: "windows".into(),
+        ..source()
+    })
+    .unwrap();
+    assert!(mismatched
+        .validate(device_sample(1000., "macos"), 1000.)
+        .is_err());
+    let mut unspecified = RemoteCollectorReader::new(NodeConfig {
+        node_type: "server".into(),
+        platform: "other".into(),
+        ..source()
+    })
+    .unwrap();
+    assert!(unspecified
+        .validate(device_sample(1000., ""), 1000.)
+        .is_ok());
+}
+
+#[test]
+fn server_registry_preserves_platform_without_a_preferred_host_type() {
+    let mut local_server = record("proxmox:local", "server", device_sample(1000., "linux"));
+    local_server["platform"] = json!("linux");
+    let (_dir, s) = store(
+        vec![record("remote:pve", "proxmox", local(1000.)), local_server],
+        1000.,
+    );
+    let selected = s.read(None, 1000.).unwrap().0;
+    assert_eq!(selected["node"]["id"], "remote:pve");
+    assert_eq!(selected["node"]["type"], "proxmox");
+    assert_eq!(selected["node"]["platform"], "");
+    assert_eq!(s.nodes(1000.).unwrap()["nodes"][1]["platform"], "linux");
+    let mut bad = record("server:bad", "server", device_sample(1000., "linux"));
+    bad["platform"] = json!("invalid");
+    let (_dir, s) = store(vec![bad], 1000.);
+    assert!(s.nodes(1000.).is_err());
+}
+
+#[test]
+fn schema1_portable_endpoint_retains_server_descriptor() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("snapshot.json");
+    fs::write(
+        &path,
+        serde_json::to_vec(&device_sample(1000., "macos")).unwrap(),
+    )
+    .unwrap();
+    let store = SnapshotStore::new(path, false);
+    let sample = store.read(None, 1000.).unwrap().0;
+    assert_eq!(sample["node"]["id"], "server:device");
+    assert_eq!(sample["node"]["type"], "server");
+    assert_eq!(sample["node"]["platform"], "macos");
+}
+
+#[tokio::test]
+async fn collector_infers_upstream_platform_and_keeps_configured_platform() {
+    let (origin, child) =
+        mock_server(axum::Router::new().fallback(|| async {
+            axum::Json(device_sample(glimdock_collector::epoch(), "macos"))
+        }))
+        .await;
+    let (unspecified_origin, unspecified_child) = mock_server(
+        axum::Router::new()
+            .fallback(|| async { axum::Json(device_sample(glimdock_collector::epoch(), "")) }),
+    )
+    .await;
+    let mut collector = runtime::Collector::new(Config::from_value(json!({"enable_proxmox":false,"remote_collectors":[{"id":"inferred","type":"server","url":origin},{"id":"configured","type":"server","platform":"other","url":unspecified_origin}]})).unwrap()).unwrap();
+    collector.sample().await.unwrap();
+    collector.initialize().await;
+    let result = collector.sample().await.unwrap();
+    assert_eq!(result["nodes"][0]["type"], "server");
+    assert_eq!(result["nodes"][0]["platform"], "macos");
+    assert_eq!(result["nodes"][1]["platform"], "other");
+    assert_eq!(result["nodes"][0]["snapshot"]["platform"]["os"], "macos");
+    child.abort();
+    unspecified_child.abort();
+}
+
+#[test]
+fn generic_defaults_and_explicit_legacy_proxmox_keep_their_identities() {
+    let generic = Config::from_value(json!({"node":"hub"})).unwrap();
+    assert_eq!(generic.local_type, "server");
+    assert!(generic.enable_local);
+    assert_eq!(generic.local_node_id(), "server:hub");
+    let legacy = Config::from_value(json!({"node":"vm","enable_proxmox":true})).unwrap();
+    assert_eq!(legacy.local_type, "proxmox");
+    assert_eq!(legacy.local_node_id(), "proxmox:vm");
+    let disabled = Config::from_value(json!({"node":"hub","enable_local":false})).unwrap();
+    assert_eq!(disabled.enabled_node_count(), 0);
+    assert!(Config::from_value(json!({"enable_local":true,"enable_proxmox":true})).is_err());
+}
+
+#[test]
+fn ordinary_host_can_be_edited_disabled_and_restored_with_normal_node_types() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    fs::write(&path, br#"{"node":"hub","enable_local":true}"#).unwrap();
+    let manager = ConfigManager::new(path);
+    let public = manager.get().unwrap();
+    assert_eq!(public["nodes"][0]["type"], "server");
+    assert_eq!(public["nodes"][0]["origin"], "host");
+    let updated = upsert(&manager, json!({"type":"proxmox","origin":"host","id":"server:hub","name":"PVE","address":"192.0.2.5","poll_interval_s":5})).unwrap();
+    assert_eq!(updated["config"]["local_node"]["id"], "server:hub");
+    assert_eq!(Config::read(&manager.path).unwrap().interval_s, 5.);
+    upsert(
+        &manager,
+        json!({"type":"proxmox","origin":"host","id":"server:hub","name":"PVE","enabled":false}),
+    )
+    .unwrap();
+    let cfg = Config::read(&manager.path).unwrap();
+    assert!(!cfg.enable_local);
+    assert_eq!(cfg.local_type, "proxmox");
+    assert_eq!(cfg.local_node_id(), "server:hub");
+    assert!(manager.get().unwrap()["nodes"]
+        .as_array()
+        .unwrap()
+        .is_empty());
+    upsert(
+        &manager,
+        json!({"type":"server","origin":"host","id":"server:hub","name":"Hub","enabled":true}),
+    )
+    .unwrap();
+    assert!(Config::read(&manager.path).unwrap().enable_local);
+    assert_eq!(
+        Config::read(&manager.path).unwrap().local_node_id(),
+        "server:hub"
+    );
+}
+
+#[tokio::test]
+async fn disabled_feeds_keep_configuration_but_never_launch_readers() {
+    let cfg = Config::from_value(json!({"enable_local":false,"remote_collectors":[{"id":"off","type":"server","enabled":false,"name":"Disabled","url":"http://127.0.0.1:1"}]})).unwrap();
+    assert_eq!(cfg.enabled_node_count(), 0);
+    assert_eq!(cfg.remote_collectors.len(), 1);
+    let mut collector = runtime::Collector::new(cfg).unwrap();
+    let sample = collector.sample().await.unwrap();
+    assert_eq!(sample["nodes"], json!([]));
+    collector.initialize().await;
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    fs::write(&path, br#"{"enable_local":false}"#).unwrap();
+    let manager = ConfigManager::new(path);
+    upsert(&manager,json!({"type":"server","origin":"feed","name":"Device","url":"http://127.0.0.1:1","enabled":false})).unwrap();
+    upsert(
+        &manager,
+        json!({"type":"server","origin":"feed","id":"remote:Device","name":"Renamed"}),
+    )
+    .unwrap();
+    assert_eq!(manager.get().unwrap()["nodes"][0]["enabled"], false);
+    assert_eq!(manager.get().unwrap()["nodes"][0]["type"], "server");
+}
+
+#[test]
+fn summaries_show_finite_live_metrics_and_hide_expired_values() {
+    let mut sample = local(1000.);
+    sample["host"]["mem_used_bytes"] = json!(25);
+    sample["host"]["mem_total_bytes"] = json!(100);
+    sample["power"]["cpu_temp_c"] = json!(45);
+    sample["sensors"] = json!([{"kind":"temperature","value":80}]);
+    sample["printer"] = json!({"state":"printing","progress_pct":25});
+    let (_dir, s) = store(vec![record("server:host", "server", sample.clone())], 1000.);
+    let nodes = s.nodes(1000.).unwrap();
+    let summary = &nodes["nodes"][0]["summary"];
+    assert_eq!(summary["cpu_percent"], 23.);
+    assert_eq!(summary["memory_percent"], 25.);
+    assert_eq!(summary["temperature_c"], 45.);
+    assert_eq!(summary["progress_percent"], 25.);
+    assert_eq!(summary["print_state"], "printing");
+    assert_eq!(summary["sensors"], 1);
+    assert_eq!(
+        s.read(None, 1000.).unwrap().0["nodes"][0]["summary"],
+        *summary
+    );
+    assert_eq!(s.snapshots(1000.).unwrap()["nodes"][0]["summary"], *summary);
+    let expired = server::node_summary(&sample, 1016.);
+    for field in [
+        "cpu_percent",
+        "memory_percent",
+        "temperature_c",
+        "progress_percent",
+        "print_state",
+        "sensors",
+        "guests",
+    ] {
+        assert!(expired[field].is_null(), "{field}");
+    }
+    sample["feed"] = json!({"updated_at":980.,"ttl_s":15});
+    let expired_feed = server::node_summary(&sample, 1000.);
+    assert!(expired_feed["cpu_percent"].is_null());
+    assert_eq!(expired_feed["age_s"], 20.);
+    sample["feed"] = Value::Null;
+    sample["host"]["cpu_pct"] = json!("NaN");
+    sample["host"]["mem_used_bytes"] = json!(-1);
+    let invalid = server::node_summary(&sample, 1000.);
+    assert!(invalid["cpu_percent"].is_null());
+    assert!(invalid["memory_percent"].is_null());
+}
+
+#[tokio::test]
+async fn aggregate_read_role_and_web_info_do_not_expose_private_tokens() {
+    let now = glimdock_collector::epoch();
+    let (_dir, s) = store(vec![record("server:host", "server", local(now))], now);
+    let app = server::router(
+        HttpState::new(s, "d".repeat(43), Some("s".repeat(43)), PathBuf::new()).unwrap(),
+    );
+    assert_eq!(
+        http(app.clone(), "GET", "/api/v1/snapshots", None, None)
+            .await
+            .0,
+        401
+    );
+    assert_eq!(
+        http(
+            app.clone(),
+            "GET",
+            "/api/v1/snapshots",
+            Some(&"s".repeat(43)),
+            None
+        )
+        .await
+        .0,
+        401
+    );
+    let read = http(
+        app.clone(),
+        "GET",
+        "/api/v1/snapshots",
+        Some(&"d".repeat(43)),
+        None,
+    )
+    .await;
+    assert_eq!(read.0, 200);
+    assert_eq!(read.1["schema"], 2);
+    assert_eq!(read.1["nodes"][0]["summary"]["cpu_percent"], 23.);
+    let info = http(app, "GET", "/api/v1/web/info", None, None).await;
+    assert_eq!(info.0, 200);
+    assert_eq!(
+        info.1,
+        json!({"schema":1,"local_bridge":false,"management_available":true})
+    );
+}
+
+#[tokio::test]
+async fn credential_bridge_checks_loopback_host_and_write_origin_before_any_upstream_request() {
+    let now = glimdock_collector::epoch();
+    let (_dir, s) = store(vec![], now);
+    let state = HttpState::new(s, "d".repeat(43), Some("s".repeat(43)), PathBuf::new())
+        .unwrap()
+        .with_upstream("http://127.0.0.1:1")
+        .unwrap();
+    let app = server::router(state);
+    for (method, host, origin, expected) in [
+        ("GET", "evil.example:8766", None, 403),
+        ("GET", "[2001:db8::1]:8766", None, 403),
+        ("GET", "127.0.0.1:8766", Some("https://evil.example"), 403),
+        ("POST", "127.0.0.1:8766", None, 403),
+        ("POST", "127.0.0.1:8766", Some("http://127.0.0.1:8766"), 400),
+    ] {
+        let mut builder = Request::builder()
+            .method(method)
+            .uri("/api/v1/config")
+            .header("host", host);
+        if let Some(origin) = origin {
+            builder = builder.header("origin", origin);
+        }
+        let response = app
+            .clone()
+            .oneshot(builder.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status().as_u16(), expected);
+    }
+    for host in ["localhost:8766", "127.0.0.1:8766", "[::1]:8766"] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/web/info")
+                    .header("host", host)
+                    .header("origin", format!("http://{host}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+    }
+    assert!(HttpState::new(
+        SnapshotStore::new(PathBuf::new(), false),
+        "d".repeat(43),
+        None,
+        PathBuf::new()
+    )
+    .unwrap()
+    .with_upstream("http://user:key@hub")
+    .is_err());
+}
+
+#[tokio::test]
+async fn credential_bridge_forwards_only_its_role_key_to_fixed_api_routes() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<(String, String)>(4);
+    let mock = axum::Router::new().fallback(move |request: Request<Body>| {
+        let tx = tx.clone();
+        async move {
+            let path = request.uri().path().to_string();
+            let auth = request
+                .headers()
+                .get("authorization")
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+            tx.send((path, auth)).await.unwrap();
+            axum::Json(json!({"ok":true}))
+        }
+    });
+    let task = tokio::spawn(async move {
+        axum::serve(listener, mock).await.unwrap();
+    });
+    let state = HttpState::new(
+        SnapshotStore::new(PathBuf::new(), false),
+        "d".repeat(43),
+        Some("s".repeat(43)),
+        PathBuf::new(),
+    )
+    .unwrap()
+    .with_upstream(&format!("http://{addr}"))
+    .unwrap();
+    let app = server::router(state);
+    for (path, key) in [("/api/v1/snapshots", "d"), ("/api/v1/config", "s")] {
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .header("host", "127.0.0.1:8766")
+                    .header("authorization", "Bearer attacker-key")
+                    .header("cookie", "private=incoming")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), 200);
+        let sent = rx.recv().await.unwrap();
+        assert_eq!(
+            sent,
+            (path.to_string(), format!("Bearer {}", key.repeat(43)))
+        );
+    }
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/private/arbitrary")
+                .header("host", "127.0.0.1:8766")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 404);
+    assert!(rx.try_recv().is_err());
+    task.abort();
+}
+
+#[tokio::test]
+async fn credential_bridge_cannot_be_served_on_a_non_loopback_interface() {
+    let state = HttpState::new(
+        SnapshotStore::new(PathBuf::new(), false),
+        "d".repeat(43),
+        None,
+        PathBuf::new(),
+    )
+    .unwrap()
+    .with_upstream("http://192.0.2.1:8765")
+    .unwrap();
+    let error = server::serve("0.0.0.0:0".parse().unwrap(), state, None, None)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("loopback"));
+}
+
+#[test]
+fn all_node_summaries_remain_inside_the_firmware_selected_payload_bound() {
+    let mut crowded = local(1000.);
+    crowded["sensors"] = (0..64).map(|i| json!({"id":format!("sensor-{i}"),"kind":"temperature","value":40,"name":"x".repeat(1200)})).collect::<Vec<_>>().into();
+    let crowded = runtime::bounded_snapshot(crowded);
+    let nodes = (0..4)
+        .map(|i| record(&format!("server:node{i}"), "server", crowded.clone()))
+        .collect();
+    let (_dir, store) = store(nodes, 1000.);
+    let selected = store.read(None, 1000.).unwrap().0;
+    assert_eq!(selected["nodes"].as_array().unwrap().len(), 4);
+    assert!(selected["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .all(|n| n["summary"].is_object()));
+    assert!(serde_json::to_vec(&selected).unwrap().len() <= MAX_PAYLOAD);
+    assert!(
+        serde_json::to_vec(&store.snapshots(1000.).unwrap())
+            .unwrap()
+            .len()
+            <= glimdock_collector::MAX_AGGREGATE
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn native_macos_hub_host_uses_the_portable_collector_instead_of_linux_procfs() {
+    let cfg =
+        Config::from_value(json!({"node":"mac-hub","local_type":"server","enable_local":true}))
+            .unwrap();
+    let projection = ConfigManager::projection(&cfg, "test");
+    assert_eq!(projection["nodes"][0]["platform"], "macos");
+    let mut collector = runtime::Collector::new(cfg).unwrap();
+    let aggregate = collector.sample().await.unwrap();
+    let node = &aggregate["nodes"][0];
+    assert_eq!(node["id"], "server:mac-hub");
+    assert_eq!(node["platform"], "macos");
+    assert_eq!(node["snapshot"]["platform"]["os"], "macos");
+    assert!(node["snapshot"]["host"]["mem_total_bytes"]
+        .as_u64()
+        .is_some_and(|n| n > 0));
+    assert!(node["snapshot"]["sources"].get("proxmox").is_none());
+    assert!(node["snapshot"]["sources"].get("proc").is_none());
+}
+
+#[test]
+fn legacy_feed_capability_survives_host_flag_migration_and_other_feed_edits() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("config.json");
+    fs::write(&path,br#"{"node":"hub","enable_proxmox":true,"remote_collectors":[{"id":"pve","name":"PVE","url":"http://pve"}]}"#).unwrap();
+    let manager = ConfigManager::new(path);
+    assert_eq!(
+        Config::read(&manager.path).unwrap().remote_collectors[0].node_type,
+        "proxmox"
+    );
+    upsert(
+        &manager,
+        json!({"type":"server","origin":"host","id":"proxmox:hub","name":"Hub"}),
+    )
+    .unwrap();
+    let config = Config::read(&manager.path).unwrap();
+    assert_eq!(config.local_type, "server");
+    assert_eq!(config.remote_collectors[0].node_type, "proxmox");
+    upsert(
+        &manager,
+        json!({"type":"server","origin":"feed","name":"Mac","platform":"macos","url":"http://mac"}),
+    )
+    .unwrap();
+    let config = Config::read(&manager.path).unwrap();
+    assert_eq!(config.remote_collectors[0].node_type, "proxmox");
+    assert_eq!(config.remote_collectors[1].node_type, "server");
+    let fresh = Config::from_value(
+        json!({"enable_local":false,"remote_collectors":[{"id":"device","url":"http://device"}]}),
+    )
+    .unwrap();
+    assert_eq!(fresh.remote_collectors[0].node_type, "server");
+}
+
+#[test]
+fn descriptor_free_schema_one_defaults_to_server_unless_proxmox_telemetry_is_present() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("snapshot.json");
+    let mut sample = local(1000.);
+    fs::write(&path, serde_json::to_vec(&sample).unwrap()).unwrap();
+    let store = SnapshotStore::new(path.clone(), false);
+    let node = store.read(None, 1000.).unwrap().0["node"].clone();
+    assert_eq!(node["id"], "server:host");
+    assert_eq!(node["type"], "server");
+    assert_eq!(node["platform"], "linux");
+    sample["sources"]["proxmox"] = json!({"enabled":true,"ok":true,"updated_at":1000.});
+    fs::write(&path, serde_json::to_vec(&sample).unwrap()).unwrap();
+    assert_eq!(
+        store.read(None, 1000.).unwrap().0["node"]["id"],
+        "proxmox:host"
+    );
+    sample["sources"]["proxmox"]["enabled"] = json!(false);
+    fs::write(&path, serde_json::to_vec(&sample).unwrap()).unwrap();
+    assert_eq!(store.read(None, 1000.).unwrap().0["node"]["type"], "server");
+}
+
+#[tokio::test]
+async fn config_watcher_applies_valid_inventory_edits_without_resetting_sequence() {
+    use std::time::Duration;
+    let folder = tempfile::tempdir().unwrap();
+    let path = folder.path().join("config.json");
+    let output = folder.path().join("snapshot.json");
+    let initial = json!({"enable_local":false,"interval_s":1,"remote_collectors":[{"id":"device","type":"server","url":"http://127.0.0.1:1","name":"Before"}]});
+    config::atomic_write(&path, &serde_json::to_vec(&initial).unwrap(), 0o600).unwrap();
+    let cfg = Config::read(&path).unwrap();
+    let task_path = path.clone();
+    let task_output = output.clone();
+    let task = tokio::spawn(async move {
+        runtime::run(cfg, &task_output, false, None, Some(&task_path)).await
+    });
+    let mut before = Value::Null;
+    for _ in 0..120 {
+        if let Ok(bytes) = fs::read(&output) {
+            before = serde_json::from_slice(&bytes).unwrap();
+            if before["sequence"].as_u64().unwrap_or(0) >= 2 {
+                break;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    assert_eq!(before["nodes"][0]["id"], "remote:device");
+    let mut changed = initial;
+    changed["remote_collectors"][0]["enabled"] = json!(false);
+    config::atomic_write(&path, &serde_json::to_vec(&changed).unwrap(), 0o600).unwrap();
+    let mut after = Value::Null;
+    for _ in 0..120 {
+        let bytes = fs::read(&output).unwrap();
+        after = serde_json::from_slice(&bytes).unwrap();
+        if after["nodes"].as_array().unwrap().is_empty() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    assert_eq!(after["nodes"], json!([]));
+    assert!(after["sequence"].as_u64().unwrap() > before["sequence"].as_u64().unwrap());
+    config::atomic_write(&path, br#"{"enable_local":"invalid"}"#, 0o600).unwrap();
+    tokio::time::sleep(Duration::from_millis(1100)).await;
+    let retained: Value = serde_json::from_slice(&fs::read(output).unwrap()).unwrap();
+    assert_eq!(retained["nodes"], json!([]));
+    assert!(retained["sequence"].as_u64().unwrap() > after["sequence"].as_u64().unwrap());
+    task.abort();
 }

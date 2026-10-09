@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {nodeSummary,ratio,escapeHtml} from '../assets/data.js';
+test('summary preserves genuine zero and platform metrics',()=>{const n=nodeSummary({type:'server',status:'healthy',summary:{generated_at:100,ttl_s:15,cpu_percent:0,memory_percent:0,temperature_c:0,sensors:23}},101);assert.equal(n.summary.cpu_percent,0);assert.equal(n.summary.memory_percent,0);assert.equal(n.summary.temperature_c,0);assert.equal(n.summary.sensors,23);});
+test('stale and offline summaries do not show old metrics',()=>{const n={status:'healthy',summary:{generated_at:100,ttl_s:15,cpu_percent:35,memory_percent:87}};assert.equal(nodeSummary(n,116).summary.cpu_percent,null);assert.equal(nodeSummary({...n,status:'offline'},101).summary.memory_percent,null);});
+test('missing, invalid and overflowing metrics remain unknown',()=>{assert.equal(ratio(1,0),null);assert.equal(ratio(12,10),null);const n=nodeSummary({status:'healthy',summary:{generated_at:100,cpu_percent:101,memory_percent:NaN}},101);assert.equal(n.summary.cpu_percent,null);assert.equal(n.summary.memory_percent,null);assert.equal(escapeHtml('<img src=x onerror="alert(1)">'),'&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');});

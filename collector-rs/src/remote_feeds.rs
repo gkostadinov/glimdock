@@ -1,6 +1,6 @@
-//! Fixed read-only upstream Proxmox feeds. No redirects or transparent proxy.
+//! Fixed read-only upstream host/device feeds. No redirects or transparent proxy.
 use crate::{
-    config::NodeConfig,
+    config::{valid_platform, NodeConfig},
     number,
     runtime::{empty_snapshot, SourceStatus},
     MAX_PAYLOAD,
@@ -12,6 +12,7 @@ const FIELDS: &[&str] = &[
     "sequence",
     "generated_at",
     "host",
+    "platform",
     "power",
     "guests",
     "storage",
@@ -61,7 +62,7 @@ impl RemoteCollectorReader {
             || document.get("printer").is_some()
             || !document["host"].is_object()
         {
-            bail!("Expected live schema1 Proxmox snapshot");
+            bail!("Expected live schema1 host/device snapshot");
         }
         if stamp > now + 60. || now - stamp > self.config.ttl_s {
             bail!("Remote snapshot expired or future dated");
@@ -88,16 +89,36 @@ impl RemoteCollectorReader {
         {
             bail!("Invalid remote sources");
         }
-        for field in ["power", "limits", "faults"] {
+        for field in ["power", "platform", "limits", "faults"] {
             if document.get(field).is_some_and(|v| !v.is_object()) {
                 bail!("Invalid remote object");
             }
         }
-        if document
-            .get("node")
-            .is_some_and(|n| !n.is_object() || n["type"] != "proxmox")
+        let platform = match document.get("node") {
+            Some(node) => {
+                if !node.is_object() || node["type"] != self.config.node_type {
+                    bail!("Remote endpoint has a different node type");
+                }
+                match node.get("platform") {
+                    None => "",
+                    Some(value) => value
+                        .as_str()
+                        .filter(|p| valid_platform(p))
+                        .ok_or_else(|| anyhow::anyhow!("Invalid remote platform"))?,
+                }
+            }
+            None if self.config.node_type == "proxmox" => "",
+            None => bail!("Remote host/device descriptor is required"),
+        }
+        .to_string();
+        if !self.config.platform.is_empty()
+            && !platform.is_empty()
+            && platform != self.config.platform
         {
-            bail!("Remote endpoint is not Proxmox");
+            bail!("Remote platform does not match configuration");
+        }
+        if self.config.node_type == "server" && document["host"].get("name").is_none() {
+            bail!("Remote host name is required");
         }
         let mut own = json!({});
         for field in FIELDS {
@@ -115,7 +136,7 @@ impl RemoteCollectorReader {
                 own[field] = json!([]);
             }
         }
-        Ok(json!({"snapshot":own,"generated_at":stamp,"error":null}))
+        Ok(json!({"snapshot":own,"generated_at":stamp,"node_platform":platform,"error":null}))
     }
 }
 pub fn remote_snapshot(
@@ -169,7 +190,7 @@ pub fn remote_snapshot(
             .as_deref()
             .unwrap_or("Remote snapshot expired/unavailable"));
         if state.error.as_deref() != Some("initializing") {
-            sample["alerts"] = json!([{"id":format!("remote/{}/unavailable",config.id),"severity":"warning","message":"Remote Proxmox telemetry unavailable"}]);
+            sample["alerts"] = json!([{"id":format!("remote/{}/unavailable",config.id),"severity":"warning","message":if config.node_type=="proxmox"{"Remote Proxmox telemetry unavailable"}else{"Remote host/device telemetry unavailable"}}]);
         }
         sample
     };

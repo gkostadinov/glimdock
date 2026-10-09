@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "demo": true,
+  "sequence": 1,
+  "generated_at": 1700000000,
+  "node": {
+    "id": "server:workstation",
+    "type": "server",
+    "name": "Workstation",
+    "address": "192.0.2.20",
+    "platform": "linux",
+    "status": "healthy"
+  },
+  "host": {
+    "name": "Workstation",
+    "ip": "192.0.2.20",
+    "cpu_pct": 24,
+    "cpu_cores": [
+      10,
+      20,
+      30,
+      36
+    ],
+    "mem_used_bytes": 6442450944,
+    "mem_total_bytes": 17179869184,
+    "uptime_s": 86400,
+    "net_rx_bps": 125000,
+    "net_tx_bps": 62000,
+    "disk_read_bps": 1000000,
+    "disk_write_bps": 500000
+  },
+  "platform": {
+    "os": "linux",
+    "release": "example",
+    "architecture": "x86_64",
+    "cpu_count": 4,
+    "interfaces": []
+  },
+  "power": {
+    "cpu_temp_c": 47
+  },
+  "guests": [],
+  "gpus": [],
+  "storage": [
+    {
+      "id": "root",
+      "name": "System disk",
+      "used_bytes": 107374182400,
+      "total_bytes": 549755813888,
+      "status": "available"
+    }
+  ],
+  "disks": [],
+  "sensors": [
+    {
+      "id": "cpu-temp",
+      "name": "CPU temperature",
+      "chip": "Example",
+      "kind": "temperature",
+      "value": 47,
+      "unit": "\u00b0C"
+    }
+  ],
+  "alerts": [],
+  "faults": {
+    "events": []
+  },
+  "sources": {
+    "host": {
+      "enabled": true,
+      "ok": true,
+      "age_s": 0
+    }
+  },
+  "node_ttl_s": 15
+}

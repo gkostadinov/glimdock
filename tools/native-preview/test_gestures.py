@@ -12,18 +12,21 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from render import ROOT, fixture, png
+from render import ROOT, configured_rotation, viewport, fixture, png
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output',type=Path,default=ROOT/'output/native-gestures')
     source_key=hashlib.sha256(str(ROOT.resolve()).encode()).hexdigest()[:10]
     parser.add_argument('--build-dir',type=Path,default=Path(tempfile.gettempdir())/('homelab-native-gesture-build-'+source_key))
+    parser.add_argument("--rotation",type=int,choices=range(4),default=configured_rotation(),help="0/2 portrait, 1/3 landscape; defaults to firmware config")
     args=parser.parse_args()
+    args.build_dir = args.build_dir.with_name(args.build_dir.name+"-r"+str(args.rotation))
+    width,height=viewport(args.rotation)
     args.output.mkdir(parents=True,exist_ok=True);args.build_dir.mkdir(parents=True,exist_ok=True)
-    document=json.loads((ROOT/'agent/demo.json').read_text())
+    document=json.loads((ROOT/'examples/snapshots/firmware-inventory.json').read_text())
     document['node']={'id':'test:pve','type':'proxmox','name':'Test lab','address':'192.0.2.10','status':'healthy'}
-    document['nodes']=[document['node'],{'id':'test:printer','type':'klipper','name':'Test printer','address':'192.0.2.12:7125','status':'healthy'}]
+    document['nodes']=[document['node'],{'id':'test:printer','type':'klipper','name':'Test printer','address':'192.0.2.30:7125','status':'healthy'}]
     # Explicit UI test data: no external guest/device probe is performed.
     gib=1073741824
     if document.get('guests'):
@@ -42,7 +45,7 @@ def main():
         (args.build_dir/'CMakeFiles/native-gestures.dir'/('gestures.cpp.'+suffix)).unlink(missing_ok=True)
     lvgl=ROOT/'firmware/.pio/libdeps/homelab_s3/lvgl'
     if not (lvgl/'CMakeLists.txt').exists():parser.error('LVGL dependency missing; install the firmware dependencies first')
-    commands=[['cmake','-S',str(Path(__file__).parent),'-B',str(args.build_dir),f'-DLVGL_SOURCE_DIR={lvgl}','-DCMAKE_BUILD_TYPE=Release'],['cmake','--build',str(args.build_dir),'--target','native-gestures','-j','8']]
+    commands=[['cmake','-S',str(Path(__file__).parent),'-B',str(args.build_dir),f'-DLVGL_SOURCE_DIR={lvgl}','-DCMAKE_BUILD_TYPE=Release',f'-DHOMELAB_ROTATION={args.rotation}'],['cmake','--build',str(args.build_dir),'--target','native-gestures','-j','8']]
     with (args.build_dir/'gesture-build.log').open('w') as log:
         for command in commands:
             result=subprocess.run(command,stdout=log,stderr=subprocess.STDOUT)
@@ -52,9 +55,12 @@ def main():
     if ('fixture_sha256='+fingerprint) not in result.stdout:
         print('Gesture fixture fingerprint does not match input',file=sys.stderr)
         return 1
+    if f'viewport={width}x{height} rotation={args.rotation}' not in result.stdout:
+        print('Gesture viewport does not match selected rotation',file=sys.stderr)
+        return 1
     (args.output/'results.txt').write_text(result.stdout+result.stderr)
     for path in args.output.glob('*.ppm'):png(path)
-    (args.output/'provenance.json').write_text(json.dumps({'firmware_sha256':hashlib.sha256((ROOT/'firmware/src/main.cpp').read_bytes()).hexdigest(),'model_sha256':hashlib.sha256((ROOT/'firmware/src/model.h').read_bytes()).hexdigest(),'method':'Real LVGL 9.3 pointer state machine with continuous press/move/release samples','preferences':'In-memory simulation; device persistence requires hardware confirmation','passed':result.returncode==0,'passed_checks':sum(line.startswith('PASS:') for line in result.stdout.splitlines()),'management_operations':'In-memory simulation; no collector or Wi-Fi changes'},indent=2)+'\n')
+    (args.output/'provenance.json').write_text(json.dumps({'firmware_sha256':hashlib.sha256((ROOT/'firmware/src/main.cpp').read_bytes()).hexdigest(),'rotation':args.rotation,'native_resolution':[width,height],'board_sha256':hashlib.sha256((ROOT/'firmware/src/board.h').read_bytes()).hexdigest(),'model_sha256':hashlib.sha256((ROOT/'firmware/src/model.h').read_bytes()).hexdigest(),'method':'Real LVGL 9.3 pointer state machine with continuous press/move/release samples','preferences':'In-memory simulation; device persistence requires hardware confirmation','passed':result.returncode==0,'passed_checks':sum(line.startswith('PASS:') for line in result.stdout.splitlines()),'management_operations':'In-memory simulation; no collector or Wi-Fi changes'},indent=2)+'\n')
     return result.returncode
 
 if __name__=='__main__':raise SystemExit(main())

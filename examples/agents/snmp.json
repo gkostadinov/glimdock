@@ -1,0 +1,16 @@
+{
+  "id": "router",
+  "name": "Router",
+  "platform": "router",
+  "address": "192.0.2.1",
+  "port": 161,
+  "credential_file": "/absolute/private/path/snmp.credentials.json",
+  "interval_s": 10,
+  "timeout_s": 2,
+  "interfaces": [{"id": "wan", "name": "WAN", "index": 1, "counter_bits": 64}],
+  "storage": [],
+  "memory_index": null,
+  "cpu_oids": [],
+  "host_metrics": {},
+  "sensors": []
+}

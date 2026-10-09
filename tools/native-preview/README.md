@@ -1,37 +1,80 @@
-# Actual firmware UI preview
+# Actual firmware rendering and pointer checks
 
-This renderer compiles `firmware/src/main.cpp` against LVGL 9.3.0 and the firmware's fonts, layout, RGB565 color format and 512 KiB memory pool. LVGL draws into a 320 × 240 offscreen framebuffer; the runner saves PNGs without connecting to an ESP32 or the homelab.
+This tool compiles `firmware/src/main.cpp` against the same LVGL 9.3.0, fonts,
+layout, RGB565 color format and fixed 512 KiB heap as the physical display.
+It renders offscreen PNGs and runs continuous press/move/release interactions
+without connecting to a board or changing a collector.
 
-It requires Python 3, CMake and a C/C++ compiler. A completed PlatformIO firmware build supplies the pinned LVGL dependency automatically:
+Use Python 3, CMake and a C/C++ compiler. Install the pinned LVGL dependency with
+PlatformIO, or supply `--lvgl-source PATH` / `LVGL_SOURCE_DIR`:
 
 ```sh
-python3 tools/native-preview/render.py --snapshot agent/demo.json --output output/native-demo
-python3 tools/native-preview/render.py --snapshot output/live/snapshot.json --output output/native-live
+pio pkg install --project-dir firmware --environment homelab_s3
+python3 tools/native-preview/render.py --snapshot examples/snapshots/host.json --rotation 3 --output output/native-host
+python3 tools/native-preview/render.py --snapshot examples/snapshots/all-nodes.json --rotation 3 --pages 19 --output output/native-fleet
+python3 tools/native-preview/test_gestures.py --rotation 3 --output output/gestures-landscape
+python3 tools/native-preview/test_gestures.py --rotation 0 --output output/gestures-portrait
+python3 tools/native-preview/test_rotations.py --output output/rotation-checks
 ```
 
-If LVGL is not installed under `firmware/.pio/libdeps/homelab_s3/lvgl`, supply its source directory with `--lvgl-source /path/to/lvgl-9.3.0`, or set `LVGL_SOURCE_DIR`.
+Rotation 0/2 renders 240 × 320; rotation 1/3 renders 320 × 240. The default follows
+the firmware header, while an explicit rotation controls the CMake build,
+viewport, captures and gallery together. Cache directories are separated by
+rotation. A portrait screen is never stretched into a landscape capture.
 
-The output covers Overview, guests, guest details, storage, disk details, sensors, CPU/power details, memory details, GPU inventory/device details, alerts, settings and scrolled views. Each main screen is also captured in Dark appearance. A full run also captures stale, offline and setup states. Use `--pages 0,3,6` to capture selected screens only:
+## Captures
+
+A render saves White/Dark screen PNGs, a gallery, the input snapshot, memory
+reports and `provenance.json`. Full runs include scrolled forms/details and
+simulated live, stale, offline and setup states. Use `--pages` for selected screens:
 
 | Page | Screen |
 | --- | --- |
-| 0 | Overview |
-| 1 | Guests |
-| 2 | Storage |
-| 3 | Sensors |
-| 4 | First guest details |
-| 5 | CPU/power, logical CPU usage and C-states |
-| 6 | Alerts, faults and source health |
+| 0 | Selected-node Overview |
+| 1 | Proxmox guests or Klipper job |
+| 2 | Storage or Klipper temperatures |
+| 3 | Sensors or Klipper health |
+| 4 | First guest detail |
+| 5 | CPU/power and logical cores |
+| 6 | Alerts and source health |
 | 7 | Settings |
-| 9 | First disk details |
-| 10 | Memory, load, host uptime and I/O |
-| 11 | GPU inventory and ownership |
-| 12 | GPU telemetry, clocks, identity and errors |
+| 9 | First disk detail |
+| 10 | Memory, load and I/O |
+| 11–12 | GPU inventory and detail |
+| 13 | Node picker |
+| 14–18 | Wi-Fi, node list/edit/delete and keyboard |
+| 19 | All nodes bento overview |
 
-The output also includes an `index.html` gallery, the exact saved input snapshot and a memory report. Each capture reports LVGL memory use and the largest free block. A failed LVGL allocation aborts with an assertion instead of silently producing an incomplete screenshot. This makes large saved inventories useful for capacity checks.
+Server/device fixtures retain platform identity and use Overview, Storage,
+Sensors and Health. They do not fabricate Proxmox guests. Optional OS, battery
+and interface fields render when supplied. Klipper fixtures use printer views.
+The fleet fixture includes bounded summaries for the All nodes cards.
 
-The saved snapshot's collection timestamp and nested guest-memory/GPU timestamps are rebased by the same offset to the current time so its values can be inspected as a fresh screen while retaining their original sample ages. Explicit `mem_age_s`/`age_s` values also advance with the simulated clock. The demo fixture uses sample history; a real fixture begins with one sample. `provenance.json` records the input and rendering method. The native Arduino and board shims provide only clock, text, preferences and allocation behavior; HTTP, SPI, touchscreen rotation and physical RGB byte order still require device verification.
+Saved timestamps are rebased together so a fixture can be inspected as a fresh
+screen while retaining its relative source ages. Explicit ages advance with the
+simulated clock. A labeled live capture still represents its saved input; it is
+not evidence of a live board connection. Allocation failure aborts instead of
+silently generating incomplete output.
 
-Run `python3 tools/native-preview/test_gestures.py` for continuous press/move/release checks through LVGL's real pointer state machine. These cover swipe rejection, toolbar/list taps, theme and settings switches, brightness dragging, and Back returning to the originating tab for CPU, Memory and Health detail. GPU tests cover CPU/Overview/assigned-guest routes, list/button drag rejection, deliberate taps, Back and stable selection after inventory reordering; memory checks cover unknown guest OS values without Proxmox fallback and the NAS estimate/ARC distinction. Sensor checks distinguish healthy empty Amps from a failed sensor source and verify measured CPU/GPU watts in the Power category. The renderer captures White/Dark Power and Amps filters as well as the other sensor categories. The fixture fingerprint is verified, and gesture builds use a separate cache from image rendering. Rendering guest details also captures the first three guest identities and their memory breakdowns; GPU detail captures cover every bounded device. Preferences use an in-memory adapter; no hardware, credentials or network requests are accessed. Optional idle dimming defaults off for desk use.
+`--config PATH` accepts a public `GET /api/v1/config` projection with configuration
+and `has_secret` flags. Inputs containing secrets are rejected. Node-management
+and preference adapters operate in memory; Wi-Fi examples are explicitly
+simulated. No real credentials or remote configuration are accessed.
 
-Multi-node pages retain the production node-picker/loading guard and render printer Overview/Job/Temps/Health when the fixture node type is Klipper. `--config PATH` accepts a saved public GET `/api/v1/config` projection containing only configuration fields and `has_secret` flags; secret-bearing inputs are rejected. Management page numbers14–18 capture native Wi-Fi, node list, edit, delete confirmation and keyboard. These pages use in-memory management adapters; Wi-Fi settings are explicitly simulated and no remote configuration or device credentials are accessed. The pointer suite also covers keyboard release typing/drag rejection, masked secret editors, form draft accept/cancel, node add/edit, deliberate delete confirmation, failed-save draft retention and a resumed feed arriving before the UI acknowledges a successful save.
+## Behavioral verification
+
+The gesture suite feeds actual LVGL continuous pointer input using rendered
+control geometry. It checks scrolling without accidental row/button activation,
+detail Back routes, node selection/loading guards, keyboards, masked editors,
+add/edit/delete confirmation, failed-save drafts, appearance, brightness and
+optional idle dimming. It also checks All nodes cards, platform preservation,
+source expiry, unknown readings, guest OS memory and GPU ownership semantics.
+
+Rotation checks compile each shared transform, verify corner mappings and reject
+invalid raw coordinates, then check every raw panel pixel maps uniquely to the
+viewport. This proves software geometry rather than the assembled USB direction.
+
+The shims provide clock, text, allocation and preferences. Physical SPI/RGB byte
+order, touch-controller reports, power, Wi-Fi and USB still require the supported
+V1 board. See [firmware setup](../../firmware/README.md) and
+[BUILDING.md](../../public-docs/BUILDING.md) for the complete verification flow.

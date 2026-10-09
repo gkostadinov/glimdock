@@ -1,5 +1,5 @@
 [Unit]
-Description=Homelab display bounded node configuration service
+Description=Glimdock bounded node configuration service (Rust)
 Before=homelab-monitor-collector.service homelab-monitor-http.service
 
 [Service]
@@ -7,7 +7,7 @@ Type=simple
 User=root
 Group=homelab-monitor
 WorkingDirectory=/opt/homelab-monitor
-ExecStart=/usr/bin/python3 -B -m agent.config_service
+ExecStart=/opt/homelab-monitor/glimdock-collector config-service --config /etc/homelab-monitor/config.json --socket /run/homelab-monitor/config.sock --socket-group homelab-monitor
 RuntimeDirectory=homelab-monitor
 RuntimeDirectoryMode=02750
 RuntimeDirectoryPreserve=yes

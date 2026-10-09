@@ -1,21 +1,98 @@
-name: Build and check
+name: Glimdock workspace and public artifacts
 on:
   push:
   pull_request:
 permissions:
   contents: read
 jobs:
-  checks:
-    runs-on: ubuntu-24.04
+  unix-hub:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.1
-      - run: cargo test --locked --manifest-path collector-rs/Cargo.toml
-      - run: python3 -m unittest discover -s tests -v
-      - run: pipx install platformio
-      - run: pio run --project-dir firmware --environment homelab_s3
-      - run: python3 tools/native-preview/test_gestures.py
-  linux:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: cargo test --workspace --locked
+      - run: cargo build --workspace --locked --release
+      - run: target/release/glimdock-collector validate-config --config examples/collector.json
+      - name: Package the hub and native agent
+        run: |
+          python3 tools/package-binaries.py --target "$(rustc -vV | sed -n 's/^host: //p')" --collector target/release/glimdock-collector --agent target/release/glimdock-agent --output output/packages/native-hub
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glimdock-hub-${{ matrix.os }}
+          path: output/packages/native-hub/*.tar.gz
+          if-no-files-found: error
+  native-devices:
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: cargo test --locked -p glimdock-agent
+      - run: cargo build --locked --release -p glimdock-agent
+      - name: Validate native OS collection
+        shell: pwsh
+        run: |
+          $agentPath = "target/release/glimdock-agent"
+          if ($IsWindows) { $agentPath += ".exe" }
+          $snapshotJson = & $agentPath --config examples/agents/host.json --once
+          if ($LASTEXITCODE -ne 0) { throw "Native sampling failed" }
+          $snapshot = $snapshotJson | ConvertFrom-Json
+          if ($snapshot.schema -ne 1 -or $snapshot.node.type -ne "server") { throw "Invalid device snapshot" }
+          if ($null -eq $snapshot.host.cpu_pct -or $snapshot.host.cpu_pct -lt 0 -or $snapshot.host.cpu_pct -gt 100) { throw "Invalid CPU" }
+          if ($snapshot.host.mem_total_bytes -le 0 -or $snapshot.host.mem_used_bytes -lt 0 -or $snapshot.host.mem_used_bytes -gt $snapshot.host.mem_total_bytes) { throw "Invalid memory" }
+          if (-not $snapshot.platform.os -or -not $snapshot.platform.architecture) { throw "Missing platform" }
+      - name: Package the native device agent
+        shell: pwsh
+        run: |
+          $agentPath = "target/release/glimdock-agent"
+          if ($IsWindows) { $agentPath += ".exe" }
+          $hostTriple = (rustc -vV | Select-String '^host: ').Line.Substring(6)
+          python tools/package-binaries.py --target $hostTriple --agent $agentPath --output output/packages/native-agent
+          if ($LASTEXITCODE -ne 0) { throw "Agent packaging failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: glimdock-agent-${{ matrix.os }}
+          path: output/packages/native-agent/*.tar.gz
+          if-no-files-found: error
+  firmware-and-console:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - run: pip install platformio
+      - run: npm ci --prefix collector-web
+      - run: npm run build --prefix collector-web
+      - run: npm test --prefix collector-web
+      - run: pio pkg install --project-dir firmware --environment homelab_s3
+      - run: python3 tools/build-web-firmware.py
+      - uses: actions/checkout@v4
+        with:
+          repository: emscripten-core/emsdk
+          ref: 6.0.12
+          path: output/toolchains/emsdk
+      - run: output/toolchains/emsdk/emsdk install 6.0.12 && output/toolchains/emsdk/emsdk activate 6.0.12
+      - run: python3 tools/web-emulator/build.py
+      - run: node tools/web-emulator/test.mjs && node tools/web-emulator/test-transport.mjs
+      - run: python3 tools/test-pairing-policy.py
+      - run: python3 tools/native-preview/test_gestures.py --rotation 3
+      - run: python3 tools/package-public-release.py --check-only
+  linux-static:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -25,25 +102,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.98.1
         with:
           targets: ${{ matrix.target }}
-      - name: Install isolated Zig toolchain
-        run: |
-          python3 -m venv "$RUNNER_TEMP/zig-env"
-          "$RUNNER_TEMP/zig-env/bin/pip" install ziglang==0.13.0
+      - run: python3 -m pip install --user ziglang==0.13.0
       - run: cargo install cargo-zigbuild --locked --version 0.23.4
-      - name: Build static Linux executable
+      - name: Build static workspace executables
         run: |
           mkdir -p "$RUNNER_TEMP/zig-bin"
-          printf '#!/bin/sh\nexec "%s" -m ziglang "$@"\n' "$RUNNER_TEMP/zig-env/bin/python" > "$RUNNER_TEMP/zig-bin/zig"
+          printf '#!/bin/sh\nexec python3 -m ziglang "$@"\n' > "$RUNNER_TEMP/zig-bin/zig"
           chmod +x "$RUNNER_TEMP/zig-bin/zig"
-          PATH="$RUNNER_TEMP/zig-bin:$PATH" cargo zigbuild --locked --release --manifest-path collector-rs/Cargo.toml --target ${{ matrix.target }}
+          PATH="$RUNNER_TEMP/zig-bin:$PATH" cargo zigbuild --workspace --locked --release --target ${{ matrix.target }}
+      - run: python3 tools/package-binaries.py --target ${{ matrix.target }} --collector target/${{ matrix.target }}/release/glimdock-collector --agent target/${{ matrix.target }}/release/glimdock-agent --output output/packages/${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
-          name: glimdock-collector-${{ matrix.target }}
-          path: |
-            collector-rs/target/${{ matrix.target }}/release/glimdock-collector
-            LICENSE
-            LICENSE_POLICY.md
-            THIRD_PARTY_NOTICES.md
-            LICENSES/
-            collector-rs/Cargo.lock
+          name: glimdock-${{ matrix.target }}
+          path: output/packages/${{ matrix.target }}/*.tar.gz
           if-no-files-found: error

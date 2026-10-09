@@ -11,6 +11,7 @@ import html
 import json
 import math
 import os
+import re
 from pathlib import Path
 import struct
 import subprocess
@@ -19,6 +20,19 @@ import tempfile
 import zlib
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def configured_rotation():
+    """Use the firmware default unless the caller explicitly selects a rotation."""
+    config = (ROOT / "firmware/include/config.h").read_text()
+    match = re.search(r"^#define\s+HOMELAB_ROTATION\s+([0-3])\s*$", config, re.MULTILINE)
+    if not match:
+        raise ValueError("Cannot determine firmware HOMELAB_ROTATION; set --rotation explicitly")
+    return int(match.group(1))
+
+
+def viewport(rotation):
+    return (240, 320) if rotation % 2 == 0 else (320, 240)
 
 
 def scalar(value):
@@ -33,17 +47,33 @@ def fixture(document, path):
              "new (&s) Snapshot{}; n = NetworkState{}; s.valid = true;",
              "n.configured = true; n.wifi = true; s.sequence = 1;",
              'strlcpy(n.message, "Saved fixture rendered locally", sizeof(n.message));',
-             'strlcpy(n.ip, "192.0.2.11", sizeof(n.ip));']
+             'strlcpy(n.ip, "192.0.2.240", sizeof(n.ip));']
     def text(target, value):
         lines.append(f"strlcpy({target}, {json.dumps(str(value or ''), ensure_ascii=False)}, sizeof({target}));")
     def num(target, value):
         lines.append(f"{target} = {scalar(value)};")
+    def descriptor(target, node):
+        for field in ("id", "type", "platform", "name", "address", "status"):
+            text(target + "." + field, node.get(field))
+        summary = node.get("summary")
+        if isinstance(summary, dict):
+            lines.append(target + ".summary.available = true;")
+            for key, field in {"cpu_percent":"cpu", "memory_percent":"memory", "temperature_c":"temp", "progress_percent":"progress", "generated_at":"generated", "age_s":"age"}.items():
+                num(target + ".summary." + field, summary.get(key))
+            text(target + ".summary.printState", summary.get("print_state"))
+            text(target + ".summary.status", summary.get("status", node.get("status")))
+            ttl = summary.get("ttl_s", 15)
+            num(target + ".summary.ttl", ttl if isinstance(ttl, (float, int)) and not isinstance(ttl, bool) and math.isfinite(ttl) and 5 <= ttl <= 900 else 15)
+            for key in ("sensors", "guests"):
+                value = summary.get(key)
+                if isinstance(value, (float, int)) and not isinstance(value, bool) and math.isfinite(value) and 0 <= value <= 65535 and int(value) == value:
+                    lines.append(f"{target}.summary.{key} = {int(value)};")
     lines.append(f"s.demo = {'true' if document.get('demo') else 'false'};")
     node=document.get("node", {})
-    for field in ("id","type","name","address","status"):text("s.node."+field,node.get(field))
+    descriptor("s.node", node)
     nodes=document.get("nodes",[])[:4];lines.append(f"s.nNodes = {len(nodes)};")
     for i,node in enumerate(nodes):
-        for field in ("id","type","name","address","status"):text(f"s.nodes[{i}]."+field,node.get(field))
+        descriptor(f"s.nodes[{i}]", node)
     printer=document.get("printer")
     if isinstance(printer,dict):
         lines.append("s.printer.present = true;")
@@ -58,7 +88,18 @@ def fixture(document, path):
         temperatures=printer.get("temperatures",[])[:16];lines.append(f"s.printer.nTemps = {len(temperatures)};")
         for i,t in enumerate(temperatures):text(f"s.printer.temperatures[{i}].name",t.get("name"));num(f"s.printer.temperatures[{i}].temp",t.get("temp_c"))
     host = document.get("host", {})
-    text("s.host", host.get("name", "Proxmox")); text("s.ip", host.get("ip", "192.0.2.10"))
+    text("s.host", host.get("name", "Device")); text("s.ip", host.get("ip", ""))
+    platform = document.get("platform") or {}
+    for field, value in {"osRelease":host.get("os_release", platform.get("release")), "osVersion":host.get("os_version", platform.get("version")), "architecture":host.get("architecture", platform.get("architecture")), "uptimeScope":platform.get("uptime_scope")}.items(): text("s." + field, value)
+    count = host.get("cpu_count", platform.get("cpu_count"))
+    if isinstance(count, int) and not isinstance(count, bool) and 0 < count <= 65535: lines.append(f"s.cpuCount = {count};")
+    battery = platform.get("battery") or {}
+    num("s.batteryPercent", battery.get("percent")); num("s.batteryRemaining", battery.get("seconds_left"))
+    if isinstance(battery.get("power_plugged"), bool): lines.append(f"s.batteryPlugged = {1 if battery['power_plugged'] else 0};")
+    interfaces = platform.get("interfaces", [])[:16]; lines.append(f"s.nInterfaces = {len(interfaces)};")
+    for i, interface in enumerate(interfaces):
+        text(f"s.interfaces[{i}].name", interface.get("name")); text(f"s.interfaces[{i}].status", interface.get("status", "unknown"))
+        for key, field in {"speed_mbps":"speed", "rx_bps":"rx", "tx_bps":"tx", "errors_in":"errorsIn", "errors_out":"errorsOut", "drops_in":"dropsIn", "drops_out":"dropsOut"}.items(): num(f"s.interfaces[{i}]." + field, interface.get(key))
     for key, field in {"uptime_s":"uptime", "cpu_pct":"cpu", "mem_used_bytes":"memUsed", "mem_total_bytes":"memTotal", "swap_used_bytes":"swapUsed", "swap_total_bytes":"swapTotal", "arc_bytes":"arc", "io_wait_pct":"iowait", "net_rx_bps":"rx", "net_tx_bps":"tx", "disk_read_bps":"read", "disk_write_bps":"write"}.items():
         num("s." + field, host.get(key))
     for i, value in enumerate(host.get("load", [])[:3]): num(f"s.load[{i}]", value)
@@ -98,7 +139,7 @@ def fixture(document, path):
         lines.append(f"s.sources[{i}].ok = {'true' if value.get('ok') else 'false'};")
         lines.append(f"s.sources[{i}].enabled = {'false' if value.get('enabled') is False else 'true'};")
         num(f"s.sources[{i}].age", value.get("age_s")); num(f"s.sources[{i}].updated", value.get("updated_at"))
-    faults = document.get("faults", {})
+    faults = document.get("faults") or {}
     lines.append(f"s.faultLookbackDays = {int(faults.get('lookback_days', 7))};")
     for key, field in {"segfault_count_24h":"segfaults24h", "event_count_24h":"faultEvents24h", "last_event_at":"lastFaultAt"}.items(): num("s." + field, faults.get(key))
     events = faults.get("events", [])[:16]
@@ -106,7 +147,7 @@ def fixture(document, path):
     for i, value in enumerate(events):
         for key in ("id", "kind", "message"): text(f"s.faults[{i}].{key}", value.get(key))
         num(f"s.faults[{i}].timestamp", value.get("timestamp"))
-    lines.append("s.truncated = " + ("true" if any(document.get("limits", {}).get("truncated", {}).values()) else "false") + ";")
+    lines.append("s.truncated = " + ("true" if (any(document.get("limits", {}).get("truncated", {}).values()) or len(platform.get("interfaces", [])) > 16) else "false") + ";")
     # Match network.cpp's thermal-first stable ordering used on the display.
     lines.append('auto rank=[](const char *kind){return !strcmp(kind,"temperature")?0:!strcmp(kind,"fan")?1:!strcmp(kind,"voltage")?2:!strcmp(kind,"power")?3:!strcmp(kind,"current")?4:5;};')
     lines.append('std::stable_sort(s.sensors,s.sensors+s.nSensors,[&](const Sensor&a,const Sensor&b){int delta=rank(a.kind)-rank(b.kind);return delta?delta<0:strcmp(a.chip,b.chip)<0;});')
@@ -118,11 +159,15 @@ def fixture(document, path):
         lines.append("c.available = true;")
         text('c.version',config.get('version'))
         local=config.get('local_node',{})
-        for key,field in {'id':'localId','name':'localName','address':'localAddress'}.items():text('c.'+field,local.get(key))
+        for key,field in {'id':'localId','name':'localName','address':'localAddress','type':'localType','platform':'localPlatform'}.items():text('c.'+field,local.get(key))
         lines.append(f"c.localEnabled = {'true' if local.get('enabled') else 'false'};")
         nodes=config.get('nodes',[])[:4];lines.append(f"c.count = {len(nodes)};")
         for i,node in enumerate(nodes):
-            for key in ('id','type','origin','name','url'):text(f'c.nodes[{i}].'+key,node.get(key))
+            for key in ('id','type','platform','origin','name','url'):
+                value = node.get(key)
+                if key == 'type' and value in {'server', 'proxmox'}:
+                    value = ('local-' + value) if node.get('origin') in {'host', 'local'} else value + '-feed'
+                text(f'c.nodes[{i}].'+key,value)
             for key,field in {'poll_interval_s':'poll','timeout_s':'timeout','ttl_s':'ttl'}.items():num(f'c.nodes[{i}].'+field,node.get(key))
             lines.append(f"c.nodes[{i}].hasSecret = {'true' if node.get('has_secret') else 'false'};")
     lines.append("}")
@@ -142,20 +187,22 @@ def png(ppm):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--snapshot", type=Path, default=ROOT/"agent/demo.json")
+    parser.add_argument("--snapshot", type=Path, default=ROOT/"examples/snapshots/host.json")
     parser.add_argument("--output", type=Path, default=ROOT/"output/native")
     parser.add_argument("--build-dir", type=Path)
     parser.add_argument("--lvgl-source", type=Path, default=Path(os.environ["LVGL_SOURCE_DIR"]) if "LVGL_SOURCE_DIR" in os.environ else None)
+    parser.add_argument("--rotation",type=int,choices=range(4),default=configured_rotation(),help="Display rotation; defaults to firmware config (0/2 portrait, 1/3 landscape)")
     parser.add_argument("--pages", help="Capture selected page numbers only, e.g. 0,3,6")
     parser.add_argument("--config",type=Path,help="Saved public GET /api/v1/config projection; secrets must be absent")
     args = parser.parse_args()
+    width, height = viewport(args.rotation)
     if args.lvgl_source is None:
         candidates = [ROOT/"firmware/.pio/libdeps/homelab_s3/lvgl"]
         args.lvgl_source = next((candidate for candidate in candidates if (candidate/"CMakeLists.txt").is_file()), None)
     if args.lvgl_source is None: parser.error("Set --lvgl-source to LVGL 9.3.0 sources (or run a firmware build first)")
     if args.build_dir is None:
         output_key = hashlib.sha256(str(args.output.resolve()).encode()).hexdigest()[:10]
-        args.build_dir = Path(tempfile.gettempdir()) / ("homelab-native-preview-" + output_key)
+        args.build_dir = Path(tempfile.gettempdir()) / ("homelab-native-preview-" + output_key + "-r" + str(args.rotation))
     args.build_dir.mkdir(parents=True, exist_ok=True)
     document = json.loads(args.snapshot.read_text())
     if args.config:
@@ -172,7 +219,7 @@ def main():
     for suffix in ("o", "obj"):
         object_file = args.build_dir / "CMakeFiles/native-preview.dir" / ("renderer.cpp." + suffix)
         object_file.unlink(missing_ok=True)
-    commands = [["cmake","-S",str(Path(__file__).parent),"-B",str(args.build_dir),f"-DLVGL_SOURCE_DIR={args.lvgl_source.resolve()}","-DCMAKE_BUILD_TYPE=Release"], ["cmake","--build",str(args.build_dir),"--target","native-preview","-j","8"]]
+    commands = [["cmake","-S",str(Path(__file__).parent),"-B",str(args.build_dir),f"-DLVGL_SOURCE_DIR={args.lvgl_source.resolve()}","-DCMAKE_BUILD_TYPE=Release",f"-DHOMELAB_ROTATION={args.rotation}"], ["cmake","--build",str(args.build_dir),"--target","native-preview","-j","8"]]
     log = args.build_dir/"build.log"
     with log.open("w") as stream:
         for command in commands:
@@ -186,14 +233,18 @@ def main():
     if ("fixture_sha256=" + fingerprint) not in result.stdout:
         print("Rendered fixture fingerprint does not match input; rebuild the native cache", file=sys.stderr)
         return 1
+    if f"viewport={width}x{height} rotation={args.rotation}" not in result.stdout:
+        print("Native viewport does not match selected rotation",file=sys.stderr)
+        return 1
     for ppm in args.output.glob("*.ppm"): png(ppm)
     captures = [line.split(".ppm:", 1)[0] for line in result.stdout.splitlines() if ".ppm:" in line]
     (args.output/"snapshot.json").write_text(json.dumps(document, ensure_ascii=False, indent=2)+"\n")
     (args.output/"memory.txt").write_text(result.stdout)
-    (args.output/"provenance.json").write_text(json.dumps({"renderer":"Actual firmware/src/main.cpp + LVGL 9.3 software renderer", "snapshot":str(args.snapshot.resolve()),"demo":bool(document.get("demo")),"native_resolution":[320,240],"hardware_tested":False,"captured_at":datetime.datetime.now(datetime.timezone.utc).isoformat(),"fixture_sha256":fingerprint,"firmware_sha256":hashlib.sha256((ROOT/"firmware/src/main.cpp").read_bytes()).hexdigest(),"model_sha256":hashlib.sha256((ROOT/"firmware/src/model.h").read_bytes()).hexdigest(),"lv_conf_sha256":hashlib.sha256((ROOT/"firmware/include/lv_conf.h").read_bytes()).hexdigest(),"captures":captures},indent=2)+"\n")
+    (args.output/"provenance.json").write_text(json.dumps({"renderer":"Actual firmware/src/main.cpp + LVGL 9.3 software renderer", "snapshot":str(args.snapshot.resolve()),"demo":bool(document.get("demo")),"native_resolution":[width,height],"rotation":args.rotation,"board_sha256":hashlib.sha256((ROOT/"firmware/src/board.h").read_bytes()).hexdigest(),"hardware_tested":False,"captured_at":datetime.datetime.now(datetime.timezone.utc).isoformat(),"fixture_sha256":fingerprint,"firmware_sha256":hashlib.sha256((ROOT/"firmware/src/main.cpp").read_bytes()).hexdigest(),"model_sha256":hashlib.sha256((ROOT/"firmware/src/model.h").read_bytes()).hexdigest(),"lv_conf_sha256":hashlib.sha256((ROOT/"firmware/include/lv_conf.h").read_bytes()).hexdigest(),"captures":captures},indent=2)+"\n")
     title = "Actual firmware UI / " + ("demo" if document.get("demo") else str(document.get("host",{}).get("name","saved snapshot")))
-    cards = "".join(f'<figure><a href="{name}.png"><img src="{name}.png" width="320" height="240" alt="{name.replace("-"," ")}"></a><figcaption>{name.replace("-"," ")}</figcaption></figure>' for name in captures)
-    (args.output/"index.html").write_text('<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+html.escape(title)+'</title><style>body{margin:0;background:#f2f5f8;color:#101e30;font:16px system-ui;padding:28px}h1{font-size:24px;margin:0 0 8px}p{color:#526275;margin:0 0 28px}main{display:grid;grid-template-columns:repeat(auto-fit,320px);gap:26px}figure{margin:0}img{display:block;border-radius:12px;outline:1px solid #dce5ed}figcaption{color:#526275;font-size:13px;margin-top:10px;text-transform:capitalize}a{color:inherit}</style><h1>'+html.escape(title)+'</h1><p>Production LVGL renderer · 320 × 240 RGB565 · Device hardware verification pending</p><main>'+cards+'</main></html>\n')
+    cards = "".join(f'<figure><a href="{name}.png"><img src="{name}.png" width="{width}" height="{height}" alt="{name.replace("-"," ")}"></a><figcaption>{name.replace("-"," ")}</figcaption></figure>' for name in captures)
+    gallery = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+html.escape(title)+'</title><style>body{margin:0;background:#f2f5f8;color:#101e30;font:16px system-ui;padding:28px}h1{font-size:24px;margin:0 0 8px}p{color:#526275;margin:0 0 28px}main{display:grid;grid-template-columns:repeat(auto-fit,PREVIEW_WIDTHpx);gap:26px}figure{margin:0}img{display:block;border-radius:12px;outline:1px solid #dce5ed}figcaption{color:#526275;font-size:13px;margin-top:10px;text-transform:capitalize}a{color:inherit}</style><h1>'+html.escape(title)+'</h1><p>Production LVGL renderer · PREVIEW_WIDTH × PREVIEW_HEIGHT RGB565 · Rotation PREVIEW_ROTATION · Device hardware verification pending</p><main>'+cards+'</main></html>\n'
+    (args.output/"index.html").write_text(gallery.replace("PREVIEW_WIDTH",str(width)).replace("PREVIEW_HEIGHT",str(height)).replace("PREVIEW_ROTATION",str(args.rotation)))
     print(f"Native UI PNGs: {args.output}")
     return 0
 

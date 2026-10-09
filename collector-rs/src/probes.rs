@@ -9,13 +9,40 @@ use crate::{
 };
 use serde_json::{json, Value};
 use std::{
+    cell::RefCell,
     collections::{BTreeMap, BTreeSet},
     io::Read,
+    os::unix::process::CommandExt,
     process::{Command, Stdio},
-    sync::{Arc, Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, OnceLock,
+    },
     time::{Duration, Instant},
 };
 use tokio::{sync::Semaphore, task::JoinHandle};
+thread_local! {
+    static CANCELLATION: RefCell<Option<Arc<AtomicBool>>> = const { RefCell::new(None) };
+}
+fn probe_cancelled() -> bool {
+    CANCELLATION.with(|flag| {
+        flag.borrow()
+            .as_ref()
+            .is_some_and(|flag| flag.load(Ordering::Acquire))
+    })
+}
+fn cancellable_probe<T>(flag: Arc<AtomicBool>, work: impl FnOnce() -> T) -> T {
+    struct Restore(Option<Arc<AtomicBool>>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            CANCELLATION.with(|flag| {
+                flag.replace(self.0.take());
+            });
+        }
+    }
+    let _restore = Restore(CANCELLATION.with(|current| current.replace(Some(flag))));
+    work()
+}
 pub fn num(v: &Value) -> Option<f64> {
     match v {
         Value::Number(n) => n.as_f64(),
@@ -54,6 +81,9 @@ pub fn command(
     timeout: f64,
     allow_nonzero: bool,
 ) -> anyhow::Result<CommandOutput> {
+    if probe_cancelled() {
+        anyhow::bail!("Probe cancelled");
+    }
     let mut child = Command::new(program)
         .args(args)
         .env("LC_ALL", "C")
@@ -61,6 +91,7 @@ pub fn command(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .process_group(0)
         .spawn()
         .map_err(|_| anyhow::anyhow!("{program} unavailable"))?;
     let read_pipe = |mut pipe: Box<dyn Read + Send>| {
@@ -88,12 +119,20 @@ pub fn command(
     let err = read_pipe(Box::new(child.stderr.take().unwrap()));
     let deadline = Instant::now() + Duration::from_secs_f64(timeout);
     let mut timed_out = false;
+    let mut cancelled = false;
     let status = loop {
         if let Some(status) = child.try_wait()? {
             break status;
         }
-        if Instant::now() >= deadline {
-            timed_out = true;
+        if probe_cancelled() || Instant::now() >= deadline {
+            cancelled = probe_cancelled();
+            timed_out = !cancelled;
+            // Probe helpers can launch their own children. Their dedicated
+            // process group prevents inherited output pipes from outliving a
+            // cancelled probe or its timeout.
+            unsafe {
+                libc::kill(-(child.id() as i32), libc::SIGKILL);
+            }
             let _ = child.kill();
             break child.wait()?;
         }
@@ -105,6 +144,9 @@ pub fn command(
     let (stderr, overerr) = err
         .join()
         .map_err(|_| anyhow::anyhow!("output reader failed"))?;
+    if cancelled {
+        anyhow::bail!("Probe cancelled");
+    }
     if timed_out {
         anyhow::bail!("{program} probe timed out")
     };
@@ -125,6 +167,15 @@ pub fn command(
     };
     Ok(result)
 }
+fn command_available(program: &str) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    std::env::var_os("PATH").is_some_and(|path| {
+        std::env::split_paths(&path).any(|dir| {
+            std::fs::metadata(dir.join(program))
+                .is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+        })
+    })
+}
 type Job = Arc<dyn Fn() -> anyhow::Result<Value> + Send + Sync>;
 struct Source {
     job: Job,
@@ -140,6 +191,15 @@ struct Source {
     ok: bool,
     last_succeeded: bool,
     error: Option<String>,
+    cancellation: Arc<AtomicBool>,
+}
+impl Drop for Source {
+    fn drop(&mut self) {
+        self.cancellation.store(true, Ordering::Release);
+        if let Some(handle) = &self.handle {
+            handle.abort();
+        }
+    }
 }
 impl Source {
     fn new(job: Job, interval: f64, ttl: f64, enabled: bool) -> Self {
@@ -157,6 +217,7 @@ impl Source {
             ok: false,
             last_succeeded: false,
             error: Some("initializing".into()),
+            cancellation: Arc::new(AtomicBool::new(false)),
         }
     }
     fn reset(&mut self) {
@@ -209,10 +270,15 @@ impl Source {
         if self.handle.is_none() && mono >= self.next_run {
             let job = self.job.clone();
             let generation = self.generation;
+            let cancellation = self.cancellation.clone();
             self.handle = Some(tokio::spawn(async move {
                 let permit = semaphore.acquire_owned().await;
                 let result = if let Ok(_permit) = permit {
-                    match tokio::task::spawn_blocking(move || job()).await {
+                    match tokio::task::spawn_blocking(move || {
+                        cancellable_probe(cancellation, || job())
+                    })
+                    .await
+                    {
                         Ok(r) => r,
                         Err(_) => Err(anyhow::anyhow!("Source worker failed")),
                     }
@@ -255,6 +321,8 @@ pub struct LocalCollector {
 impl LocalCollector {
     pub fn new(c: &Config) -> Self {
         let mut sources = BTreeMap::new();
+        let proxmox = c.local_type == "proxmox";
+        let sensors_tool = proxmox || command_available("sensors");
         let pve = Arc::new(Mutex::new(ProxmoxReader::default()));
         let nas = Arc::new(Mutex::new(TrueNasReader::default()));
         let c1 = c.clone();
@@ -268,20 +336,25 @@ impl LocalCollector {
                 }),
                 c.proxmox_interval_s,
                 (3. * c.proxmox_interval_s).max(30.),
-                true,
+                proxmox,
             ),
         );
         sources.insert(
             "sensors".into(),
             Source::new(
-                Arc::new(|| {
-                    let r = command("sensors", &["-j"], 5., false)?;
-                    let d: Value = serde_json::from_str(&r.stdout)?;
-                    Ok(json!({"sensors":crate::sensors::parse_sensors(&d)}))
+                Arc::new(move || {
+                    let readings = if sensors_tool {
+                        let r = command("sensors", &["-j"], 5., false)?;
+                        let d: Value = serde_json::from_str(&r.stdout)?;
+                        crate::sensors::parse_sensors(&d)
+                    } else {
+                        crate::sensors::read_hwmon(std::path::Path::new("/sys/class/hwmon"))?
+                    };
+                    Ok(json!({"sensors":readings}))
                 }),
                 c.sensor_interval_s,
                 (3. * c.sensor_interval_s).max(20.),
-                true,
+                sensors_tool || std::path::Path::new("/sys/class/hwmon").is_dir(),
             ),
         );
         sources.insert(
@@ -305,7 +378,7 @@ impl LocalCollector {
                 }),
                 c.turbostat_interval_s,
                 (3. * c.turbostat_interval_s).max(20.),
-                c.enable_turbostat,
+                c.enable_turbostat && (proxmox || command_available("turbostat")),
             ),
         );
         let c1 = c.clone();
@@ -315,7 +388,7 @@ impl LocalCollector {
                 Arc::new(move || crate::storage::read_smart(&c1)),
                 c.smart_interval_s,
                 (3. * c.smart_interval_s).max(900.),
-                c.enable_smart,
+                c.enable_smart && (proxmox || command_available("smartctl")),
             ),
         );
         sources.insert(
@@ -324,7 +397,7 @@ impl LocalCollector {
                 Arc::new(crate::storage::read_zfs),
                 c.zfs_interval_s,
                 (3. * c.zfs_interval_s).max(90.),
-                c.enable_zfs,
+                c.enable_zfs && (proxmox || command_available("zpool")),
             ),
         );
         let c1 = c.clone();
@@ -338,7 +411,7 @@ impl LocalCollector {
                 }),
                 c.truenas_interval_s,
                 (3. * c.truenas_interval_s).max(90.),
-                !c.truenas_ssh_host.is_empty(),
+                proxmox && !c.truenas_ssh_host.is_empty(),
             ),
         );
         sources.insert(
@@ -347,7 +420,7 @@ impl LocalCollector {
                 Arc::new(crate::faults::read_faults),
                 c.faults_interval_s,
                 (3. * c.faults_interval_s).max(90.),
-                c.enable_faults,
+                c.enable_faults && (proxmox || command_available("journalctl")),
             ),
         );
         sources.insert(
@@ -359,8 +432,17 @@ impl LocalCollector {
                 c.enable_gpus,
             ),
         );
+        sources.insert(
+            "filesystems".into(),
+            Source::new(
+                Arc::new(crate::storage::read_filesystems),
+                c.zfs_interval_s,
+                (3. * c.zfs_interval_s).max(90.),
+                !proxmox,
+            ),
+        );
         let mut guest_epochs = BTreeMap::new();
-        for id in &c.qga_guest_ids {
+        for id in c.qga_guest_ids.iter().filter(|_| proxmox) {
             let epoch = GuestEpoch::default();
             let reader = Arc::new(Mutex::new(GuestReader::new(*id, epoch.clone())));
             guest_epochs.insert(*id, epoch);
@@ -442,6 +524,15 @@ impl LocalCollector {
         let mono = monotonic();
         let now = wall();
         let mut snapshot = empty_snapshot(&crate::procfs::hostname(), &c.host_ip, sequence, now);
+        if c.local_type == "server" {
+            snapshot["platform"] = json!({
+                "os":"linux",
+                "release":std::fs::read_to_string("/proc/sys/kernel/osrelease").map(|s|text(s.trim(),96)).ok(),
+                "version":std::fs::read_to_string("/proc/version").map(|s|text(s.trim(),160)).ok(),
+                "architecture":std::env::consts::ARCH,
+                "cpu_count":std::thread::available_parallelism().ok().map(|n|n.get()),
+            });
+        }
         let proc = self.proc.read(c, mono);
         snapshot["host"] = proc["host"].clone();
         snapshot["sources"]["proc"] = json!({"ok":proc["error"].is_null(),"enabled":true,"updated_at":now,"age_s":0,"error":proc["error"]});
@@ -461,6 +552,7 @@ impl LocalCollector {
         // ZFS and NAS append to them. Map iteration must never overwrite NAS.
         for name in [
             "proxmox",
+            "filesystems",
             "sensors",
             "turbostat",
             "smart",
@@ -482,6 +574,7 @@ impl LocalCollector {
                         snapshot["host"]["io_wait_pct"] = data["io_wait_pct"].clone()
                     }
                 }
+                "filesystems" => snapshot["storage"] = data["storage"].clone(),
                 "sensors" => snapshot["sensors"] = data["sensors"].clone(),
                 "turbostat" => snapshot["power"] = data["power"].clone(),
                 "smart" => {
@@ -535,7 +628,7 @@ impl LocalCollector {
         }
         let mut guest_data = BTreeMap::new();
         let mut memory_states = BTreeMap::new();
-        for id in &c.qga_guest_ids {
+        for id in c.qga_guest_ids.iter().filter(|_| c.local_type == "proxmox") {
             let source = &self.sources[&format!("guest_{id}")];
             let mut state = source.status(mono);
             let current = source.current(mono);
@@ -555,8 +648,13 @@ impl LocalCollector {
             snapshot["sources"][format!("guest_{id}")] = state.clone();
             memory_states.insert(*id, state);
         }
-        let mut enabled = c.qga_guest_ids.iter().copied().collect::<BTreeSet<_>>();
-        if !c.truenas_ssh_host.is_empty() {
+        let mut enabled = c
+            .qga_guest_ids
+            .iter()
+            .filter(|_| c.local_type == "proxmox")
+            .copied()
+            .collect::<BTreeSet<_>>();
+        if c.local_type == "proxmox" && !c.truenas_ssh_host.is_empty() {
             let id = c.truenas_guest_id;
             enabled.insert(id);
             let source = &self.sources["nas"];
@@ -845,6 +943,7 @@ pub fn generate_alerts(s: &Value, c: &Config) -> Vec<Value> {
     for name in [
         "proc",
         "proxmox",
+        "filesystems",
         "sensors",
         "smart",
         "turbostat",
@@ -955,6 +1054,35 @@ fn limit_alert(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[tokio::test]
+    async fn ordinary_linux_mode_skips_pve_qga_and_nas_even_with_saved_options() {
+        let c = Config {
+            local_type: "server".into(),
+            qga_guest_ids: vec![100],
+            truenas_ssh_host: "nas.example.invalid".into(),
+            ..Config::default()
+        };
+        let mut collector = LocalCollector::new(&c);
+        assert!(!collector.sources["proxmox"].enabled);
+        assert!(!collector.sources["nas"].enabled);
+        assert!(!collector.sources.contains_key("guest_100"));
+        assert!(collector.guest_epochs.is_empty());
+        assert!(collector.sources["filesystems"].enabled);
+        for source in collector.sources.values_mut() {
+            source.next_run = f64::INFINITY;
+        }
+        let snapshot = collector.collect(&c, 1).await;
+        assert_eq!(snapshot["platform"]["os"], "linux");
+        assert_eq!(snapshot["sources"]["proxmox"]["enabled"], false);
+        assert_eq!(snapshot["sources"]["nas"]["enabled"], false);
+        assert!(snapshot["sources"].get("guest_100").is_none());
+        assert!(!snapshot["alerts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["id"] == "source/proxmox" || a["id"] == "source/nas"));
+        assert!(collector.sources.values().all(|s| s.handle.is_none()));
+    }
     #[test]
     fn finite_values_and_text() {
         assert_eq!(num(&json!(true)), None);
@@ -982,6 +1110,7 @@ mod tests {
     #[test]
     fn guest_lifecycle_invalidation() {
         let c = Config {
+            local_type: "proxmox".into(),
             qga_guest_ids: vec![100],
             ..Config::default()
         };
@@ -1023,10 +1152,40 @@ mod command_tests {
         assert!(began.elapsed() < Duration::from_secs(1));
     }
     #[test]
+    fn command_timeout_reaps_children_that_inherit_output_pipes() {
+        let began = Instant::now();
+        let error = command("/bin/sh", &["-c", "sleep 10"], 0.04, false)
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("timed out"));
+        assert!(began.elapsed() < Duration::from_secs(1));
+    }
+    #[test]
     fn nonzero_and_missing_program() {
         assert!(command("/usr/bin/false", &[], 1., false).is_err());
         assert_ne!(command("/usr/bin/false", &[], 1., true).unwrap().status, 0);
         assert!(command("/__glimdock_missing_program__", &[], 1., false).is_err());
+    }
+    #[tokio::test]
+    async fn dropping_source_cancels_and_reaps_its_blocking_probe_child() {
+        let (done, mut completed) = tokio::sync::mpsc::channel(1);
+        let job = Arc::new(move || {
+            let result = command("/bin/sleep", &["10"], 10., false);
+            let _ = done.blocking_send(result.as_ref().err().map(ToString::to_string));
+            result.map(|_| json!({}))
+        });
+        let mut source = Source::new(job, 1., 3., true);
+        source
+            .advance(monotonic(), wall(), Arc::new(Semaphore::new(1)))
+            .await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        drop(source);
+        let error = tokio::time::timeout(Duration::from_secs(1), completed.recv())
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert_eq!(error, "Probe cancelled");
     }
 }
 
@@ -1090,6 +1249,7 @@ mod assembly_tests {
             std::fs::write(proc.join(file), content).unwrap();
         }
         let c = Config {
+            local_type: "proxmox".into(),
             truenas_ssh_host: "nas.example.invalid".into(),
             enable_gpus: false,
             enable_faults: false,

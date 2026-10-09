@@ -19,6 +19,7 @@ void homelabPreviewTheme(bool);
 void homelabPreviewSensorFilter(uint8_t);
 void homelabPreviewGuest(int);
 void homelabPreviewGpu(uint8_t);
+void homelabPreviewPoll();
 uint32_t nativeClock = 1000;
 uint32_t millis() { return nativeClock; }
 Snapshot *publishedSnapshot = nullptr;
@@ -39,7 +40,7 @@ extern "C" void *homelab_lvgl_pool(size_t size) {
 }
 
 namespace {
-constexpr int width = 320, height = 240;
+constexpr int width = HOMELAB_VIEWPORT_WIDTH, height = HOMELAB_VIEWPORT_HEIGHT;
 std::array<uint16_t, width * height> framebuffer{};
 alignas(4) uint8_t drawBuffer[width * 24 * 2];
 void flush(lv_display_t *display, const lv_area_t *area, uint8_t *pixels) {
@@ -74,9 +75,12 @@ int main(int argc, char **argv) {
   static Snapshot data;
   loadFixture(data, networkState);
   std::cout << "fixture_sha256=" << fixtureFingerprint() << "\n";
+  std::cout << "viewport=" << width << "x" << height << " rotation=" << HOMELAB_ROTATION << "\n";
   std::cout << "Fixture " << data.host << ": " << unsigned(data.nGuests) << " guests, " << unsigned(data.nPools) << " storage, " << unsigned(data.nDisks) << " disks, " << unsigned(data.nSensors) << " sensors, " << unsigned(data.nFaults) << " faults\n";
   double rebase = double(std::time(nullptr)) - data.generated;
   data.generated = std::time(nullptr);
+  if(std::isfinite(data.node.summary.generated))data.node.summary.generated+=rebase;
+  for(int i=0;i<data.nNodes;i++)if(std::isfinite(data.nodes[i].summary.generated))data.nodes[i].summary.generated+=rebase;
   for(int i=0;i<data.nGuests;i++)if(std::isfinite(data.guests[i].memUpdated))data.guests[i].memUpdated+=rebase;
   for(int i=0;i<data.nGpus;i++)if(std::isfinite(data.gpus[i].updated))data.gpus[i].updated+=rebase;
   if(std::isfinite(data.printer.updated))data.printer.updated+=rebase;if(std::isfinite(data.printer.eta))data.printer.eta+=rebase;
@@ -89,9 +93,11 @@ int main(int argc, char **argv) {
   lv_display_set_buffers(display, drawBuffer, nullptr, sizeof(drawBuffer), LV_DISPLAY_RENDER_MODE_PARTIAL);
   publishedSnapshot=&data;homelabPreviewInit(&data, &networkState);
   const bool printer=!strcmp(data.node.type,"klipper");
-  std::vector<std::pair<uint8_t,const char*>> pages = {{0,"overview"},{1,"guests"},{4,"guest-detail"},{2,"storage"},{9,"disk-detail"},{3,"sensors"},{5,"power"},{10,"memory"},{11,"gpus"},{12,"gpu-detail"},{6,"alerts"},{7,"settings"},{13,"nodes"}};
-  if(printer)pages={{0,"overview"},{1,"job"},{2,"temps"},{3,"health"},{13,"nodes"},{7,"settings"}};
-  if(!selected.empty()){for(auto item:std::vector<std::pair<uint8_t,const char*>>{{14,"wifi"},{15,"node-settings"},{16,"node-edit"},{17,"node-delete"},{18,"keyboard"}})if(selected.count(item.first))pages.push_back(item);}
+  std::vector<std::pair<uint8_t,const char*>> pages = {{19,"all-nodes"},{0,"overview"},{1,"guests"},{4,"guest-detail"},{2,"storage"},{9,"disk-detail"},{3,"sensors"},{5,"power"},{10,"memory"},{11,"gpus"},{12,"gpu-detail"},{6,"alerts"},{7,"settings"},{13,"nodes"}};
+  if(deviceNodeType(data.node.type))pages={{19,"all-nodes"},{0,"overview"},{2,"storage"},{9,"disk-detail"},{3,"sensors"},{5,"power"},{10,"memory"},{11,"gpus"},{12,"gpu-detail"},{6,"health"},{7,"settings"},{13,"nodes"}};
+  if(printer)pages={{19,"all-nodes"},{0,"overview"},{1,"job"},{2,"temps"},{3,"health"},{13,"nodes"},{7,"settings"}};
+  for(auto item:std::vector<std::pair<uint8_t,const char*>>{{14,"wifi"},{15,"node-settings"},{16,"node-edit"},{17,"node-delete"},{18,"keyboard"}})if(selected.empty()||selected.count(item.first))pages.push_back(item);
+  if(selected.count(8))pages.push_back({8,"setup"});
   for (auto item : pages) {
     if (!selected.empty() && !selected.count(item.first)) continue;
     homelabPreviewShow(item.first); homelabPreviewScroll(0);
@@ -106,9 +112,11 @@ int main(int argc, char **argv) {
     if(item.first==3&&!printer){const std::pair<uint8_t,const char*>filters[]={{0,"all"},{2,"fans"},{3,"volts"},{4,"power"},{5,"amps"}};for(auto filter:filters){homelabPreviewSensorFilter(filter.first);homelabPreviewScroll(0);save(output/("sensors-"+std::string(filter.second)+".ppm"),display);if(filter.first==4){homelabPreviewScroll(100);save(output/"sensors-power-scrolled.ppm",display);}}homelabPreviewSensorFilter(1);homelabPreviewScroll(0);}
     if(item.first==4){for(int i=1;i<std::min(3,int(data.nGuests));i++){homelabPreviewGuest(data.guests[i].id);homelabPreviewScroll(0);save(output/("guest-"+std::to_string(data.guests[i].id)+".ppm"),display);homelabPreviewScroll(145);save(output/("guest-"+std::to_string(data.guests[i].id)+"-memory.ppm"),display);}homelabPreviewShow(4);homelabPreviewScroll(0);}
     if(item.first==12){for(int i=1;i<data.nGpus;i++){homelabPreviewGpu(i);homelabPreviewScroll(0);save(output/("gpu-detail-"+std::to_string(i+1)+".ppm"),display);homelabPreviewScroll(140);save(output/("gpu-detail-"+std::to_string(i+1)+"-scrolled.ppm"),display);}homelabPreviewShow(12);homelabPreviewScroll(0);}
-    if (item.first != 0 && item.first != 18) {
+    if (item.first != 0 && item.first != 18 && item.first != 19) {
       homelabPreviewScroll(printer?(item.first==1?155:item.first==2?100:item.first==3?190:120):item.first == 2 ? 180 : item.first == 5 ? 140 : item.first == 7 ? 150 : item.first == 6 ? 300 : item.first == 4 ? 145 : item.first == 9 ? 170 : item.first == 10 ? 180 : item.first == 12 ? 140 : 420);
       save(output / (std::string(item.second) + "-scrolled.ppm"), display);
+      homelabPreviewScroll(100000);
+      save(output / (std::string(item.second) + "-end.ppm"), display);
     }
   }
   homelabPreviewTheme(false);
@@ -116,8 +124,14 @@ int main(int argc, char **argv) {
   homelabPreviewTheme(true);
   if (selected.empty()) {
   data.demo = false;
+  data.generated=std::time(nullptr);data.received=nativeClock;homelabPreviewShow(0);save(output/"live.ppm",display);
+  homelabPreviewTheme(false);save(output/"dark-live.ppm",display);homelabPreviewTheme(true);
   data.generated -= 180; homelabPreviewShow(0); save(output / "stale.ppm",display);
   data.valid = false; homelabPreviewShow(0); save(output / "offline.ppm",display);
+  strlcpy(networkState.message,"Collector connection timed out. Check the server address, display token and Wi-Fi and try again",sizeof(networkState.message));
+  homelabPreviewPoll();homelabPreviewShow(0);homelabPreviewScroll(0);save(output/"offline-long-message.ppm",display);
+  homelabPreviewScroll(100000);save(output/"offline-long-message-end.ppm",display);
+  homelabPreviewTheme(false);homelabPreviewScroll(0);save(output/"dark-offline-long-message.ppm",display);homelabPreviewTheme(true);
   networkState.setup = true; strlcpy(networkState.apPassword,"PREVIEW12345",sizeof(networkState.apPassword));
   strlcpy(networkState.message,"Collector unreachable",sizeof(networkState.message));
   lv_obj_clean(lv_screen_active());

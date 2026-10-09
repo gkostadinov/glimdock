@@ -1,0 +1,16 @@
+{
+  "name": "glimdock-collector-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/usb-flasher.js --bundle --format=esm --target=es2022 --legal-comments=external --outfile=assets/usb-flasher.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "esptool-js": "0.7.0",
+    "@noble/hashes": "2.4.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

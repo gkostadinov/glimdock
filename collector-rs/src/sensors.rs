@@ -4,6 +4,52 @@ use crate::{
     probes::{num, round, text},
 };
 use serde_json::{json, Value};
+/// Linux exposes hwmon readings even without the optional lm-sensors tool.
+pub fn read_hwmon(root: &std::path::Path) -> anyhow::Result<Vec<Value>> {
+    let mut data = json!({});
+    let re = regex::Regex::new(r"^(temp|fan|in|power|curr)(\d+)_(input|average|max|crit|alarm|crit_alarm|max_alarm|fault)$").unwrap();
+    for chip in std::fs::read_dir(root)?.flatten().take(128) {
+        let path = chip.path();
+        let read = |name: &str| {
+            crate::config::read_bounded(&path.join(name), 256)
+                .ok()
+                .and_then(|v| String::from_utf8(v).ok())
+                .map(|s| s.trim().to_string())
+        };
+        let Some(name) = read("name") else { continue };
+        let identity = format!("{}-{}", text(&name, 48), chip.file_name().to_string_lossy());
+        let Ok(entries) = std::fs::read_dir(&path) else {
+            continue;
+        };
+        for file in entries.flatten().take(512) {
+            let filename = file.file_name().to_string_lossy().into_owned();
+            let Some(m) = re.captures(&filename) else {
+                continue;
+            };
+            let Some(value) = read(&filename)
+                .and_then(|s| s.parse::<f64>().ok())
+                .filter(|n| n.is_finite())
+            else {
+                continue;
+            };
+            let base = format!("{}{}", &m[1], &m[2]);
+            let label = read(&format!("{base}_label"))
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| base.clone());
+            let scale = if matches!(&m[3], "input" | "average" | "max" | "crit") {
+                match &m[1] {
+                    "temp" | "in" | "curr" => 1000.,
+                    "power" => 1_000_000.,
+                    _ => 1.,
+                }
+            } else {
+                1.
+            };
+            data[&identity][&label][filename] = json!(value / scale);
+        }
+    }
+    Ok(parse_sensors(&data))
+}
 pub fn parse_sensors(data: &Value) -> Vec<Value> {
     let mut result = vec![];
     let re = regex::Regex::new(r"^(temp|fan|in|power|curr)(\d+)_(input|average)$").unwrap();
@@ -192,6 +238,42 @@ pub fn merge_power_sensors(snapshot: &Value, c: &Config) -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn sysfs_hwmon_preserves_physical_units_labels_limits_and_flags() {
+        let dir = tempfile::tempdir().unwrap();
+        let chip = dir.path().join("hwmon0");
+        std::fs::create_dir(&chip).unwrap();
+        for (name, value) in [
+            ("name", "coretemp"),
+            ("temp1_input", "42000"),
+            ("temp1_label", "CPU Package"),
+            ("temp1_max", "80000"),
+            ("temp1_crit", "90000"),
+            ("temp1_alarm", "1"),
+            ("fan1_input", "1800"),
+            ("in1_input", "12000"),
+            ("curr1_input", "2100"),
+            ("power1_input", "25000000"),
+            ("power1_average", "20000000"),
+            ("temp2_input", "NaN"),
+        ] {
+            std::fs::write(chip.join(name), value).unwrap();
+        }
+        let rows = read_hwmon(dir.path()).unwrap();
+        assert_eq!(rows.len(), 5);
+        let cpu = rows.iter().find(|r| r["kind"] == "temperature").unwrap();
+        assert_eq!(cpu["name"], "CPU Package");
+        assert_eq!(cpu["value"], 42.);
+        assert_eq!(cpu["high"], 80.);
+        assert_eq!(cpu["crit"], 90.);
+        assert_eq!(cpu["alarm"], true);
+        assert!(rows.iter().any(|r| r["unit"] == "V" && r["value"] == 12.));
+        assert!(rows.iter().any(|r| r["unit"] == "A" && r["value"] == 2.1));
+        assert!(rows.iter().any(|r| r["unit"] == "W" && r["value"] == 25.));
+        assert!(rows
+            .iter()
+            .any(|r| r["unit"] == "RPM" && r["value"] == 1800.));
+    }
     #[test]
     fn labels_thresholds_and_units() {
         let v = json!({"nct6687-isa":{"CPU":{"temp1_input":55,"temp1_max":55}},"nvme-pci":{"Composite":{"temp1_input":40,"temp1_max":65261,"temp1_crit":85}},"chip":{"Rail":{"curr1_input":2.1,"power1_average":16,"power1_input":15}}});

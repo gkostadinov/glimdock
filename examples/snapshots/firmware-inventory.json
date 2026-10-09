@@ -1,0 +1,367 @@
+{
+  "schema": 1,
+  "demo": true,
+  "sequence": 1,
+  "generated_at": 1700000000,
+  "host": {
+    "name": "pve-demo",
+    "ip": "192.0.2.10",
+    "uptime_s": 1408490,
+    "cpu_pct": 23.6,
+    "cpu_cores": [
+      12,
+      25,
+      17,
+      48,
+      23,
+      4,
+      15,
+      37,
+      10,
+      8,
+      16,
+      9,
+      25,
+      4,
+      0,
+      17
+    ],
+    "load": [
+      1.42,
+      1.1,
+      0.93
+    ],
+    "mem_used_bytes": 32641751449,
+    "mem_total_bytes": 68719476736,
+    "swap_used_bytes": 0,
+    "swap_total_bytes": 8589934592,
+    "arc_bytes": 5153960755,
+    "io_wait_pct": 0.6,
+    "net_rx_bps": 439421,
+    "net_tx_bps": 1691833,
+    "disk_read_bps": 2936012,
+    "disk_write_bps": 9873421
+  },
+  "power": {
+    "package_w": 27.4,
+    "cpu_mhz": 836,
+    "busy_mhz": 3520,
+    "cpu_temp_c": 48,
+    "cstate_pct": {
+      "CPU%c1": 11.1,
+      "CPU%c6": 10.4,
+      "CPU%c7": 61.8,
+      "Pkg%pc6": 22.1
+    }
+  },
+  "guests": [
+    {
+      "id": 100,
+      "name": "Windows",
+      "type": "vm",
+      "status": "running",
+      "cpu_pct": 12.5,
+      "mem_used_bytes": 8589934592,
+      "mem_total_bytes": 17179869184,
+      "uptime_s": 1408120,
+      "net_rx_bps": 182000,
+      "net_tx_bps": 546000,
+      "disk_read_bps": 50000,
+      "disk_write_bps": 930000
+    },
+    {
+      "id": 101,
+      "name": "TrueNAS",
+      "type": "vm",
+      "status": "running",
+      "cpu_pct": 8.2,
+      "mem_used_bytes": 17179869184,
+      "mem_total_bytes": 34359738368,
+      "uptime_s": 1408120,
+      "net_rx_bps": 237000,
+      "net_tx_bps": 940000,
+      "disk_read_bps": 50000,
+      "disk_write_bps": 930000
+    },
+    {
+      "id": 102,
+      "name": "Ubuntu",
+      "type": "vm",
+      "status": "running",
+      "cpu_pct": 2.3,
+      "mem_used_bytes": 2147483648,
+      "mem_total_bytes": 8589934592,
+      "uptime_s": 1408120,
+      "net_rx_bps": 10421,
+      "net_tx_bps": 205833,
+      "disk_read_bps": 50000,
+      "disk_write_bps": 930000
+    },
+    {
+      "id": 103,
+      "name": "Home Assistant",
+      "type": "lxc",
+      "status": "running",
+      "cpu_pct": 0.6,
+      "mem_used_bytes": 536870912,
+      "mem_total_bytes": 2147483648,
+      "uptime_s": 1408120,
+      "net_rx_bps": 10000,
+      "net_tx_bps": 20000,
+      "disk_read_bps": 50000,
+      "disk_write_bps": 930000
+    },
+    {
+      "id": 104,
+      "name": "Backup",
+      "type": "vm",
+      "status": "stopped",
+      "cpu_pct": null,
+      "mem_used_bytes": null,
+      "mem_total_bytes": 4294967296,
+      "uptime_s": 0,
+      "net_rx_bps": null,
+      "net_tx_bps": null,
+      "disk_read_bps": null,
+      "disk_write_bps": null
+    }
+  ],
+  "storage": [
+    {
+      "id": "storage/pve-demo/local",
+      "name": "local",
+      "used_bytes": 21474836480,
+      "total_bytes": 107374182400,
+      "status": "online"
+    },
+    {
+      "id": "storage/pve-demo/local-lvm",
+      "name": "local-lvm",
+      "used_bytes": 1610612736000,
+      "total_bytes": 4000000000000,
+      "status": "online"
+    },
+    {
+      "id": "zpool/tank",
+      "name": "tank",
+      "used_bytes": 773094113280,
+      "total_bytes": 1000000000000,
+      "status": "ONLINE"
+    }
+  ],
+  "disks": [
+    {
+      "name": "nvme0n1",
+      "model": "Samsung 990 PRO 4TB",
+      "temp_c": 43,
+      "health": "passed",
+      "status": "active",
+      "read_bps": 2010412,
+      "write_bps": 7973421,
+      "warnings": []
+    },
+    {
+      "name": "nvme1n1",
+      "model": "WD Blue SN570 1TB",
+      "temp_c": 39,
+      "health": "passed",
+      "status": "active",
+      "read_bps": 925600,
+      "write_bps": 1900000,
+      "warnings": []
+    }
+  ],
+  "sensors": [
+    {
+      "id": "coretemp-isa-0000/Package id 0",
+      "name": "Package id 0",
+      "chip": "coretemp-isa-0000",
+      "kind": "temperature",
+      "value": 48,
+      "unit": "\u00b0C",
+      "crit": 100,
+      "high": 85,
+      "alarm": false,
+      "fault": false
+    },
+    {
+      "id": "coretemp-isa-0000/Core 0",
+      "name": "Core 0",
+      "chip": "coretemp-isa-0000",
+      "kind": "temperature",
+      "value": 45,
+      "unit": "\u00b0C",
+      "crit": 100,
+      "high": 85,
+      "alarm": false,
+      "fault": false
+    },
+    {
+      "id": "coretemp-isa-0000/Core 1",
+      "name": "Core 1",
+      "chip": "coretemp-isa-0000",
+      "kind": "temperature",
+      "value": 47,
+      "unit": "\u00b0C",
+      "crit": 100,
+      "high": 85,
+      "alarm": false,
+      "fault": false
+    },
+    {
+      "id": "nct6687-isa-0a20/System",
+      "name": "System",
+      "chip": "nct6687-isa-0a20",
+      "kind": "temperature",
+      "value": 33,
+      "unit": "\u00b0C",
+      "crit": null,
+      "high": null,
+      "alarm": false,
+      "fault": false
+    },
+    {
+      "id": "nct6687-isa-0a20/VRM",
+      "name": "VRM",
+      "chip": "nct6687-isa-0a20",
+      "kind": "temperature",
+      "value": 41,
+      "unit": "\u00b0C",
+      "crit": null,
+      "high": null,
+      "alarm": false,
+      "fault": false
+    },
+    {
+      "id": "nct6687-isa-0a20/CPU fan",
+      "name": "CPU fan",
+      "chip": "nct6687-isa-0a20",
+      "kind": "fan",
+      "value": 1024,
+      "unit": "RPM",
+      "crit": null,
+      "high": null,
+      "alarm": false,
+      "fault": false
+    },
+    {
+      "id": "nct6687-isa-0a20/System fan",
+      "name": "System fan",
+      "chip": "nct6687-isa-0a20",
+      "kind": "fan",
+      "value": 810,
+      "unit": "RPM",
+      "crit": null,
+      "high": null,
+      "alarm": false,
+      "fault": false
+    },
+    {
+      "id": "nct6687-isa-0a20/Vcore",
+      "name": "Vcore",
+      "chip": "nct6687-isa-0a20",
+      "kind": "voltage",
+      "value": 1.08,
+      "unit": "V",
+      "crit": null,
+      "high": null,
+      "alarm": false,
+      "fault": false
+    },
+    {
+      "id": "nvme-pci-0100/Composite",
+      "name": "Composite",
+      "chip": "nvme-pci-0100",
+      "kind": "temperature",
+      "value": 43,
+      "unit": "\u00b0C",
+      "crit": 84,
+      "high": 80,
+      "alarm": false,
+      "fault": false
+    }
+  ],
+  "alerts": [],
+  "sources": {
+    "proc": {
+      "ok": true,
+      "updated_at": 1700000000,
+      "age_s": 0,
+      "error": null
+    },
+    "proxmox": {
+      "ok": true,
+      "updated_at": 1700000000,
+      "age_s": 0,
+      "error": null
+    },
+    "sensors": {
+      "ok": true,
+      "updated_at": 1700000000,
+      "age_s": 0,
+      "error": null
+    },
+    "turbostat": {
+      "ok": true,
+      "updated_at": 1700000000,
+      "age_s": 0,
+      "error": null
+    },
+    "smart": {
+      "ok": true,
+      "updated_at": 1700000000,
+      "age_s": 0,
+      "error": null
+    },
+    "zfs": {
+      "ok": true,
+      "updated_at": 1700000000,
+      "age_s": 0,
+      "error": null
+    }
+  },
+  "limits": {
+    "max_payload_bytes": 49152,
+    "truncated": {
+      "guests": 0,
+      "sensors": 0,
+      "storage": 0,
+      "disks": 0
+    },
+    "counts": {
+      "guests": 5,
+      "sensors": 9,
+      "storage": 3,
+      "disks": 2
+    },
+    "network_interfaces": [],
+    "disk_devices": [],
+    "max_guests": 48,
+    "max_sensors": 64,
+    "max_storage": 16,
+    "max_disks": 16
+  },
+  "gpus": [
+    {
+      "id": "pci:0000:01:00.0",
+      "name": "NVIDIA GeForce RTX 4080 SUPER",
+      "vendor": "NVIDIA",
+      "kind": "discrete",
+      "owner": "vm:100",
+      "driver": "nvidia",
+      "status": "active",
+      "utilization_pct": 24,
+      "utilization_kind": "gpu",
+      "mem_used_bytes": 2147483648,
+      "mem_total_bytes": 17171480576,
+      "temp_c": 43,
+      "power_w": 47.2,
+      "graphics_mhz": 900,
+      "memory_mhz": 405,
+      "fan_pct": 0,
+      "updated_at": 1700000000,
+      "age_s": 0,
+      "error": null
+    }
+  ]
+}
