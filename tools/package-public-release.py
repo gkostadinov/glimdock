@@ -10,8 +10,9 @@ import argparse, ast, hashlib, io, ipaddress, json, os, re, shutil, tarfile, tem
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
-    'Cargo.toml','Cargo.lock','.gitignore','README.md','SETUP.md','LICENSE','LICENSE_POLICY.md','THIRD_PARTY_NOTICES.md',
-    '.github/workflows/build.yml','docs/architecture.md','docs/DRIVER_PROVENANCE.md',
+    'Cargo.toml','Cargo.lock','.gitignore','README.md','SETUP.md','BUILDING.md','CONTRIBUTING.md','SECURITY.md','LICENSE','LICENSE_POLICY.md','THIRD_PARTY_NOTICES.md',
+    '.github/workflows/build.yml','.github/ISSUE_TEMPLATE/bug-report.yml','.github/ISSUE_TEMPLATE/feature-request.yml',
+    '.github/ISSUE_TEMPLATE/config.yml','.github/pull_request_template.md','docs/architecture.md','docs/DRIVER_PROVENANCE.md',
     'collector-rs/Cargo.toml','collector-rs/build.rs','collector-rs/helpers/qga-bridge.pl','collector-rs/docs/TELEMETRY.md',
     'device-agent-rs/Cargo.toml','firmware/platformio.ini','firmware/partitions.csv','firmware/build_and_run.sh','firmware/README.md',
     'firmware/include/config.example.h','firmware/include/lv_conf.h','firmware/include/lv_psram.h',

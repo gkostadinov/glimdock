@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible collector, node management, browser update or display problem.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include Wi-Fi passwords, Bearer/API tokens, SSH keys or real private snapshots. Report security vulnerabilities through the private advisory form instead."
+  - type: input
+    id: version
+    attributes:
+      label: Glimdock version
+      placeholder: v0.2.0 development commit or release version
+    validations:
+      required: true
+  - type: textarea
+    id: platform
+    attributes:
+      label: Platform
+      description: Collector OS/architecture and board revision, if relevant.
+      placeholder: Collector: macOS arm64; device: Windows x86_64 or SNMP router; display: Waveshare V1 CST328
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: What did you do, what happened, and what should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence
+      description: Minimal redacted logs or authored synthetic fixture; no private telemetry.

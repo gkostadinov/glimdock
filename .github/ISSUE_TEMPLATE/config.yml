@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/gkostadinov/glimdock/security/advisories/new
+    about: Report vulnerabilities privately; do not post secrets in public issues.
+  - name: Setup and troubleshooting
+    url: https://github.com/gkostadinov/glimdock/blob/main/SETUP.md
+    about: Read installation, hardware compatibility and troubleshooting guides.
