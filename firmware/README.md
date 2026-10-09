@@ -1,7 +1,10 @@
 # Glimdock display firmware
 
 The display pairs with the host-agnostic central collector and consumes its node
-registry. It starts on **All nodes**, then opens a server/device, Proxmox or Klipper
+registry. Native OS and router/API adapter agents send readings to that
+collector; optional local probes and polling feeds share the same registry. The
+display keeps one central read connection and never needs a per-device agent
+endpoint or publisher key. It starts on **All nodes**, then opens a server/device, Proxmox or Klipper
 dashboard when a card is selected. Node configuration belongs to the collector;
 Wi-Fi, pairing, selected node and appearance belong to the display.
 
@@ -128,10 +131,12 @@ zero. Initial/reset counter samples stay unknown, component watts are not wall
 power, heater duty is not watts, and ZFS status is not SMART health.
 
 **Settings → Nodes & monitoring** edits the central registry with its setup key.
-The optional Hub host and remote Server/device, Proxmox and Klipper feeds share
-the same management model. Names, endpoint, platform and polling settings are
-editable; credentials are retained only for the same service origin. IDs stay
-stable. Delete requires deliberate confirmation. Concurrent changes reload the
+The optional Hub host, paired push agents and remote Server/device, Proxmox and
+Klipper feeds share the registry. Paired nodes can be renamed, paused, resumed or
+removed without a per-device endpoint. Agent enrollment/re-pairing and credential
+revocation use the web console; removing a paired node revokes its publication
+access. Polling feed endpoints, platform and polling settings remain editable;
+credentials are retained only for the same service origin. IDs stay stable. Delete requires deliberate confirmation. Concurrent changes reload the
 public configuration, and failed saves retain the draft. A zero-node collector
 leaves Settings available.
 

@@ -33,9 +33,32 @@ pairing. This development firmware does not encrypt saved credentials at rest.
 
 ## Device adapters and source exports
 
-Native Rust agents have their own display token and no setup/control API.
+Native Rust agents pair with a ten-minute single-use enrollment key, then publish
+with a per-agent credential bound to one node and platform. Display/management
+keys cannot authorize ingest; publisher credentials cannot read telemetry,
+edit configuration or publish for another node. The collector stores credential
+hashes, never returns saved keys, and rejects replayed or stale samples. Revoke or
+remove a node to disable its publisher immediately. Re-pairing also revokes the
+prior publisher and requires a new enrollment. Stop the agent and use one
+`--re-enroll` invocation with a fresh pairing key and its existing private state:
+this preserves device identity while rotating the publisher credential. Omit
+recovery/enrollment options from normal service arguments after success.
+
+The agent state directory is private: mode 0700 with atomically written mode-0600
+state on Unix, a protected account-specific DACL on Windows. Keep its durable
+identity and publisher credential local; do not clone paired state across devices.
+Move downloaded enrollment keys to a private file and delete them after pairing.
+Commands use key files, not secrets in command arguments or shell history.
+Push agents open no incoming HTTP listener; the read-only polling listener
+remains an explicit compatibility mode with a separate feed token.
+
+Agent HTTPS verifies certificates and accepts a configured private CA. Plain LAN
+HTTP requires explicit `--allow-insecure-http` and provides no transport
+encryption. Use it only on a trusted network. Redirects and credential-bearing
+URLs are rejected.
+
 Keep SNMP and vendor API credentials private on the adapter host, separate from
-the normalized feed token stored on the central collector. SNMP credentials use
+the per-agent publisher credential. SNMP credentials use
 a temporary private Net-SNMP configuration. JSON adapters use GET, reject redirects
 and verify HTTPS. Device credentials never belong in URLs or telemetry.
 

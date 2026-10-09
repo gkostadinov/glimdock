@@ -1225,7 +1225,7 @@ async fn aggregate_read_role_and_web_info_do_not_expose_private_tokens() {
     assert_eq!(info.0, 200);
     assert_eq!(
         info.1,
-        json!({"schema":1,"local_bridge":false,"management_available":true})
+        json!({"schema":1,"local_bridge":false,"management_available":true,"collector_url":null})
     );
 }
 

@@ -101,6 +101,8 @@ def main():
         usage += ["Start the collector, node management and embedded web console together:", "", "```sh", "./bin/glimdock-collector run --state-dir ./glimdock-state --bind 127.0.0.1 --port 8765", "```", "", "Open http://127.0.0.1:8765/. Follow SETUP.md for credentials, LAN access, pairing and services.", ""]
     if args.agent:
         command = f".\\bin\\{launcher}" if suffix else f"./bin/{launcher}"
+        agent_state = "C:\\Private\\glimdock-agent" if suffix else "/ABSOLUTE/PRIVATE/glimdock-agent"
+        usage += ["Pair this device with the collector and push telemetry (download pairing.key from Nodes → Pair a device):", "", "```", command+f" --collector-url https://collector.example --state-dir {agent_state} --enrollment-key-file ./pairing.key", "```", "", "Use an absolute private state directory. Later starts use the same collector URL and state directory; enrollment is retained.", "For an HTTP collector on your trusted LAN, add --allow-insecure-http explicitly.", ""]
         usage += ["Sample this device without opening a network listener:", "", "```", command+" --config examples/agents/host.json --once", "```", "", "public-docs/DEVICES.md explains agent services, SNMP/JSON adapters and node registration.", ""]
     usage += ["The repository-build sections of the guides apply to a separate matching source export.", "PACKAGE_MANIFEST.json records every packaged file's SHA-256. Firmware source/relink material", "and applicable library notices accompany collector packages; dependency licenses are under LICENSES/.", ""]
     files["PACKAGE_README.md"] = "\n".join(usage).encode()

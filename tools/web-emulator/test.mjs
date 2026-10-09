@@ -92,7 +92,34 @@ try {
   tick();firmware._glimdock_pointer(save.x+12,save.y+4,1);tick();firmware._glimdock_pointer(save.x+12,save.y+4,0);tick();await Promise.resolve();
   const hostUpdate=requests.filter(request=>request.kind==='update').at(-1);assert(hostUpdate);
   assert.equal(JSON.parse(hostUpdate.payload).node.platform,'macos','browser transport preserves the real host platform when saving');
+  const agentConfig={schema:1,version,local_node:{enabled:false,type:'server',platform:'linux'},nodes:Array.from({length:16},(_,index)=>({id:`agent:test-${index}`,type:'server',platform:'macos',origin:'agent',name:index===0?'Push Mac':`Paused device ${index}`,url:'',enabled:index===0,registered:true,poll_interval_s:3,timeout_s:null,ttl_s:15,has_secret:true}))};
+  assert.equal(call('glimdock_config',JSON.stringify(agentConfig),200),1,'sixteen configured agents with paused entries fit the management registry');
+  firmware._glimdock_show(15);tick();
+  assert.equal(call('glimdock_config',JSON.stringify(agentConfig),200),1);tick(600);
+  assert(texts().some(text=>text.includes('1 active / 16 saved')),'display capacity is distinct from saved registry capacity');
+  assert(texts().some(text=>text.includes('macOS')&&text.includes('agent')),'agent nodes are labelled separately from polling feeds');
+  const pushMac=labels().find(label=>label.text==='Push Mac');assert(pushMac);
+  tick();firmware._glimdock_pointer(pushMac.x+12,pushMac.y+4,1);tick();firmware._glimdock_pointer(pushMac.x+12,pushMac.y+4,0);tick();
+  assert.equal(firmware._glimdock_page(),16,'agent row opens production node editor');
+  assert(!texts().includes('Service URL'),'agent editor does not ask for a polling URL');
+  assert(texts().some(text=>text.includes('sends its readings')),'agent editor explains push transport');
+  let monitoring;
+  for(let scroll=0;scroll<=1200;scroll+=40){firmware._glimdock_scroll(scroll);monitoring=labels().find(label=>label.text==='Monitoring: ON'&&label.y>=34&&label.y+label.height<200);if(monitoring)break;}
+  assert(monitoring,'agent monitoring control is reachable');
+  tick();firmware._glimdock_pointer(monitoring.x+12,monitoring.y+4,1);tick();firmware._glimdock_pointer(monitoring.x+12,monitoring.y+4,0);tick();
+  assert(texts().includes('Monitoring: PAUSED'));
+  for(let scroll=0;scroll<=1200;scroll+=40){firmware._glimdock_scroll(scroll);save=labels().find(label=>label.text==='Save node'&&label.y>=34&&label.y+label.height<200);if(save)break;}
+  assert(save,'agent Save control is reachable');
+  tick();firmware._glimdock_pointer(save.x+12,save.y+4,1);tick();firmware._glimdock_pointer(save.x+12,save.y+4,0);tick();await Promise.resolve();
+  const agentUpdate=JSON.parse(requests.filter(request=>request.kind==='update').at(-1).payload);
+  assert.equal(agentUpdate.node.origin,'agent');assert.equal(agentUpdate.node.type,'server');assert.equal(agentUpdate.node.enabled,false);
+  assert(!('url' in agentUpdate.node)&&!('timeout_s' in agentUpdate.node)&&!('secret' in agentUpdate.node),'agent save preserves scoped publishing credentials and omits polling-only fields');
+  assert.equal(call('glimdock_config',JSON.stringify({...agentConfig,config:undefined}),202),1);tick();
+  const tooManyActive=structuredClone(agentConfig);tooManyActive.nodes.forEach((node,index)=>{node.enabled=index<5;});
+  assert.equal(call('glimdock_config',JSON.stringify(tooManyActive),200),0,'a configuration cannot overflow the four active display slots');
+  const duplicateIdentity=structuredClone(agentConfig);duplicateIdentity.nodes[1].id=duplicateIdentity.nodes[0].id;
+  assert.equal(call('glimdock_config',JSON.stringify(duplicateIdentity),200),0,'duplicate configured node identities are rejected');
   const manifest=JSON.parse(await readFile(path.join(assets,'manifest.json'),'utf8'));
   assert.equal(manifest.public_build,true);
-  console.log(JSON.stringify({passed:true,viewport:[320,240],production_ui:true,production_parser:true,checks:['all-node startup','RGB565 rendering','zero/unknown values','platform summaries','continuous LVGL touch','stable-ID selection','external selector','offline masking','per-node freshness TTL','replayed sequence stale header','schema/payload limits','host-agnostic configuration','management role error','native host platform editor','non-Linux Proxmox rejection','host platform save']}));
+  console.log(JSON.stringify({passed:true,viewport:[320,240],production_ui:true,production_parser:true,checks:['all-node startup','RGB565 rendering','zero/unknown values','platform summaries','continuous LVGL touch','stable-ID selection','external selector','offline masking','per-node freshness TTL','replayed sequence stale header','schema/payload limits','host-agnostic configuration','management role error','native host platform editor','non-Linux Proxmox rejection','host platform save','sixteen configured agents','agent editor without URL','agent pause preserves credentials','active registry capacity','duplicate identity rejection']}));
 } finally { await rm(temporary,{recursive:true,force:true}); }

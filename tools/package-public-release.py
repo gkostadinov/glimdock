@@ -35,6 +35,8 @@ FILES = (
 TREES = {
     'collector-rs/src':{'.rs'}, 'collector-rs/tests':{'.rs'},
     'device-agent-rs/src':{'.rs'}, 'device-agent-rs/tests':{'.rs'},
+    'deploy/agents':{'.service','.plist','.ps1','.sh','.md'},
+    'examples/agents':{'.json'},
     'firmware/src':{'.h','.cpp'}, 'public-docs':{'.md'},
     'collector-web/src':{'.js'}, 'collector-web/tests':{'.js'},
     'collector-web/assets':{'.js','.css','.txt','.svg','.woff2'},

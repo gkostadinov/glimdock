@@ -1,6 +1,6 @@
 # Set up Glimdock
 
-Start one central collector, register the devices you want to monitor, then pair Glimdock with the collector. The collector and its web console run together. The display does not need credentials or a direct connection to every monitored machine.
+Start one central collector, pair agents that send their readings, then pair Glimdock with the collector. The collector and its web console run together. The display does not need credentials or a direct connection to every monitored machine.
 
 ## 1. Run the collector
 
@@ -24,27 +24,43 @@ For LAN access, restart with the collector's LAN address in `--bind`, for exampl
 
 Remote web access asks for the read-only **display key** and optional **management key**. Read them from `display.token` and `setup.token` privately. The management key is also called the setup token. Direct web access retains entered keys only in browser session memory. The display key reads telemetry; the setup key edits monitoring configuration. A key for one role cannot authorize the other.
 
-Local convenience access is restricted to a loopback connection with a loopback Host; browser writes must come from the same origin. LAN clients and physical displays always need the appropriate key. Feed credentials belong to each registered device and are distinct from these collector keys.
+Local convenience access is restricted to a loopback connection with a loopback Host; browser writes must come from the same origin. LAN clients and physical displays always need the appropriate key. One-time pairing and per-agent publisher credentials are distinct from these collector keys. The console shows an unknown inventory before authentication, not a zero-node collector.
 
-## 2. Register devices in Nodes
+## 2. Pair devices in Nodes
 
-Open **Nodes** → **Add node**. Choose **Server / device**, **Proxmox** or **Klipper printer**, then enter the source endpoint and its credential when required.
+Open **Nodes** → **Add node** → **Pair a device**. Enter a name and a collector address reachable from the monitored machine, then choose **Create pairing key**. Platform detection is automatic unless you select a specific OS. The key is shown once and expires after ten minutes; save it privately on the device as `enrollment.key`.
 
-| Source | Preparation | Registration |
-| --- | --- | --- |
-| Linux, macOS or Windows machine | Run the native Rust `glimdock-agent` on that machine | Agent snapshot URL and its display token; platform Auto or the known OS |
-| Router, switch, UPS or appliance | Run the Rust SNMP or mapped JSON adapter on a reachable machine | Adapter snapshot URL and its display token; Router or Other platform |
-| Proxmox host | Run a collector with explicit Proxmox capability there | Its base snapshot URL and display token |
-| Klipper printer | Enable read access to its Moonraker API | Moonraker origin, normally port 7125; API key if required |
-| Collector's own host | Already available in a fresh configuration | Edit, pause, remove or restore **Hub host** |
+Run the native Rust agent on the device with that key file:
 
-[Device setup](public-docs/DEVICES.md) includes agent, SNMP and JSON examples. Adapters use native OS and platform-specific data as well as sensors. SNMP OIDs and JSON field mappings are configured on the adapter host; node management stores the normalized feed endpoint and read token on the central collector.
+```sh
+chmod 600 /ABSOLUTE/PRIVATE/enrollment.key
+glimdock-agent --collector-url https://COLLECTOR_ADDRESS:8765 \
+  --state-dir /ABSOLUTE/PRIVATE/glimdock-agent \
+  --enrollment-key-file /ABSOLUTE/PRIVATE/enrollment.key \
+  --config /ABSOLUTE/PRIVATE/host.json
+```
 
-Leave a new node ID blank to assign one automatically. Renaming a node or changing its supported capability preserves the existing ID. Registration is explicit; the collector does not scan your network or discover credentials. Once registered, enabled nodes appear automatically in the web overview, browser firmware and physical display.
+Use [examples/agents/host.json](examples/agents/host.json) for native host readings. The collector assigns the node identity; the agent stores its private publisher credential and sends readings periodically. No listener or incoming port on the monitored device is needed. After successful pairing, delete `enrollment.key` and omit `--enrollment-key-file` on later starts. Keep the same private state directory to retain identity. [Device setup](public-docs/DEVICES.md) includes Windows commands, services and adapter modes.
 
-You can keep sixteen feeds configured and four nodes active at once, counting the optional hub host. **Pause** retains a feed's settings and credentials without polling it; **Resume** enables it again. Removing the hub host disables local probes and retains its restoration information. A collector with no active nodes keeps management available and clears the display's old cards.
+HTTPS certificates are verified. With a private CA, add `--collector-ca-cert /ABSOLUTE/PRIVATE/ca.pem`. For trusted LAN HTTP, use `http://COLLECTOR_ADDRESS:8765` and explicitly add `--allow-insecure-http`; HTTP does not encrypt credentials or telemetry. The console generates the appropriate command for the chosen address. A localhost address is usable only by agents on that collector computer.
 
-The editor supports sampling interval, request timeout and freshness TTL. TTL must cover at least two polling intervals. Auto platform uses the upstream descriptor. A blank existing key retains it for the same service origin; explicit clearing removes the association. Changing host, scheme or port needs the destination's credential. Public configuration returns `has_secret`, never the key or its local file path. Concurrent edits require reloading the saved configuration before applying another change.
+| Source | How readings reach the collector |
+| --- | --- |
+| Linux, macOS or Windows machine | Pair the Rust agent and push native OS readings |
+| Router, switch, UPS or appliance | Run a paired Rust SNMP or JSON adapter on a machine that can reach the device; it polls the device locally and pushes normalized readings |
+| Proxmox host | Enable the collector's optional local Proxmox capability, or retain a compatible polling feed for its additional guest/storage/GPU data |
+| Klipper printer | **Add a polling feed** using its Moonraker origin, normally port 7125, and API key when required |
+| Collector's own host | Already available in a fresh configuration; edit, pause, remove or restore **Hub host** |
+
+Devices are enrolled explicitly; the collector does not scan the network or discover credentials. After pairing, enabled nodes appear automatically in the web overview, browser firmware and physical display. SNMP OIDs and JSON field mappings remain in the adapter configuration; secrets for the source device remain on its adapter host.
+
+You can keep sixteen remote nodes configured and four nodes active at once, counting the optional collector host. **Pause** retains an agent's enrollment and hides it from active monitoring. **Resume** restores it. **Revoke access** immediately rejects its publisher credential and clears its current readings, leaving a disabled node that can be paired again. **Remove node** revokes access and removes the registry entry. The agent process may continue running until stopped on its machine.
+
+An agent row distinguishes **Awaiting agent**, **Paused**, **Revoked** and live health, and shows the last receipt time. Measurement age is independent of receipt time; delayed readings stay stale. Configure expiry to cover at least three sending intervals. Unavailable or expired values are cleared rather than presented as current measurements.
+
+For existing HTTP feeds, **Edit** → **Switch to push** creates a pairing key while retaining the node ID. Start the replacement agent with the new key. Polling stops when the switch is saved; readings resume after enrollment. For an existing push node, **Create new pairing key** immediately revokes the old publisher. Stop the agent and run the console’s generated command with `--re-enroll`, the new `--enrollment-key-file` and the same absolute state directory. This preserves its durable device identity while rotating its publisher credential. After success, remove `--re-enroll` and the enrollment-file option from normal service arguments, and delete the used key file. Re-pairing is a deliberate action, not a way to retrieve a saved key. Renaming, pausing and ordinary firmware updates retain node identity and existing collector/display keys.
+
+Polling feeds retain their separate interval, timeout and TTL controls. A blank saved feed key retains it for the same service origin; clearing it removes the association. Changing host, scheme or port requires the destination's credential. Public configuration returns credential presence only. Agent pairing keys and publisher credentials cannot be read back from the management API. Concurrent changes require reviewing refreshed configuration before retrying.
 
 ## 3. Install and pair the display
 
@@ -111,7 +127,7 @@ Systemd node edits apply through the private configuration socket and restart on
 
 An empty `node` uses the actual hostname. `display_name` changes its visible label; `local_node_id` retains its selection identity. `enable_local: false` makes the collector a remote-only aggregator. Set `local_type: "proxmox"` explicitly for Proxmox-specific collection on a Linux Proxmox host. Legacy `enable_proxmox` configurations retain their mode and identity when `local_type` is absent; use either that alias or `enable_local`, never both.
 
-The web editor is the usual way to manage feeds. A manually configured feed uses `remote_collectors`, a stable `id`, `type` (`server` or `proxmox`), optional `platform`, fixed HTTP(S) `url`, private `token_file` and polling fields. Printers use `printers` and `api_key_file`. URLs contain no embedded credentials, queries or arbitrary API paths; device feeds accept an origin or the fixed snapshot endpoint. Redirects are refused and HTTPS is verified.
+The web editor is the usual way to pair agents and manage feeds. Agent enrollment is stored separately from legacy `remote_collectors`; use the pairing flow rather than hand-writing publisher credentials. A manually configured feed uses `remote_collectors`, a stable `id`, `type` (`server` or `proxmox`), optional `platform`, fixed HTTP(S) `url`, private `token_file` and polling fields. Printers use `printers` and `api_key_file`. URLs contain no embedded credentials, queries or arbitrary API paths; device feeds accept an origin or the fixed snapshot endpoint. Redirects are refused and HTTPS is verified.
 
 Proxmox probes, QEMU guest agents, restricted TrueNAS reads, SMART, ZFS, GPU and package-power tools are additional capabilities. [Native telemetry](collector-rs/docs/TELEMETRY.md) documents their setup and measurement meanings. Guest OS memory remains distinct from assigned RAM and hypervisor accounting; component watts are not guessed wall power; ZFS status is not SMART health. Optional Python NAS/QGA compatibility payloads run on those monitored systems, while the collector runtime is Rust.
 
@@ -119,4 +135,4 @@ Proxmox probes, QEMU guest agents, restricted TrueNAS reads, SMART, ZFS, GPU and
 
 Check the foreground collector output or, for systemd, `journalctl -u homelab-monitor-collector -u homelab-monitor-http -u homelab-monitor-config`. HTTP 401 usually means the wrong key or role; a missing selected node returns 404; startup or publication failures can return 503. Use a private Bearer header to inspect telemetry, never a token in the URL.
 
-For an offline remote device, check its agent/adapter listener, credential and source data first. Frozen upstream sequences and expired source timestamps stay stale even if HTTP requests succeed. For USB, use desktop Chrome/Edge on HTTPS or localhost and release any other serial monitor holding the board. For Wi-Fi, check 2.4 GHz support and the saved pairing. Exclude secrets and real snapshots from issue reports.
+For an offline push device, check its agent process, outbound access to the collector, private state and source data first. A consumed or expired pairing key requires a new key from the console; a revoked publisher requires a fresh key for the existing node and one explicit `--re-enroll` run. Keep the existing agent state; do not delete it as a recovery step. For legacy polling feeds, check the listener and read credential. Frozen upstream sequences and expired source timestamps stay stale even if HTTP requests succeed. For USB, use desktop Chrome/Edge on HTTPS or localhost and release any other serial monitor holding the board. For Wi-Fi, check 2.4 GHz support and the saved pairing. Exclude secrets and real snapshots from issue reports.

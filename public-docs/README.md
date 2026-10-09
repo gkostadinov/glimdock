@@ -1,13 +1,13 @@
 # Glimdock documentation
 
 The current introduction and repository map are in [the root README](../README.md).
-Start with [SETUP.md](../SETUP.md) to run the central collector, register nodes and
+Start with [SETUP.md](../SETUP.md) to run the central collector, pair native push agents and
 pair or update the display.
 
 | Guide | Scope |
 | --- | --- |
 | [Setup](../SETUP.md) | Linux/macOS collector, built-in console, keys, node management and Chrome USB updates |
-| [Devices](DEVICES.md) | Linux/macOS/Windows agents, SNMP routers and mapped JSON APIs |
+| [Devices](DEVICES.md) | Native push enrollment, Linux/macOS/Windows agents, SNMP routers, JSON APIs and polling migration |
 | [Building](BUILDING.md) | Rust workspace, web assets, public firmware and verification |
 | [Architecture](../docs/architecture.md) | Registry, runtime boundaries, telemetry and management contracts |
 | [Firmware](../firmware/README.md) | Supported board, pairing, orientations and display behavior |

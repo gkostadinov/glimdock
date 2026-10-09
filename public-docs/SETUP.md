@@ -1,7 +1,7 @@
 # Set up Glimdock
 
 Use [the canonical setup guide](../SETUP.md). It covers the one-command Linux/macOS
-collector, its built-in web console, device registration, display pairing,
+collector, its built-in web console, single-use push-agent pairing, display pairing,
 Chrome/Edge USB firmware updates and optional Linux systemd installation.
 
 For an additional monitored machine or router, follow [DEVICES.md](DEVICES.md).

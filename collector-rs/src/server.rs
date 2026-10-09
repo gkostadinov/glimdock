@@ -1,6 +1,6 @@
 //! Unprivileged HTTP snapshot reader and fixed-scope privileged Unix service.
 use crate::{
-    config::{self, ConfigManager, MAX_REQUEST, MAX_RESPONSE},
+    config::{self, ConfigManager, MANAGEMENT_REQUEST, MAX_REQUEST, MAX_RESPONSE},
     runtime::{bounded_snapshot, prepare_directory},
     MAX_AGGREGATE, MAX_NODES, MAX_PAYLOAD,
 };
@@ -53,6 +53,16 @@ pub fn node_status(snapshot: &Value, now: f64) -> &'static str {
     }
     if now - stamp > FRESH_SECONDS {
         return "offline";
+    }
+    if snapshot["agent"].is_object() {
+        let stamp = snapshot["agent"]["sampled_at"].as_f64();
+        let ttl = crate::finite(&snapshot["agent"]["ttl_s"], 5., 900.);
+        if !stamp
+            .zip(ttl)
+            .is_some_and(|(stamp, ttl)| stamp <= now + 30. && now - stamp <= ttl)
+        {
+            return "offline";
+        }
     }
     let sources = snapshot["sources"]
         .as_object()
@@ -312,11 +322,13 @@ impl SnapshotStore {
 /// node registry, and browser. Expired/offline samples never show old metrics.
 pub fn node_summary(snapshot: &Value, now: f64) -> Value {
     let status = node_status(snapshot, now);
-    let stamp = snapshot["feed"]["updated_at"]
+    let stamp = snapshot["agent"]["sampled_at"]
         .as_f64()
+        .or_else(|| snapshot["feed"]["updated_at"].as_f64())
         .or_else(|| snapshot["printer"]["updated_at"].as_f64())
         .or_else(|| snapshot["generated_at"].as_f64());
-    let ttl = crate::finite(&snapshot["feed"]["ttl_s"], 5., 900.)
+    let ttl = crate::finite(&snapshot["agent"]["ttl_s"], 5., 900.)
+        .or_else(|| crate::finite(&snapshot["feed"]["ttl_s"], 5., 900.))
         .or_else(|| crate::finite(&snapshot["printer"]["ttl_s"], 5., 900.))
         .unwrap_or(FRESH_SECONDS);
     let age = stamp.map(|t| (now - t).max(0.));
@@ -402,7 +414,16 @@ fn descriptor(record: &Value) -> std::result::Result<Value, StoreError> {
     {
         return Err(StoreError::Unavailable);
     }
-    Ok(json!({"id":id,"type":kind,"platform":platform,"name":name,"address":address}))
+    let mut own = json!({"id":id,"type":kind,"platform":platform,"name":name,"address":address});
+    if record["origin"] == "agent" {
+        own["origin"] = json!("agent");
+        for key in ["last_seen", "sample_at"] {
+            if record[key].is_null() || record[key].as_f64().is_some_and(|n| n.is_finite()) {
+                own[key] = record[key].clone();
+            }
+        }
+    }
+    Ok(own)
 }
 
 #[derive(Clone)]
@@ -645,7 +666,7 @@ async fn proxy_api(
         }
         let raw = match tokio::time::timeout(
             Duration::from_secs(5),
-            to_bytes(request.into_body(), MAX_REQUEST - 128),
+            to_bytes(request.into_body(), MANAGEMENT_REQUEST - 128),
         )
         .await
         {
@@ -708,7 +729,7 @@ async fn handler(State(state): State<HttpState>, request: Request) -> Response {
     if ["GET", "HEAD"].contains(&method) && path == "/api/v1/web/info" && query.is_empty() {
         return reply(
             200,
-            json!({"schema":1,"local_bridge":state.upstream.is_some() || local_console,"management_available":state.setup_token.is_some()}),
+            json!({"schema":1,"local_bridge":state.upstream.is_some() || local_console,"management_available":state.setup_token.is_some(),"collector_url":state.upstream.as_ref().map(|(origin,_)|origin)}),
             head,
             None,
         );
@@ -730,7 +751,86 @@ async fn handler(State(state): State<HttpState>, request: Request) -> Response {
     {
         return proxy_api(&state, request, &path, &query, head).await;
     }
-    if path == "/api/v1/config" && query.is_empty() {
+    if ["/api/v1/agents/enroll", "/api/v1/agents/push"].contains(&path.as_str()) && query.is_empty()
+    {
+        if method != "POST" || state.upstream.is_some() || state.store.demo {
+            return error(404, "not found", head);
+        }
+        // Publishing always requires a scoped credential, including on loopback.
+        let mut auth = request.headers().get_all(header::AUTHORIZATION).iter();
+        let Some(token) = auth
+            .next()
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+        else {
+            return error(401, "agent credential required", head);
+        };
+        if auth.next().is_some() || token.len() != 64 || !crate::push::valid_identity(token) {
+            return error(401, "invalid agent credential", head);
+        }
+        let token = token.to_string();
+        if request.headers().contains_key(header::TRANSFER_ENCODING)
+            || request
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .map(|v| v.split(';').next().unwrap_or("").trim())
+                != Some("application/json")
+        {
+            return error(400, "invalid agent request", head);
+        }
+        let mut lengths = request.headers().get_all(header::CONTENT_LENGTH).iter();
+        let length = lengths
+            .next()
+            .and_then(|v| v.to_str().ok())
+            .filter(|s| s.bytes().all(|b| b.is_ascii_digit()))
+            .and_then(|s| s.parse::<usize>().ok());
+        let Some(length) = length.filter(|n| *n > 0 && *n <= MAX_REQUEST - 512) else {
+            return error(413, "agent request exceeds capacity", head);
+        };
+        if lengths.next().is_some() {
+            return error(400, "invalid agent request", head);
+        }
+        let raw = match tokio::time::timeout(
+            Duration::from_secs(5),
+            to_bytes(request.into_body(), MAX_REQUEST - 512),
+        )
+        .await
+        {
+            Ok(Ok(v)) if v.len() == length => v,
+            _ => return error(400, "invalid agent request", head),
+        };
+        let body = match config::strict_json(&raw) {
+            Ok(v) if v.is_object() => v,
+            _ => return error(400, "invalid agent request", head),
+        };
+        if path.ends_with("/enroll")
+            && (body["agent_token"].as_str() == Some(state.display_token.as_str())
+                || body["agent_token"]
+                    .as_str()
+                    .is_some_and(|t| Some(t) == state.setup_token.as_deref()))
+        {
+            return error(
+                400,
+                "publisher credential must be separate from console credentials",
+                head,
+            );
+        }
+        match forward_config(
+            if path.ends_with("/enroll") {
+                "AGENT_ENROLL"
+            } else {
+                "AGENT_PUSH"
+            },
+            Some(json!({"token":token,"request":body})),
+            &state.config_socket,
+        )
+        .await
+        {
+            Ok((code, body)) => reply(code, body, head, None),
+            Err(_) => error(503, "agent service unavailable", head),
+        }
+    } else if path == "/api/v1/config" && query.is_empty() {
         if !["GET", "HEAD", "POST"].contains(&method) {
             return error(404, "not found", head);
         }
@@ -768,12 +868,12 @@ async fn handler(State(state): State<HttpState>, request: Request) -> Response {
             }) else {
                 return error(400, "invalid configuration request", head);
             };
-            if length == 0 || length > MAX_REQUEST - 128 {
+            if length == 0 || length > MANAGEMENT_REQUEST - 128 {
                 return error(400, "invalid configuration request", head);
             }
             let raw = match tokio::time::timeout(
                 Duration::from_secs(5),
-                to_bytes(request.into_body(), MAX_REQUEST - 128),
+                to_bytes(request.into_body(), MANAGEMENT_REQUEST - 128),
             )
             .await
             {
@@ -971,7 +1071,9 @@ pub async fn forward_config(
         let status = document["status"]
             .as_u64()
             .ok_or_else(|| anyhow::anyhow!("Invalid config status"))?;
-        if ![200, 202, 400, 409, 503].contains(&status) || !document["body"].is_object() {
+        if ![200, 202, 400, 401, 403, 409, 413, 503].contains(&status)
+            || !document["body"].is_object()
+        {
             bail!("Invalid config response");
         }
         Ok((status as u16, document["body"].clone()))
@@ -1084,16 +1186,22 @@ impl ConfigurationService {
                                     .keys()
                                     .all(|k| ["method", "body"].contains(&k.as_str())) =>
                         {
+                            let is_agent = matches!(request["method"].as_str(), Some("AGENT_ENROLL"|"AGENT_PUSH")) && request["body"].is_object();
                             let is_post =
                                 request["method"] == "POST" && request.get("body").is_some();
-                            let valid = is_post
+                            let valid = is_post || is_agent
                                 || (request["method"] == "GET" && request.get("body").is_none());
                             if !valid {
                                 json!({"status":400,"body":{"error":"Only configuration GET/POST is supported"}})
                             } else {
                                 let m = manager.clone();
                                 let result = tokio::task::spawn_blocking(move || {
-                                    if is_post {
+                                    if is_agent {
+                                        let body=&request["body"];
+                                        if body.as_object().is_none_or(|o|o.keys().any(|k|!["token","request"].contains(&k.as_str()))) { return Err(config::ConfigError::new(400,"Invalid agent request")); }
+                                        let token=body["token"].as_str().unwrap_or("");
+                                        if request["method"]=="AGENT_ENROLL" {crate::push::enroll(&m,token,&body["request"],crate::epoch())} else {crate::push::ingest(&m,token,&body["request"],crate::epoch())}
+                                    } else if is_post {
                                         m.mutate(&request["body"])
                                     } else {
                                         m.get()
@@ -1102,7 +1210,7 @@ impl ConfigurationService {
                                 .await;
                                 match result {
                                     Ok(Ok(body)) => {
-                                        if is_post && apply {
+                                        if (is_post || (is_agent && body["duplicate"] != true && body.get("accepted").is_none())) && apply {
                                             notify.notify_one();
                                         }
                                         json!({"status":if is_post{202}else{200},"body":body})
