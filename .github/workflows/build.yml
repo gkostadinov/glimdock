@@ -7,6 +7,7 @@ permissions:
 jobs:
   unix-hub:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -29,6 +30,7 @@ jobs:
           if-no-files-found: error
   native-devices:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -75,7 +77,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - run: pip install platformio
+      - run: python3 -m pip install platformio==6.1.19 intelhex==2.3.0
       - run: npm ci --prefix collector-web
       - run: npm run build --prefix collector-web
       - run: npm test --prefix collector-web
@@ -92,9 +94,17 @@ jobs:
       - run: python3 tools/test-pairing-policy.py
       - run: python3 tools/native-preview/test_gestures.py --rotation 3
       - run: python3 tools/package-public-release.py --check-only
+      - name: Retain failed firmware build diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: glimdock-firmware-build-diagnostics
+          path: output/hardware/web-firmware-build.log
+          if-no-files-found: ignore
   linux-static:
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         target: [x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
     steps:

@@ -304,7 +304,19 @@ def main() -> int:
     build_inputs = {name: digest((ROOT/"firmware"/name).read_bytes()) for name in FIRMWARE_FILES}
     subprocess.run([pio, "run", "--project-dir", str(ROOT/"firmware"), "--environment", ENVIRONMENT, "--target", "clean"], stdout=subprocess.DEVNULL, check=True)
     with log_path.open("w") as output:
-        subprocess.run([pio, "run", "--project-dir", str(ROOT/"firmware"), "--environment", ENVIRONMENT, "--verbose"], stdout=output, stderr=subprocess.STDOUT, check=True)
+        result = subprocess.run([pio, "run", "--project-dir", str(ROOT/"firmware"), "--environment", ENVIRONMENT, "--verbose"], stdout=output, stderr=subprocess.STDOUT)
+    if result.returncode:
+        # CI must expose the underlying compiler/tool failure, not only a
+        # CalledProcessError for the command whose output was saved privately.
+        tail = "\n".join(log_path.read_text(errors="replace").splitlines()[-100:])[-20000:]
+        for secret in private_values():
+            tail = tail.replace(secret.decode(), "<private-build-default>")
+        print(f"Public firmware build failed with exit status {result.returncode}. Last build output:", flush=True)
+        print(tail, flush=True)
+        if "No module named 'intelhex'" in tail:
+            print("Install intelhex==2.3.0 in the Python environment used by PlatformIO, then retry.", flush=True)
+        print(f"Full build log: {log_path.relative_to(ROOT)}", flush=True)
+        return result.returncode
     log = log_path.read_text()
     if build_inputs != {name: digest((ROOT/"firmware"/name).read_bytes()) for name in FIRMWARE_FILES}:
         raise ValueError("Firmware source changed during the public build; retry after edits finish")

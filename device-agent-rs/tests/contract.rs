@@ -65,13 +65,29 @@ fn published_examples_use_native_typed_configs() {
     .unwrap();
     host.validate().unwrap();
     let mut json =
-        config::read_config::<JsonDeviceConfig>(&root.join("examples/agents/json.json"))
-            .unwrap();
+        config::read_config::<JsonDeviceConfig>(&root.join("examples/agents/json.json")).unwrap();
     json.validate().unwrap();
     let snmp = config::read_config::<glimdock_agent::snmp::SnmpConfig>(
         &root.join("examples/agents/snmp.json"),
     )
     .unwrap();
+    // The published path is a Unix placeholder that users replace with their
+    // private credential file. On Windows validate an equivalent native path;
+    // keep the runtime's native absolute-path requirement unchanged.
+    #[cfg(windows)]
+    let snmp = {
+        assert_eq!(
+            snmp.credential_file,
+            "/absolute/private/path/snmp.credentials.json"
+        );
+        glimdock_agent::snmp::SnmpConfig {
+            credential_file: std::env::temp_dir()
+                .join("glimdock-snmp-example.credentials.json")
+                .to_string_lossy()
+                .into_owned(),
+            ..snmp
+        }
+    };
     snmp.validate().unwrap();
 }
 

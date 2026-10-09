@@ -29,7 +29,19 @@ source and deployment compatibility, while build outputs now share `target/`.
 
 ## Build a complete collector release
 
-Install Node.js 20.19 or newer, Python 3.11+, CMake, a C/C++ compiler and PlatformIO.
+Install Node.js 20.19 or newer, Python 3.11+, CMake and a C/C++ compiler.
+Use an isolated Python environment for the firmware build tools:
+
+```sh
+python3 -m venv output/toolchains/firmware-python
+. output/toolchains/firmware-python/bin/activate
+python -m pip install platformio==6.1.19 intelhex==2.3.0
+```
+
+IntelHex is required by the pinned ESP32 image conversion tool; a fresh
+PlatformIO installation does not supply it. These tools build firmware assets;
+the collector and device agents run as native Rust executables.
+
 Install and activate Emscripten SDK **6.0.12**, normally under
 `output/toolchains/emsdk`. The emulator builder also accepts `--emsdk PATH`.
 
