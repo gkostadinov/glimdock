@@ -15,7 +15,7 @@
   "manufacturer_references": false,
   "live_telemetry": false,
   "files": {
-    ".github/ISSUE_TEMPLATE/bug-report.yml": "b81c38b0a2bdbbcbcd38539b48f4c3c9fc7a8c8c608a249dd7a2a975c94884e5",
+    ".github/ISSUE_TEMPLATE/bug-report.yml": "0b42ec8170e3470dbdb7229da76d9f2ea7ae3def82ce557fcb36e993ee3e86ca",
     ".github/ISSUE_TEMPLATE/config.yml": "00d5009221e0207b99be6f42fcad9b0376f921158763bf45ec2c7b0ba1652cf4",
     ".github/ISSUE_TEMPLATE/feature-request.yml": "66e51f0a8c3142a6ccecd284dd10ef9258460be049d9c6cb7842a244262477fb",
     ".github/pull_request_template.md": "8f68d53cc91ecde7802dec524ffd44e98b6cdb09afa3ac35aa09d49a6eca6f75",

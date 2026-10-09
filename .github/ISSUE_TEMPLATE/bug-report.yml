@@ -17,7 +17,7 @@ body:
     attributes:
       label: Platform
       description: Collector OS/architecture and board revision, if relevant.
-      placeholder: Collector: macOS arm64; device: Windows x86_64 or SNMP router; display: Waveshare V1 CST328
+      placeholder: "Collector: macOS arm64; device: Windows x86_64 or SNMP router; display: Waveshare V1 CST328"
     validations:
       required: true
   - type: textarea
