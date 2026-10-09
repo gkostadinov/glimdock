@@ -2,7 +2,11 @@
 
 `collector.json` is a generic optional-host collector configuration.
 `nodes/proxmox.json` explicitly enables additional Proxmox probes.
-`agents/` contains native OS, SNMP and mapped JSON API adapters.
+`agents/` contains native OS, SNMP and mapped JSON API adapter source
+configurations. Pair each agent through the web console, then use
+`--collector-url`, `--state-dir` and a one-time `--enrollment-key-file`; no incoming
+agent address is required. Source credentials stay on the adapter host.
+`--serve-http` retains the optional legacy polling endpoint.
 `snapshots/host.json` and `all-nodes.json` are authored synthetic readings.
 `firmware-inventory.json` is a separate hypervisor inventory fixture for UI tests.
 

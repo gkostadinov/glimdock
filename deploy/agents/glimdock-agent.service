@@ -1,0 +1,26 @@
+[Unit]
+Description=Glimdock outbound telemetry agent
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=glimdock-agent
+Group=glimdock-agent
+StateDirectory=glimdock-agent
+StateDirectoryMode=0700
+UMask=0077
+# Replace the collector URL. For trusted LAN HTTP explicitly append --allow-insecure-http.
+# Once paired, the enrollment key file can be removed; saved state is reused.
+ExecStart=/usr/local/bin/glimdock-agent --collector-url https://collector.example.com --state-dir /var/lib/glimdock-agent --enrollment-key-file /etc/glimdock-agent/enrollment.key --config /etc/glimdock-agent/host.json
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

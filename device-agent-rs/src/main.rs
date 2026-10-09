@@ -4,7 +4,7 @@ use glimdock_agent::{
     config,
     host::{HostCollector, HostConfig},
     json_device::{JsonDeviceCollector, JsonDeviceConfig},
-    protocol,
+    protocol, push,
     server::{self, ServerState},
     snmp::{SnmpCollector, SnmpConfig},
     Collector,
@@ -28,6 +28,27 @@ struct Cli {
     snmp_config: Option<PathBuf>,
     #[arg(long)]
     json_config: Option<PathBuf>,
+    /// Push telemetry to the central collector without opening a listener.
+    #[arg(long, requires = "state_dir", conflicts_with_all = ["serve_http", "token_file", "cert", "key", "once", "generate_token"])]
+    collector_url: Option<String>,
+    /// Private durable pairing and identity directory (absolute path).
+    #[arg(long, requires = "collector_url")]
+    state_dir: Option<PathBuf>,
+    /// Single-use collector pairing key, read only during first enrollment.
+    #[arg(long, requires = "collector_url")]
+    enrollment_key_file: Option<PathBuf>,
+    /// Pair again with a new key, retaining identity and rotating publishing access.
+    #[arg(long, requires_all = ["collector_url", "enrollment_key_file"])]
+    re_enroll: bool,
+    /// Allow unencrypted HTTP only on a trusted network.
+    #[arg(long, requires = "collector_url")]
+    allow_insecure_http: bool,
+    /// Private collector CA certificate; TLS verification remains enabled.
+    #[arg(long, requires = "collector_url")]
+    collector_ca_cert: Option<PathBuf>,
+    /// Explicit legacy HTTP endpoint for collectors that still poll agents.
+    #[arg(long, requires = "token_file")]
+    serve_http: bool,
     #[arg(long, default_value = "127.0.0.1")]
     bind: IpAddr,
     #[arg(long, default_value_t = 8765)]
@@ -61,7 +82,7 @@ fn run(args: Cli) -> Result<()> {
         );
         return Ok(());
     }
-    if args.port == 0 || !args.bind.is_ipv4() {
+    if args.collector_url.is_none() && (args.port == 0 || !args.bind.is_ipv4()) {
         bail!("Use an IPv4 listener and nonzero port");
     }
     let mut collector: Box<dyn Collector> = if let Some(path) = args.snmp_config {
@@ -79,6 +100,22 @@ fn run(args: Cli) -> Result<()> {
             HostConfig::default()
         })?)
     };
+    if let Some(collector_url) = args.collector_url {
+        return push::run(
+            push::Options {
+                collector_url,
+                state_dir: args.state_dir.unwrap(),
+                enrollment_key_file: args.enrollment_key_file,
+                re_enroll: args.re_enroll,
+                allow_insecure_http: args.allow_insecure_http,
+                collector_ca_cert: args.collector_ca_cert,
+            },
+            collector,
+        );
+    }
+    if !args.once && args.token_file.is_none() {
+        bail!("Use --collector-url with --state-dir to push to your collector, or --serve-http with --token-file for the legacy HTTP endpoint");
+    }
     let clock = Instant::now();
     let initial = collector.sample(glimdock_agent::epoch(), clock.elapsed().as_secs_f64())?;
     if args.once {
@@ -135,9 +172,8 @@ fn run(args: Cli) -> Result<()> {
         let handle = axum_server::Handle::new();
         let quit = handle.clone();
         tokio::spawn(async move {
-            if tokio::signal::ctrl_c().await.is_ok() {
-                quit.graceful_shutdown(Some(Duration::from_secs(5)));
-            }
+            push::shutdown_signal().await;
+            quit.graceful_shutdown(Some(Duration::from_secs(5)));
         });
         if let (Some(cert), Some(key)) = (args.cert, args.key) {
             let tls = axum_server::tls_rustls::RustlsConfig::from_pem_file(cert, key).await?;

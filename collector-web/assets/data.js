@@ -30,3 +30,43 @@ export function stripNode(node) {
 }
 export function metricText(value,decimals=0) { return finite(value)===null ? '—' : value.toFixed(decimals); }
 export function escapeHtml(value) { return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+export function sourceName(node) {
+  return node.origin==='agent'?'Agent push':node.origin==='host'?'Collector host':'Polling feed';
+}
+export function agentStatus(node,live) {
+  if(node.origin!=='agent')return node.enabled===false?'paused':live?.summary?.status||'unknown';
+  if(node.revoked)return 'revoked';
+  if(!node.registered)return node.pairing_pending?'awaiting agent':'not paired';
+  return node.enabled===false?'paused':live?.summary?.status||'offline';
+}
+export function seenText(value,now=Date.now()/1000) {
+  const stamp=finite(value); if(stamp===null)return 'No readings received';
+  const seconds=Math.max(0,Math.floor(now-stamp));
+  return seconds<5?'Received just now':seconds<60?`Last received ${seconds}s ago`:seconds<3600?`Last received ${Math.floor(seconds/60)}m ago`:`Last received ${Math.floor(seconds/3600)}h ago`;
+}
+export function collectorAddress(value) {
+  const url=new URL(value);
+  if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.search||url.hash||!['','/'].includes(url.pathname))throw new Error('Use an HTTP or HTTPS collector address without a path, credentials or query.');
+  return url.origin;
+}
+function shellArg(value) { return `'${String(value).replaceAll("'", "'\\''")}'`; }
+function powershellArg(value) { return `'${String(value).replaceAll("'", "''")}'`; }
+export function agentCommand(url,os='unix',reEnroll=false) {
+  const origin=collectorAddress(url),http=new URL(origin).protocol==='http:';
+  const windows=os==='windows';
+  const lines=windows?[
+    `& C:\\Tools\\glimdock-agent.exe --collector-url ${powershellArg(origin)}`,
+    '--state-dir C:\\Private\\glimdock-agent',
+    '--enrollment-key-file C:\\Private\\enrollment.key',
+    '--config C:\\Private\\host.json',
+  ]:[
+    `glimdock-agent --collector-url ${shellArg(origin)}`,
+    '--state-dir /ABSOLUTE/PRIVATE/glimdock-agent',
+    '--enrollment-key-file /ABSOLUTE/PRIVATE/enrollment.key',
+    '--config /ABSOLUTE/PRIVATE/host.json',
+  ];
+  if(reEnroll)lines.push('--re-enroll');
+  if(http)lines.push('--allow-insecure-http');
+  return lines.join(windows?' `\n  ':' \\\n  ');
+}

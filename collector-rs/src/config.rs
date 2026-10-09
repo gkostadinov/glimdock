@@ -15,7 +15,8 @@ use std::{
 };
 use url::Url;
 
-pub const MAX_REQUEST: usize = 12 * 1024;
+pub const MANAGEMENT_REQUEST: usize = 12 * 1024;
+pub const MAX_REQUEST: usize = crate::MAX_PAYLOAD + 4096;
 pub const MAX_RESPONSE: usize = 16 * 1024;
 pub const SOCKET_PATH: &str = "/run/homelab-monitor/config.sock";
 pub const COLLECTOR_UNIT: &str = "homelab-monitor-collector.service";
@@ -155,6 +156,9 @@ pub struct Config {
     pub local_type: String,
     pub printers: Vec<NodeConfig>,
     pub remote_collectors: Vec<NodeConfig>,
+    pub push_agents: Vec<crate::push::AgentConfig>,
+    #[serde(skip)]
+    pub source_path: Option<PathBuf>,
     pub expected_running_guests: Vec<u64>,
     pub qga_guest_ids: Vec<u64>,
     pub truenas_ssh_host: String,
@@ -202,6 +206,8 @@ impl Default for Config {
             local_type: "server".into(),
             printers: vec![],
             remote_collectors: vec![],
+            push_agents: vec![],
+            source_path: None,
             expected_running_guests: vec![],
             qga_guest_ids: vec![],
             truenas_ssh_host: String::new(),
@@ -243,7 +249,10 @@ impl Default for Config {
 impl Config {
     pub fn read(path: &Path) -> Result<Self> {
         let raw = read_bounded(path, 64 * 1024).context("Configuration unavailable")?;
-        Self::from_value(strict_json(&raw).context("Invalid configuration JSON")?)
+        let mut config =
+            Self::from_value(strict_json(&raw).context("Invalid configuration JSON")?)?;
+        config.source_path = Some(path.to_path_buf());
+        Ok(config)
     }
     pub fn from_value(mut value: Value) -> Result<Self> {
         // A saved legacy flag explicitly describes a Proxmox host. Fresh hubs
@@ -320,7 +329,7 @@ impl Config {
         if self.display_name.chars().count() > 64 || self.display_name.chars().any(|c| c < ' ') {
             bail!("Invalid display name");
         }
-        if self.printers.len() + self.remote_collectors.len() > 16 {
+        if self.printers.len() + self.remote_collectors.len() + self.push_agents.len() > 16 {
             bail!("At most 16 configured feeds are supported");
         }
         if self.enabled_node_count() > crate::MAX_NODES {
@@ -336,6 +345,24 @@ impl Config {
                 if !ids.insert(node.id.clone()) {
                     bail!("Duplicate node ID");
                 }
+            }
+        }
+        let mut agent_ids = HashSet::new();
+        let mut publishers = HashSet::new();
+        let mut publisher_hashes = HashSet::new();
+        for agent in &self.push_agents {
+            agent.validate()?;
+            if !agent_ids.insert(agent.id.clone())
+                || agent.id == self.local_node_id()
+                || self
+                    .remote_collectors
+                    .iter()
+                    .any(|n| agent.id == format!("remote:{}", n.id))
+                || (!agent.agent_id.is_empty() && !publishers.insert(agent.agent_id.clone()))
+                || (!agent.token_hash.is_empty()
+                    && !publisher_hashes.insert(agent.token_hash.clone()))
+            {
+                bail!("Duplicate agent identity");
             }
         }
         for period in [
@@ -401,6 +428,7 @@ impl Config {
         self.enable_local as usize
             + self.printers.iter().filter(|n| n.enabled).count()
             + self.remote_collectors.iter().filter(|n| n.enabled).count()
+            + self.push_agents.iter().filter(|n| n.enabled).count()
     }
     pub fn local_platform(&self) -> &'static str {
         if self.local_type == "proxmox" {
@@ -632,6 +660,7 @@ impl ConfigManager {
                 nodes.push(json!({"id":format!("{prefix}:{}",item.id),"type":if prefix=="remote"{item.node_type.as_str()}else{"klipper"},"platform":item.platform,"origin":"feed","enabled":item.enabled,"name":item.name,"url":item.url,"poll_interval_s":item.poll_interval_s,"timeout_s":item.timeout_s,"ttl_s":item.ttl_s,"has_secret":!(if prefix=="remote"{&item.token_file}else{&item.api_key_file}).is_empty()}));
             }
         }
+        nodes.extend(config.push_agents.iter().map(crate::push::projection));
         json!({"schema":1,"version":version,"max_nodes":4,"nodes":nodes,"local_node":{"id":identity,"type":config.local_type,"platform":config.local_platform(),"name":name,"address":ip,"origin":"host","enabled":config.enable_local}})
     }
     pub fn get(&self) -> std::result::Result<Value, ConfigError> {
@@ -639,6 +668,9 @@ impl ConfigManager {
         Ok(Self::projection(&c, &v))
     }
     pub fn mutate(&self, request: &Value) -> std::result::Result<Value, ConfigError> {
+        if crate::push::is_management_request(self, request) {
+            return crate::push::manage(self, request);
+        }
         let bad = || ConfigError::new(400, "Invalid node configuration request");
         let object = request.as_object().ok_or_else(bad)?;
         if object

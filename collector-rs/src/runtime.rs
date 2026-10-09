@@ -447,6 +447,14 @@ impl Collector {
             };
             nodes.push(json!({"id":format!("remote:{}",source.config.id),"type":source.config.node_type,"platform":platform,"name":source.config.name,"address":source_address(&source.config.url),"snapshot":snapshot}));
         }
+        for agent in self.config.push_agents.iter().filter(|a| a.enabled) {
+            nodes.push(crate::push::node_snapshot(
+                agent,
+                self.config.source_path.as_deref(),
+                self.sequence,
+                now,
+            ));
+        }
         for node in &mut nodes {
             node["status"] = json!(crate::server::node_status(&node["snapshot"], now));
         }
@@ -559,6 +567,7 @@ pub async fn run_controlled(
                         .and_then(Collector::new)
                     {
                         Ok(mut replacement) => {
+                            replacement.config.source_path = Some(path.to_path_buf());
                             replacement.sequence = collector.sequence;
                             interval = tokio::time::interval(Duration::from_secs_f64(
                                 replacement.config.interval_s,

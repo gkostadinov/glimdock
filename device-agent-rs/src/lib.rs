@@ -3,6 +3,7 @@ pub mod config;
 pub mod host;
 pub mod json_device;
 pub mod protocol;
+pub mod push;
 pub mod server;
 pub mod snmp;
 

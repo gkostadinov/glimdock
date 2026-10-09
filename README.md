@@ -1,12 +1,13 @@
 # Glimdock
 
-Glimdock brings servers, routers, appliances and printers to one small touchscreen. A **host-agnostic Rust collector** owns the node registry, samples devices and serves the management web interface. The display pairs with that collector once; registered nodes then appear automatically in its **All nodes** bento overview.
+Glimdock brings servers, routers, appliances and printers to one small touchscreen. A **host-agnostic Rust collector** owns the node registry, accepts device readings and serves the management web interface. The display pairs with that collector once; registered nodes then appear automatically in its **All nodes** bento overview.
 
-Linux, macOS and Windows machines use native Rust telemetry. Routers and other appliances can expose read-only SNMP or a JSON API through the same Rust device agent. Proxmox adds guest, storage and GPU features to a node; Klipper adds print job and temperature views. Neither integration is required to run the collector.
+Linux, macOS and Windows machines use native Rust agents that push telemetry to the collector. Agents pair once, receive a stable node identity and need no incoming network connection. Routers and other appliances can expose read-only SNMP or a JSON API through the same Rust device agent. Proxmox adds guest, storage and GPU features to a node; Klipper adds print job and temperature views. Neither integration is required to run the collector.
 
 ```text
-Linux / macOS / Windows agents     SNMP / JSON adapters     Moonraker
-                  \                      |                    /
+Linux / macOS / Windows agents ──push──┐
+SNMP / JSON adapters ────────────push──┤   Moonraker / legacy feeds
+                                     │          ↑ polling
                    Rust collector: node registry + web console
                            /                         \
               Glimdock ESP32-S3                Desktop browser
@@ -21,9 +22,9 @@ Run the matching Linux or macOS executable with a private state directory:
 glimdock-collector run --state-dir ./glimdock-state --bind 127.0.0.1 --port 8765
 ```
 
-Open `http://127.0.0.1:8765/`. The same server collects telemetry, applies node edits and serves the interface; no separate web server is needed. Local access works directly. Fresh configurations monitor the collector's native host as an ordinary **Server / device** node. You can pause or remove that node and use the collector only to aggregate remote feeds.
+Open `http://127.0.0.1:8765/`. The same server collects telemetry, applies node edits and serves the interface; no separate web server is needed. Local access works directly. Fresh configurations monitor the collector's native host as an ordinary **Server / device** node. You can pause or remove that node and use the collector only to receive agent pushes and aggregate optional polling feeds.
 
-Use [SETUP.md](SETUP.md) for credentials, LAN access, display pairing and persistent services. [DEVICES.md](public-docs/DEVICES.md) explains how to run an agent or adapter and register its endpoint. Registration assigns a stable ID when one is omitted; changing a node's name preserves that ID. This is a configured registry, not network scanning or automatic credential discovery.
+Use [SETUP.md](SETUP.md) for credentials, LAN access, display pairing and persistent services. [DEVICES.md](public-docs/DEVICES.md) explains how to pair an agent or adapter with a one-time key. Enrollment assigns a stable node ID automatically; changing a name preserves it. Explicit `--re-enroll` renews a revoked publisher with a fresh key while retaining device and node identity. Polling remains available for printers and existing APIs. Devices enroll explicitly; network scanning and credential discovery are not required.
 
 ## One interface for the fleet and display
 
@@ -32,12 +33,12 @@ The collector's built-in web console has three views:
 | View | What it does |
 | --- | --- |
 | **Overview** | Live summary cards for every active node, including available CPU, memory, temperature and printer readings |
-| **Nodes** | Add, edit, pause, resume and remove feeds; manage the optional collector-host node |
+| **Nodes** | Pair agents; rename, pause, revoke and remove nodes; add polling feeds and manage the optional collector host |
 | **Display & firmware** | Run the actual LVGL firmware UI in the browser and update the supported display over USB |
 
 The browser firmware is compiled from the production UI, fonts, parsers and touch behavior into WebAssembly. It shares the display's layout and interactions; browser transport replaces the board peripherals. The larger web overview is a separate interface for managing the fleet.
 
-The physical display starts on **All nodes**, with up to four summary cards. Tap a card to open its dashboard. Ordinary devices have Overview, Storage, Sensors and Health; Proxmox adds guest views; Klipper has Overview, Job, Temps and Health. Unavailable or expired measurements remain unknown. Up to sixteen feeds can be configured, with four active nodes including the optional collector host.
+The physical display starts on **All nodes**, with up to four summary cards. Tap a card to open its dashboard. Ordinary devices have Overview, Storage, Sensors and Health; Proxmox adds guest views; Klipper has Overview, Job, Temps and Health. Unavailable or expired measurements remain unknown. Up to sixteen remote nodes can be configured, with four active nodes including the optional collector host.
 
 ## Browser firmware updates
 
@@ -65,7 +66,7 @@ The executables are `target/release/glimdock-collector` and `target/release/glim
 | Path | Purpose |
 | --- | --- |
 | `collector-rs/` | Rust central collector, node configuration and authenticated HTTP APIs |
-| `device-agent-rs/` | Native Rust host telemetry, SNMP and mapped JSON adapters |
+| `device-agent-rs/` | Native Rust push agents, host telemetry, SNMP and mapped JSON adapters |
 | `collector-web/` | Built-in management console, browser firmware and USB updater |
 | `firmware/` | Production LVGL touchscreen firmware |
 | `examples/` | Generic collector, node, agent and synthetic snapshot examples |

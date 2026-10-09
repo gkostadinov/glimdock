@@ -79,9 +79,9 @@ bool requestNodeConfiguration(){
 bool requestNodeUpsert(const NodeConfigDraft&draft,const char*version){
   if(configuration.busy||!version||strlen(version)!=64||(draft.node.id[0]&&!validNodeId(draft.node.id)))return false;
   JsonDocument request;request["action"]="upsert";request["version"]=version;auto node=request["node"].to<JsonObject>();
-  node["id"]=draft.node.id;node["type"]=draft.node.type;node["name"]=draft.node.name;
+  node["id"]=draft.node.id;node["type"]=agentNodeType(draft.node.type)?"server":draft.node.type;node["name"]=draft.node.name;node["enabled"]=draft.node.enabled;if(agentNodeType(draft.node.type))node["origin"]="agent";
   if(localNodeType(draft.node.type)){if(!deviceNodeType(draft.node.type))node["platform"]="linux";else if(draft.node.platform[0])node["platform"]=draft.node.platform;}else if(deviceNodeType(draft.node.type))node["platform"]=draft.node.platform;
-  if(!localNodeType(draft.node.type)){node["url"]=draft.node.url;node["poll_interval_s"]=draft.node.poll;node["timeout_s"]=draft.node.timeout;node["ttl_s"]=draft.node.ttl;if(draft.secret[0])node["secret"]=draft.secret;if(draft.clearSecret)node["clear_secret"]=true;}
+  if(agentNodeType(draft.node.type)){node["poll_interval_s"]=draft.node.poll;node["ttl_s"]=draft.node.ttl;}else if(!localNodeType(draft.node.type)){node["url"]=draft.node.url;node["poll_interval_s"]=draft.node.poll;node["timeout_s"]=draft.node.timeout;node["ttl_s"]=draft.node.ttl;if(draft.secret[0])node["secret"]=draft.secret;if(draft.clearSecret)node["clear_secret"]=true;}
   if(measureJson(request)>4096)return false;std::string payload;serializeJson(request,payload);
   configuration.busy=true;configuration.applying=false;configuration.saved=false;configuration.revision++;strlcpy(configuration.message,"Saving node settings...",sizeof(configuration.message));webRequest("update",payload.c_str());return true;
 }
@@ -109,14 +109,13 @@ EMSCRIPTEN_KEEPALIVE int glimdock_snapshot(const char*body){
 EMSCRIPTEN_KEEPALIVE void glimdock_error(const char*message){networkState.loading=false;strlcpy(networkState.message,message?message:"Collector unreachable",sizeof(networkState.message));networkState.revision++;}
 EMSCRIPTEN_KEEPALIVE void glimdock_connection(const char*endpoint,int displayPaired,int setupPaired){connection.available=true;strlcpy(connection.ssid,"Browser connection",sizeof(connection.ssid));strlcpy(connection.endpoint,endpoint?endpoint:"",sizeof(connection.endpoint));connection.displayTokenSaved=displayPaired;connection.setupTokenSaved=setupPaired;connection.revision++;}
 EMSCRIPTEN_KEEPALIVE int glimdock_config(const char*body,int status){
-  if(!body||strlen(body)>8192){configMessage("Collector settings response is too large.");return 0;}JsonDocument doc;auto error=deserializeJson(doc,body,DeserializationOption::NestingLimit(8));if(error){configMessage("Collector returned invalid settings data.");return 0;}
+  if(!body||strlen(body)>MAX_CONFIG_JSON){configMessage("Collector settings response is too large.");return 0;}JsonDocument doc;auto error=deserializeJson(doc,body,DeserializationOption::NestingLimit(8));if(error){configMessage("Collector returned invalid settings data.");return 0;}
   if(status!=200&&status!=202){configMessage(status==401||status==403?"Setup token rejected. Pair the separate configuration token.":status==409?"Settings changed elsewhere. Refresh before saving again.":doc["error"]|"Node settings were rejected.");return 0;}
   NodeConfiguration next;auto publicConfig=doc["config"].is<JsonObjectConst>()?doc["config"].as<JsonObjectConst>():doc.as<JsonObjectConst>();
   if(!firmware_json::parseConfiguration(publicConfig,next)){configMessage("Unsupported collector settings schema.");return 0;}next.revision=configuration.revision+1;next.applying=status==202;next.saved=status==202;if(next.applying)strlcpy(next.message,"Saved. Collector is applying node settings...",sizeof(next.message));configuration=next;networkState.revision++;
   if(next.applying){
-    NodeDescriptor selected;char selectedId[64];strlcpy(selectedId,transportSnapshot.node.id,sizeof(selectedId));transportSnapshot.nNodes=next.count;
-    for(int i=0;i<next.count;i++){const auto&n=next.nodes[i];auto&descriptor=transportSnapshot.nodes[i];descriptor=NodeDescriptor{};strlcpy(descriptor.id,n.id,sizeof(descriptor.id));strlcpy(descriptor.type,!strcmp(n.type,"klipper")?"klipper":deviceNodeType(n.type)?"server":"proxmox",sizeof(descriptor.type));strlcpy(descriptor.platform,n.platform,sizeof(descriptor.platform));strlcpy(descriptor.name,n.name,sizeof(descriptor.name));strlcpy(descriptor.address,localNodeType(n.type)?next.localAddress:n.url,sizeof(descriptor.address));strlcpy(descriptor.status,"applying",sizeof(descriptor.status));if(!strcmp(n.id,selectedId))selected=descriptor;}
-    clearForNode(transportSnapshot,selected);networkState.loading=next.count>0;strlcpy(networkState.message,next.count?"Applying node settings...":"No nodes configured; open Settings",sizeof(networkState.message));
+    NodeDescriptor selected=configuredRegistry(transportSnapshot,next,transportSnapshot.node.id);
+    clearForNode(transportSnapshot,selected);networkState.loading=transportSnapshot.nNodes>0;strlcpy(networkState.message,transportSnapshot.nNodes?"Applying node settings...":"No nodes configured; open Settings",sizeof(networkState.message));
   }
   return 1;
 }

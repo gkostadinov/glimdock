@@ -2,7 +2,8 @@
 
 The repository is a Rust workspace with two executables: `glimdock-collector`
 for the Linux/macOS central server and `glimdock-agent` for monitored
-Linux/macOS/Windows devices. The web console, actual firmware WebAssembly renderer
+Linux/macOS/Windows devices. v0.3.0 uses explicit enrollment and agent push;
+existing polling adapters remain compatible. The web console, actual firmware WebAssembly renderer
 and public USB update bundle are embedded in the collector at compile time.
 
 ## Rust workspace
@@ -99,8 +100,10 @@ target/release/glimdock-agent --config examples/agents/host.json --once
 ```
 
 `--once` initializes counter baselines and prints one local sample without a
-listener or token. Agents, SNMP and JSON adapters use the same bounded read-only
-feed contract. [DEVICES.md](DEVICES.md) covers their normal service commands.
+listener or token. Agents, SNMP and JSON adapters publish the same bounded snapshot contract
+through authenticated push. `--serve-http` retains an optional read-only polling
+endpoint. [DEVICES.md](DEVICES.md) covers normal service commands and explicit
+`--re-enroll` recovery with a fresh key and retained private state.
 
 ## Linux release targets
 
@@ -146,7 +149,8 @@ Use PlatformIO-installed LVGL 9.3.0 sources or supply the native renderer's
 and a gallery. The continuous pointer suite checks real LVGL press/move/release
 behavior, including scrolling, keyboards, node management and All nodes cards.
 The browser tests exercise the compiled firmware and transport; web tests cover
-data handling and the verified USB flash plan.
+data handling, authentication/enrollment/node-management transitions and the
+verified USB flash plan.
 
 Native/WASM verification establishes software behavior and pixel layout.
 Physical touch, power, Wi-Fi, USB and enclosure fit require the supported board.

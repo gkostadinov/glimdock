@@ -8,6 +8,7 @@ pub mod printers;
 pub mod probes;
 pub mod procfs;
 pub mod proxmox;
+pub mod push;
 pub mod remote_feeds;
 pub mod runtime;
 pub mod sensors;

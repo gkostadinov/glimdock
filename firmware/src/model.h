@@ -6,6 +6,7 @@
 #include <cstring>
 constexpr size_t MAX_GUESTS=48, MAX_SENSORS=64, MAX_STORAGE=16, MAX_DISKS=16, MAX_ALERTS=24, MAX_CORES=64, MAX_SOURCES=16, MAX_FAULTS=16, MAX_GPUS=8, MAX_NODES=4, MAX_HEATERS=8, MAX_PRINTER_TEMPS=16, MAX_INTERFACES=16;
 constexpr size_t MAX_JSON=48*1024;
+constexpr size_t MAX_CONFIG_NODES=16, MAX_CONFIG_JSON=16*1024;
 constexpr float UNKNOWN = std::numeric_limits<float>::quiet_NaN();
 struct Guest { int id=0; char name[64]{},type[8]{},status[16]{},memoryBasis[20]{"proxmox"},memError[128]{}; float cpu=UNKNOWN; double used=NAN,total=NAN,uptime=NAN,rx=NAN,tx=NAN,read=NAN,write=NAN,available=NAN,cache=NAN,noncache=NAN,assigned=NAN,hostMem=NAN,pveUsed=NAN,pveTotal=NAN,memUpdated=NAN,memAge=NAN; };
 struct Gpu {char id[64]{},name[96]{},vendor[32]{},kind[16]{},owner[32]{},driver[48]{},status[24]{},error[128]{},utilizationKind[24]{"gpu"};float utilization=UNKNOWN,temp=UNKNOWN,power=UNKNOWN,graphicsMhz=UNKNOWN,memoryMhz=UNKNOWN,fan=UNKNOWN;double memUsed=NAN,memTotal=NAN,updated=NAN,age=NAN;};
@@ -19,7 +20,8 @@ struct DeviceInterface {char name[64]{},status[16]{};double speed=NAN,rx=NAN,tx=
 struct NodeSummary {bool available=false;float cpu=UNKNOWN,memory=UNKNOWN,temp=UNKNOWN,progress=UNKNOWN;char printState[24]{},status[24]{};int32_t sensors=-1,guests=-1;double generated=NAN,age=NAN,ttl=15;};
 struct NodeDescriptor {char id[64]{},type[16]{},platform[16]{},name[64]{},address[96]{},status[24]{};NodeSummary summary;};
 inline bool localNodeType(const char*type){return !strcmp(type,"local-proxmox")||!strcmp(type,"local-server");}
-inline bool deviceNodeType(const char*type){return !strcmp(type,"server")||!strcmp(type,"local-server")||!strcmp(type,"server-feed");}
+inline bool agentNodeType(const char*type){return !strcmp(type,"server-agent");}
+inline bool deviceNodeType(const char*type){return !strcmp(type,"server")||!strcmp(type,"local-server")||!strcmp(type,"server-feed")||agentNodeType(type);}
 inline const char*platformName(const char*platform){return !strcmp(platform,"linux")?"Linux":!strcmp(platform,"macos")?"macOS":!strcmp(platform,"windows")?"Windows":!strcmp(platform,"router")?"Router":!strcmp(platform,"other")?"Other device":"Server / device";}
 inline const char*nodeTypeName(const NodeDescriptor&node){return !strcmp(node.type,"klipper")?"Klipper":!strcmp(node.type,"proxmox")||!strcmp(node.type,"proxmox-feed")||!strcmp(node.type,"local-proxmox")?"Proxmox":platformName(node.platform);}
 struct Heater {char name[64]{};float temp=UNKNOWN,target=UNKNOWN,duty=UNKNOWN;};
@@ -44,9 +46,23 @@ inline bool nodeReplyMatches(const Snapshot&s,const char*requested,uint32_t capt
 struct NetworkState { bool configured=false,wifi=false,setup=false,loading=false; char message[96]{},apPassword[16]{},ip[48]{}; uint32_t revision=0; };
 struct ConnectionSettings {char ssid[33]{},endpoint[241]{};bool available=false,passwordSaved=false,displayTokenSaved=false,setupTokenSaved=false,caSaved=false,busy=false,saved=false;char message[128]{};uint32_t revision=0;};
 struct ConnectionUpdate {char ssid[33]{},password[65]{},endpoint[241]{},displayToken[193]{},setupToken[193]{};bool clearPassword=false;};
-struct ConfigNode {char id[64]{},type[20]{},platform[16]{},origin[16]{},name[64]{},url[241]{};double poll=5,timeout=3,ttl=15;bool hasSecret=false;};
+struct ConfigNode {char id[64]{},type[20]{},platform[16]{},origin[16]{},name[64]{},url[241]{};double poll=5,timeout=3,ttl=15;bool hasSecret=false,enabled=true,registered=false;};
 struct NodeConfigDraft {ConfigNode node;char secret[257]{};bool clearSecret=false;};
-struct NodeConfiguration {bool available=false,busy=false,applying=false,saved=false;char version[65]{},message[160]{},localId[64]{},localName[64]{},localAddress[96]{},localType[16]{"server"},localPlatform[16]{};bool localEnabled=false;uint8_t count=0;ConfigNode nodes[MAX_NODES];uint32_t revision=0;};
+struct NodeConfiguration {bool available=false,busy=false,applying=false,saved=false;char version[65]{},message[160]{},localId[64]{},localName[64]{},localAddress[96]{},localType[16]{"server"},localPlatform[16]{};bool localEnabled=false;uint8_t count=0;ConfigNode nodes[MAX_CONFIG_NODES];uint32_t revision=0;};
+inline uint8_t activeConfiguredNodes(const NodeConfiguration&config){uint8_t count=0;for(int i=0;i<config.count;i++)if(config.nodes[i].enabled)count++;return count;}
+inline NodeDescriptor configuredRegistry(Snapshot&snapshot,const NodeConfiguration&config,const char*selectedId){
+  NodeDescriptor selected;snapshot.nNodes=0;
+  for(int i=0;i<config.count&&snapshot.nNodes<MAX_NODES;i++){
+    const auto&node=config.nodes[i];if(!node.enabled)continue;
+    auto&descriptor=snapshot.nodes[snapshot.nNodes++];descriptor=NodeDescriptor{};
+    strlcpy(descriptor.id,node.id,sizeof(descriptor.id));
+    strlcpy(descriptor.type,!strcmp(node.type,"klipper")?"klipper":deviceNodeType(node.type)?"server":"proxmox",sizeof(descriptor.type));
+    strlcpy(descriptor.platform,node.platform,sizeof(descriptor.platform));strlcpy(descriptor.name,node.name,sizeof(descriptor.name));
+    strlcpy(descriptor.address,localNodeType(node.type)?config.localAddress:node.url,sizeof(descriptor.address));
+    strlcpy(descriptor.status,"applying",sizeof(descriptor.status));if(!strcmp(node.id,selectedId))selected=descriptor;
+  }
+  return selected;
+}
 inline bool settleNodeConfiguration(NodeConfiguration&config){if(config.busy||!config.applying)return false;config.applying=false;strlcpy(config.message,"Node settings saved. Monitoring resumed.",sizeof(config.message));config.revision++;return true;}
 bool readConnectionSettings(ConnectionSettings&out);
 bool requestConnectionUpdate(const ConnectionUpdate&update);
