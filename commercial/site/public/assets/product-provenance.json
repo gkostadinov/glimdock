@@ -56,21 +56,21 @@
     "lvgl": "9.3.0",
     "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
     "sources": {
-      "firmware/src/main.cpp": "f7893ffc057b5b0914b5351a13e22e9f2b7ea43cda6b070d188d49baf43f2561",
+      "firmware/src/main.cpp": "4e6ef2afa445b40d9bed0008aff9274cba5eb7f1857e1ced361270dd41003c75",
       "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
       "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
-      "firmware/src/operations_ui.inc": "17cbe5e3265c4fb292fe221c2905d9d06f1138f321ddfa9df94d58b06f45f36b",
-      "firmware/src/private_chat_model.h": "308453189ad124c1698b8bdde703d6b477fa82877bc61f09613b33a2674f0491",
-      "firmware/src/private_chat_parse.h": "ccac9f1b1b409bb99de9b69934c383922960ca6024bc9d1c85e249be718ef57e",
-      "firmware/src/private_chat_network.h": "7bcc59ac75e2c898100c0c5ec2cb1c10536af612479fc9025f259f674a957154",
-      "firmware/src/private_chat_network.cpp": "d6b2e36de00dcb21315654fc65c6d3ea6c126118a0bd7966866a295f80c9c280",
-      "firmware/src/private_chat_ui.inc": "c330b91d920084de479776e619ac1ffd2236aca3bffdd2e6328d7466d4599b24",
+      "firmware/src/operations_ui.inc": "02bf9ff52b682bd636a41b871a082f0bc65f91f8eb0e6fb3d57788a3aa476b6f",
+      "firmware/src/private_chat_model.h": "f9bdc62a0d8c12be77403143523797d3e1a83d59e07e72b72839334d9cb418ea",
+      "firmware/src/private_chat_parse.h": "0701e70410d1ca3c014bcc96da0c987104d6fc1d9ad05b50431e488ec81fea34",
+      "firmware/src/private_chat_network.h": "e6671a6ab76571362f5fda79c8b167090dd5ceb5a1d7acaaca04a51bf510596a",
+      "firmware/src/private_chat_network.cpp": "855a9fb2885b6da8c14c0da4c4c13aad2cbdc42adb19384bcad291e88ff0a182",
+      "firmware/src/private_chat_ui.inc": "cca25149bbfdb639dba11fa7841f6756b5e0606145c250d38395100e1c64a4a1",
       "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
       "firmware/src/model.h": "8efd753fc3d137e70066a71ca9675b8cb42b5056d1a797284e722d217e736d9d",
       "firmware/src/network.cpp": "c1bd8428c6e95085b087f4459a141a4e7ea6eb95e9485833bbd099647884f870",
       "firmware/include/lv_conf.h": "9317f832f88fd084dedb1e896bd860a081f2650ceccf965a1ad0544ab5e5f2d0",
       "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
-      "tools/web-emulator/emulator.cpp": "5dd6850cc57e0ad2d0e18c3c709244960e750592592f219eb283f13ae6adca22"
+      "tools/web-emulator/emulator.cpp": "f587f7c358d3a69d94e7c1907c534d5bfafb46939b4735a80e184407af73d498"
     },
     "assets": {
       "firmware.js": {
@@ -78,17 +78,17 @@
         "bytes": 17632
       },
       "firmware.wasm": {
-        "sha256": "99962fae5fa6d4f18eba53250529d557bbf50355073c617ee31c3f20555db7da",
-        "bytes": 1212607
+        "sha256": "1c6d6c6ad8bc1c9c47c808c976a670def743501b541ae5903c3cf7975b3acacd",
+        "bytes": 1216479
       }
     },
     "licenses": "LICENSES.txt"
   },
   "fallback": {
-    "renderer_sha256": "99962fae5fa6d4f18eba53250529d557bbf50355073c617ee31c3f20555db7da",
+    "renderer_sha256": "1c6d6c6ad8bc1c9c47c808c976a670def743501b541ae5903c3cf7975b3acacd",
     "transport": "commercial/site/public/demo/data.js",
     "transport_sha256": "90db3cf785e55c091a41618453eb5e848417bc12a756be788e909e85bb8ab3d1",
-    "sha256": "97fcec1d64bb6575db8a8005adc06e48644c1d4c9deeca0afd61811b2b8c260a",
+    "sha256": "86279b01d92a0e9e5f1d28c987281311cc27738b98a88a2e9cf6d0ce48b3bac0",
     "data": "Four synthetic nodes; no live collector or LAN telemetry",
     "width": 320,
     "height": 240
