@@ -69,7 +69,7 @@ UI, data model, authentication, network worker and native/WASM verification.
 Inspect firmware/src/operations_ui.inc and operations_parse.h. The actual LVGL
 workspace is the implementation; use the WASM demo to verify matching behavior.
 Preserve the Nodes / Agents control on the overview and original Glimdock logo.
-Tapping the logo returns to the Nodes home screen; it is not a workspace toggle.
+Tapping the logo returns to the current workspace’s home screen: Agents in Agents mode, Nodes in Nodes mode. Use the explicit Nodes / Agents control to change workspaces.
 
 Preserve the existing hardware dashboards and keep four top-level cards and
 four navigation tabs in matching positions: All systems / Clock / Pick system /

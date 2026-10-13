@@ -12,7 +12,7 @@ The agents workspace uses **Overview / Agents / Tasks / Events**. The existing
 four homelab cards remain a separate workspace; the workspace does not add a fifth
 hardware card. Use the explicit **Agents / Nodes** control on the overview.
 The original purple logo and approved letterforms remain unchanged, and tapping
-the logo returns to the Nodes home screen. Both modes use **All systems / Clock / Pick system / Settings** in the same positions.
+the logo returns to the current workspace’s home screen: Agents in Agents mode, Nodes in Nodes mode. Both modes use **All systems / Clock / Pick system / Settings** in the same positions.
 The picker selects a node or system and offers **Switch to Agents**. Selected
 agent systems use **Overview / Agents / Tasks / Events** detail tabs.
 

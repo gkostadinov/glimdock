@@ -8,7 +8,7 @@ telemetry. An AI framework does not need to enroll as a hardware device to use i
 The production Rust collector and ESP32 firmware consume this contract. The
 browser demo compiles the same LVGL interface to WebAssembly and uses invented
 values. Use the explicit **Agents / Nodes** control on the overview to switch workspaces.
-The original Glimdock logo returns to the Nodes home screen. Both modes use **All systems / Clock / Pick system / Settings** in the same positions.
+The original Glimdock logo returns to the current workspace’s home screen: Agents in Agents mode, Nodes in Nodes mode. Both modes use **All systems / Clock / Pick system / Settings** in the same positions.
 The node picker also offers **Switch to Agents**. Selecting an agent system opens
 its **Overview / Agents / Tasks / Events** detail tabs. The picker selects
 a node or agent system.

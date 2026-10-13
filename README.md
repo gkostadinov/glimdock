@@ -73,7 +73,7 @@ playable four-tab workspace and a framework-neutral, read-only telemetry
 contract. [Integration examples](public-docs/AGENT-INTEGRATION.md) and
 [agent-ready implementation prompts](public-docs/AGENT-PROMPTS.md) cover source
 adapters, the Rust collector, firmware and release review. It can read shared coordination metadata or another system's JSON
-snapshot. The Rust collector and ESP32 consume it in a native four-tab workspace. Use the Nodes / Agents control on the overview to switch workspaces. The original logo returns to the Nodes home screen.
+snapshot. The Rust collector and ESP32 consume it in a native four-tab workspace. Use the Nodes / Agents control on the overview to switch workspaces. The original logo returns to the current workspace’s home screen: Agents in Agents mode, Nodes in Nodes mode.
 
 The Rust workspace contains `collector-rs/` and `device-agent-rs/`. Build both executables with:
 
