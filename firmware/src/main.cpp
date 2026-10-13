@@ -145,6 +145,7 @@ void resetNodeView(bool retainContext=false){uint8_t previous=page;bool retain=r
 void go(lv_event_t *e){uint8_t selected=uintptr_t(lv_event_get_user_data(e));openPage(printerNode()&&selected==6?3:selected);}
 void chooseNode(lv_event_t*){if(agentsWorkspace){openPage(OPS_SYSTEMS);return;}if(page==13)return;pickerOrigin=page;openPage(13);}
 void allNodesGo(lv_event_t*){agentsWorkspace=false;savedNodesPage=ALL_NODES_PAGE;Preferences p;if(p.begin("display",false)){p.putBool("agentsMode",false);p.end();}openPage(ALL_NODES_PAGE);}
+void workspaceHome(lv_event_t*e){if(agentsWorkspace){savedAgentsPage=OPS_OVERVIEW;operationsHome();}else allNodesGo(e);}
 void clockGo(lv_event_t*){if(agentsWorkspace)operationsClockGo();else openPage(CLOCK_PAGE);}
 void feedStatusGo(lv_event_t*e){if(privatePage(page)){openPage(7);return;}if(agentsWorkspace){openPage(OPS_SOURCES);return;}if(fleetPage())openPage(7);else go(e);}
 void nodeGo(lv_event_t*e){size_t index=uintptr_t(lv_event_get_user_data(e));if(index>=MAX_NODES||!nodeLinkIds[index][0])return;if(manualDemo){int selected=nodeIndexForId(*snapshot,nodeLinkIds[index]);if(selected>=0){snapshot->node=snapshot->nodes[selected];makeDemo(*snapshot);resetNodeView();render();}return;}if(requestNodeSelection(nodeLinkIds[index])){readSnapshot(*snapshot,net);resetNodeView();render();}}
@@ -602,7 +603,7 @@ void buildUI(){
   lv_obj_t*screen=lv_screen_active();lv_obj_set_style_bg_color(screen,color(BG),0);lv_obj_set_style_pad_all(screen,0,0);lv_obj_remove_flag(screen,LV_OBJ_FLAG_SCROLLABLE);
   privateChat=(privatechat::Model*)heap_caps_malloc(sizeof(privatechat::Model),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);if(privateChat)new(privateChat)privatechat::Model{};
   operations=(ops::Snapshot*)heap_caps_malloc(sizeof(ops::Snapshot),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);if(operations)new(operations)ops::Snapshot{};
-  int homeH=PORTRAIT?26:HEADER_H;auto*home=box(screen,0,0,104,homeH,BG,0);lv_obj_set_style_bg_opa(home,LV_OPA_TRANSP,0);headerMark=brandMark(home,4,PORTRAIT?4:8);headerTitle=brandWordmark(home,27,PORTRAIT?0:4);clickable(home,allNodesGo);
+  int homeH=PORTRAIT?26:HEADER_H;auto*home=box(screen,0,0,104,homeH,BG,0);lv_obj_set_style_bg_opa(home,LV_OPA_TRANSP,0);headerMark=brandMark(home,4,PORTRAIT?4:8);headerTitle=brandWordmark(home,27,PORTRAIT?0:4);clickable(home,workspaceHome);
   // The wordmark's existing dot carries status; its hit area draws nothing.
   brandStatusButton=box(home,86,PORTRAIT?8:12,18,18,BG,0);lv_obj_set_style_bg_opa(brandStatusButton,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(brandStatusButton,0,0);clickable(brandStatusButton,feedStatusGo,(void*)6);
   // Balance the visible gaps around the time, rather than the wider touch boxes.
