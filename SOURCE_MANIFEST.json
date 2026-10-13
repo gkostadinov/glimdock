@@ -4,7 +4,7 @@
   "status": "host-agnostic collector developer release",
   "source_file_count": 1271,
   "sanitization_counts": {
-    "private_addresses_replaced": 7,
+    "private_addresses_replaced": 0,
     "personal_paths_replaced": 0
   },
   "runtime": "native Rust",
@@ -20,7 +20,7 @@
     ".github/ISSUE_TEMPLATE/config.yml": "00d5009221e0207b99be6f42fcad9b0376f921158763bf45ec2c7b0ba1652cf4",
     ".github/ISSUE_TEMPLATE/feature-request.yml": "66e51f0a8c3142a6ccecd284dd10ef9258460be049d9c6cb7842a244262477fb",
     ".github/pull_request_template.md": "8f68d53cc91ecde7802dec524ffd44e98b6cdb09afa3ac35aa09d49a6eca6f75",
-    ".github/workflows/build.yml": "5699fb27bc966319bc6306697caa1d6efe037ba0596143c4d9edc00e96781793",
+    ".github/workflows/build.yml": "917d0e51b0dd7f7ff9ea2b9698e4b9d8cbebc01209089d8fe612608011077bb1",
     ".gitignore": "867abe3f0f43d8cb725784da1bfe631af1c7a504b06ab141512a35b3806084cf",
     "BUILDING.md": "4e7f33f0474dfa572142247aaaeec1739dcadf160ea2afd47de879fc24425cfe",
     "CONTRIBUTING.md": "28c5d7549242bdcc71aaa0d99dc53e78d6a52a34ed6da4af386dedb7767315dd",
@@ -1261,7 +1261,7 @@
     "tools/native-preview/audio_test.cpp": "bb3a879bf8efd32eb65a8073e548f228b920a26d3e3f809bb9f96cd8231c90fe",
     "tools/native-preview/battery_test.cpp": "aa2b4c7042cafab778c640909d4ec7dd84a552aa3ef975d8ac5175a37e459c13",
     "tools/native-preview/gesture-shims/Preferences.h": "81a00860163e9c18a9dada4433a31e2d5ed95595b944af58ee11a3809e817848",
-    "tools/native-preview/gestures.cpp": "6160f3f2ba6fb0d5522f2ad96baa2b5f919f17500b107b949611d40c17cbdb18",
+    "tools/native-preview/gestures.cpp": "5bc4e3aa3a32b974bb3c9c339ef191edf061da61e9a49437201ec33cd0935723",
     "tools/native-preview/lv_conf.h": "344d16983c1444c8b1e34449cc8d4f29825d0e5a176fc2568a5eaed031053649",
     "tools/native-preview/native_management.h": "88ff2acecdc80ef4e75f4616746560dd6ca7d164162f125881d773adc3143610",
     "tools/native-preview/notification_test.cpp": "e53fca2f9e5737c90b0a939bde94987260c3f92bde9fbd188d5fbeacad001d61",
