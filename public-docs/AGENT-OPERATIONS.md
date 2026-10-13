@@ -194,3 +194,8 @@ appear last; sorting does not modify source records or their stable IDs.
 Clock mode follows the selected workspace. Nodes shows hardware health, average
 CPU/RAM and node shortcuts; Agents shows source freshness, recent agents, running
 tasks and up to four agent-system shortcuts. Expired agent metrics stay unknown.
+
+The physical ESP32 now has a separate optional **Settings → Private conversations**
+reader. It pairs with a dedicated authenticated HTTPS relay over USB; the public
+WASM demo accepts fictional pages only. See the [private-reader setup](../docs/private-conversations.md)
+for the runtime interface and privacy/storage boundaries.

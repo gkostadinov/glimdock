@@ -48,6 +48,18 @@ Connect a **Waveshare ESP32-S3-Touch-LCD-2.8 V1** Glimdock by USB, open **Displa
 
 The public update verifies the board and image hashes, preserves saved NVS pairing and preferences, and restarts the display. A new board opens setup. The update download includes version-matched source, dependency notices and practical rebuild/relink materials. V2/CST3530 is not supported by the V1 image.
 
+## Private conversation review
+
+Open **Settings → Private conversations** to read authorized user/assistant chats
+on the physical display. Pair a separate HTTPS relay over USB using a dedicated,
+revocable device credential and CA certificate. Conversations appear as scrolling
+chat bubbles with session/message paging and long-message continuation. Private
+text stays in a separate transient model and is cleared when you leave the reader.
+
+The public browser demo uses fictional conversations only. Private pairing files,
+reader keys and archive contents are excluded from public source and firmware.
+See [private-reader setup and API](docs/private-conversations.md).
+
 ## Hardware and enclosure
 
 The supported board has an ST7789 display, CST328 touch, 16 MiB flash and 8 MiB PSRAM. The current **[Pebble public prototype](enclosure/public/pebble-r26-prototype-v2/README.md)** combines the r25 fitted purple body and continuous white cradle with compatible r24 internal parts. The r26 print trial changes supports and orientation; body CAD is unchanged. USB is to the right, rotation 3, at 320 × 240. The fitted body uses the native board USB opening.

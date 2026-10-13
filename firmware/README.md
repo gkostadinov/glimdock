@@ -293,3 +293,11 @@ SNMP devices can use a read-only adapter on the collector host; the monitored
 device does not need to run a Glimdock binary. Pair and set `parent_id` in the
 collector configuration/API. Parents cannot be disabled or deleted while an
 enabled child depends on them.
+
+## Private conversations
+
+Settings → Private conversations opens the optional authenticated chat reader.
+Pair over USB with the [private-reader guide](../docs/private-conversations.md).
+The runtime reader is separate from node/agent telemetry and clears text on exit;
+public builds contain no pairing credential or archive content. The browser
+renderer accepts only explicitly synthetic private-chat pages.
