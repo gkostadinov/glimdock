@@ -4,11 +4,11 @@
   "board": "waveshare-v1",
   "rotation": 3,
   "flash_size": 16777216,
-  "version": "glimdock-68ad41cd37f7",
-  "source_sha256": "68ad41cd37f7dc0f7da08e522d07f869fa86b72ffa4abb073d84ee9690fed54f",
+  "version": "glimdock-1374b7db3e49",
+  "source_sha256": "1374b7db3e49bb9282faf8f49eec19f9e4f329aca35636cf49f1469b1e936b14",
   "source_relink": "/firmware/source-relink.tar.gz",
-  "source_relink_size": 22447113,
-  "source_relink_sha256": "ebb56fbc49529207959c6f68ca8c6ab92468fce6f97d9b50eecdb7f0730c8c7f",
+  "source_relink_size": 22449536,
+  "source_relink_sha256": "7af328bc39fdac0a510b81aec37a967773199c8b7439775ced50955416b1eeeb",
   "parts": [
     {
       "offset": 0,
@@ -30,8 +30,8 @@
     },
     {
       "offset": 65536,
-      "size": 1685776,
-      "sha256": "ba082c000c87b13cc32e7feb2fc70086994f8c60883b1ad99f07e8948167d1f6",
+      "size": 1687696,
+      "sha256": "c435215bf46c9ebbea46c0de6d33366f14af871cf64a89734e3dfc4c13ec2874",
       "path": "/firmware/firmware.bin"
     }
   ]

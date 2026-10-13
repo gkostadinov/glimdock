@@ -111,8 +111,10 @@ public monitoring snapshot.
 ## Read pages on the display
 
 Open a task in **Agents → Tasks**, tap **Open conversation**, select a linked
-session, then read its
-visible user/assistant messages. The display requests at most **12 sessions**
+session. The chat opens at its newest message, scrolled to the bottom. Scroll
+up to read earlier text; **Earlier messages** loads an older page and
+**Newer messages** returns to a page you already visited. Messages keep their
+chronological order within each page, as user and assistant chat bubbles. The display requests at most **12 sessions**
 or **5 messages** per page. Follow the supplied pagination controls to request
 another bounded page.
 
@@ -133,9 +135,9 @@ The current device uses these read requests at the paired HTTPS origin:
 | --- | --- |
 | `GET /v1/conversations?limit=12` | First session page |
 | `GET /v1/conversations?limit=12&cursor=CURSOR` | Next session page |
-| `GET /v1/conversations/SESSION_ID/messages?limit=5` | First message page |
-| `GET /v1/conversations/SESSION_ID/messages?limit=5&after=ORDER` | Continue from returned `next_after` |
-| `GET /v1/conversations/SESSION_ID/messages?limit=5&message_order=ORDER&text_offset=OFFSET` | Continue a long message |
+| `GET /v1/conversations/SESSION_ID/messages?limit=5&direction=backward` | Latest five messages, ascending within the page |
+| `GET /v1/conversations/SESSION_ID/messages?limit=5&direction=backward&before=ORDER` | Earlier messages before returned `next_before` (exclusive) |
+| `GET /v1/conversations/SESSION_ID/messages?limit=5&message_order=ORDER&text_offset=OFFSET&direction=backward` | Continue a long message |
 
 Authentication belongs in the Bearer header, never the query string. Session IDs
 are opaque 64-character lowercase hexadecimal values. Pagination cursors are
@@ -152,7 +154,10 @@ opaque `id` and optional display metadata such as `title`, `provider`, `machine`
 `project`, `started_at`, `last_message_at` and `message_count`.
 
 A message page contains `session`, `messages`, `total`, `has_more` and
-`next_after`. Each message has an increasing, nonnegative `order`, role `user`
+`next_after`, with `direction: "backward"` and `next_before` for the current
+chat flow. `has_more` then means older messages exist, and `next_before` is
+the first returned order when older history remains, otherwise `null`. The
+forward `after` interface remains compatible for other clients. Each message has an increasing, nonnegative `order`, role `user`
 or `assistant`, text, and optional timestamp. `text_offset`, `text_characters`
 and `next_text_offset` describe continuation; `null` means unavailable or no
 further continuation where applicable. Dates are numeric Unix timestamps or
@@ -184,7 +189,9 @@ This synthetic response illustrates the message shape. It is not archive data:
   ],
   "total": 1,
   "has_more": false,
-  "next_after": 0
+  "next_after": 0,
+  "direction": "backward",
+  "next_before": null
 }
 ```
 

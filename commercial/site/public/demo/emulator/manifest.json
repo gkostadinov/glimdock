@@ -8,21 +8,21 @@
   "lvgl": "9.3.0",
   "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
   "sources": {
-    "firmware/src/main.cpp": "4e6ef2afa445b40d9bed0008aff9274cba5eb7f1857e1ced361270dd41003c75",
+    "firmware/src/main.cpp": "3fc89de0e190954840f32432591c87809a2e079af85bc7a97840c88ecbab9ee3",
     "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
     "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
     "firmware/src/operations_ui.inc": "02bf9ff52b682bd636a41b871a082f0bc65f91f8eb0e6fb3d57788a3aa476b6f",
-    "firmware/src/private_chat_model.h": "f9bdc62a0d8c12be77403143523797d3e1a83d59e07e72b72839334d9cb418ea",
-    "firmware/src/private_chat_parse.h": "0701e70410d1ca3c014bcc96da0c987104d6fc1d9ad05b50431e488ec81fea34",
-    "firmware/src/private_chat_network.h": "e6671a6ab76571362f5fda79c8b167090dd5ceb5a1d7acaaca04a51bf510596a",
-    "firmware/src/private_chat_network.cpp": "855a9fb2885b6da8c14c0da4c4c13aad2cbdc42adb19384bcad291e88ff0a182",
-    "firmware/src/private_chat_ui.inc": "cca25149bbfdb639dba11fa7841f6756b5e0606145c250d38395100e1c64a4a1",
+    "firmware/src/private_chat_model.h": "852ff8416c96c1712a8bddf0715ce5efaf5201ee058ff3990e2e02215ddfe7e0",
+    "firmware/src/private_chat_parse.h": "e622d458dbb4fa78a6d9c2ed1c118c2f07693ba8c0876882e0bedb0a0b31e37f",
+    "firmware/src/private_chat_network.h": "8811120d95532863d047de417670adfdb2481fe5e6b6a0c6037b1ddfd4a4971e",
+    "firmware/src/private_chat_network.cpp": "b3a618efcbcc4ee9803e0c6c6f952d3921e8a2038781499f8cb98071c385eb1e",
+    "firmware/src/private_chat_ui.inc": "68e1b2f059b80623705f574b9a712d94219fd71c4dae34303f5dea6612a5c709",
     "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
     "firmware/src/model.h": "8efd753fc3d137e70066a71ca9675b8cb42b5056d1a797284e722d217e736d9d",
     "firmware/src/network.cpp": "c1bd8428c6e95085b087f4459a141a4e7ea6eb95e9485833bbd099647884f870",
     "firmware/include/lv_conf.h": "9317f832f88fd084dedb1e896bd860a081f2650ceccf965a1ad0544ab5e5f2d0",
     "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
-    "tools/web-emulator/emulator.cpp": "f587f7c358d3a69d94e7c1907c534d5bfafb46939b4735a80e184407af73d498"
+    "tools/web-emulator/emulator.cpp": "3ca051b2dfd42e935e77eefd4502bf1250c5ca59057d0c957e44e0121dd46e93"
   },
   "assets": {
     "firmware.js": {
@@ -30,8 +30,8 @@
       "bytes": 17632
     },
     "firmware.wasm": {
-      "sha256": "1c6d6c6ad8bc1c9c47c808c976a670def743501b541ae5903c3cf7975b3acacd",
-      "bytes": 1216479
+      "sha256": "b3af96291eb142619a92fbcec441c465224b8d0e8a9c090ace8c27948b1ec475",
+      "bytes": 1218834
     }
   },
   "licenses": "LICENSES.txt"

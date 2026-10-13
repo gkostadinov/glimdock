@@ -8,7 +8,7 @@
     "agents/demo/snapshot.json": "d0016d6d4aa4e53cc634be8a7151bd01ae7c55b2b50cb82ef40f90c536663642",
     "demo/agent-data.js": "144c48006dacf4767f566920d046568840cfdffb569b71c376b37256449aea32",
     "demo/app.js": "0c0e3250818e30dc4dc1c930756c9d3f7a434a8d9af500bffe9309c9752846da",
-    "demo/emulator/manifest.json": "7c3c5621043e1e22175ffd6247b4db3a44a6a8aa0bebe82cd8293e1d00636b41",
+    "demo/emulator/manifest.json": "96055fe7355aad5196304d99e8e398422dc9c61cf00abe41edc18880840fa81d",
     "docs/agents-api/minimal.json": "d04224a582cc5aad996bcba0cd5f5eb8d9ce84b992db16dfc0294d54e00da942",
     "docs/agents-api/index.html": "a4a89fed934e376247b7e9663694229eaf30c7ccce3471b41b5fab4815900593",
     "docs/agents-api/publisher.py": "8504c58394a85471f9fc5db5c76669e88a42dcac1b18b6d555c74d06eb6a627a",
@@ -21,6 +21,6 @@
     "docs/source/AGENT-OPERATIONS.md": "2689e8c657ab060d0d2dd336490b4bb3f35640a2f98ac1a344d5458781bd92f8",
     "docs/source/AGENT-INTEGRATION.md": "30a54871291c9b6c2c1e3feef88da4f00ec695be67db99c97e9eb9c436fd170e",
     "docs/source/AGENT-PROMPTS.md": "a86e3c04c6863c8fe2e6fecdc34792f9a6f88eb352e5938e24308db344b680c2",
-    "docs/source/PRIVATE-CONVERSATIONS.md": "da1e37a9d1004ed9b064f81d1c34b5f66a0e7ad3128978a3e78de6ed3ab9c5c1"
+    "docs/source/PRIVATE-CONVERSATIONS.md": "52d5a4c4da4652ec88633ffb53cd87e8f85aa5b575c5c4006ed8a0b32609445d"
   }
 }
