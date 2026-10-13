@@ -8,10 +8,10 @@
   "lvgl": "9.3.0",
   "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
   "sources": {
-    "firmware/src/main.cpp": "053ee2a9a5e1b6465d7d531b362e0fd662a804c664ac592333dca15202839b08",
+    "firmware/src/main.cpp": "20cb43bfabd3c1b544d7625e3f292c90a5457d4d10f81aa1a2d87e0f6551798c",
     "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
     "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
-    "firmware/src/operations_ui.inc": "35cfbb3fe24364a71d7112f98e0899f1f349723411dd7441430b5d85be82ad36",
+    "firmware/src/operations_ui.inc": "17cbe5e3265c4fb292fe221c2905d9d06f1138f321ddfa9df94d58b06f45f36b",
     "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
     "firmware/src/model.h": "8efd753fc3d137e70066a71ca9675b8cb42b5056d1a797284e722d217e736d9d",
     "firmware/src/network.cpp": "c1bd8428c6e95085b087f4459a141a4e7ea6eb95e9485833bbd099647884f870",
@@ -25,8 +25,8 @@
       "bytes": 17256
     },
     "firmware.wasm": {
-      "sha256": "f0894f5a7544d8d561108cb72c3bf7cf2adefb7aab0200c8d742d5cb28823c9b",
-      "bytes": 1173352
+      "sha256": "635c60d0e3138f2b2faff609586495b06934ff3f0d52a80c621501075de858cc",
+      "bytes": 1176153
     }
   },
   "licenses": "LICENSES.txt"

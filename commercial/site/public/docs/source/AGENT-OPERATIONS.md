@@ -156,7 +156,7 @@ execution and approval actions are outside this monitoring interface.
 
 API checks cover schema, absent metrics, invalid records, ownership races,
 privacy, source immutability, mappings, payload size and denied writes. UI checks
-use Playwright CLI snapshots and real pointer input: landscape/portrait, themes,
+use the actual LVGL/WebAssembly renderer and continuous pointer input: landscape/portrait, themes,
 Back routes, unknown progress, live/sample separation, source expiry and four
 cards/tabs. Start the reference server first. UI checks use the installed
 Playwright CLI wrapper when available, otherwise the public npm Playwright CLI.
@@ -190,3 +190,7 @@ origins, alternate request targets and LAN binds are rejected.
 Agents, tasks and events appear newest first (smallest age), using heartbeat,
 last update and event timestamp respectively. Missing or future timestamps
 appear last; sorting does not modify source records or their stable IDs.
+
+Clock mode follows the selected workspace. Nodes shows hardware health, average
+CPU/RAM and node shortcuts; Agents shows source freshness, recent agents, running
+tasks and up to four agent-system shortcuts. Expired agent metrics stay unknown.
