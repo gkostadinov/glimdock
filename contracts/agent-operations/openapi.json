@@ -84,7 +84,8 @@
           "503": {
             "description": "Source unavailable or invalid; cached telemetry must not become fresh"
           }
-        }
+        },
+        "operationId": "getCollectorAgentOperations"
       }
     }
   },

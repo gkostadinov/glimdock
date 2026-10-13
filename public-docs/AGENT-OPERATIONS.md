@@ -1,19 +1,23 @@
-# Agent operations: portable API and Glimdock display design
+# Agent operations: portable API and native Glimdock workspace
 
-This is a working **design prototype and read-only reference API**. It is separate
-from the installed ESP32 firmware and the production Rust hardware collector.
-The prototype can read actual shared-hub metadata or another system's normalized
-snapshot, and demonstrate richer metrics using explicitly synthetic data.
+The production Rust collector and ESP32 firmware support a **read-only agent
+operations workspace**. The public interactive demo runs this same LVGL firmware
+with synthetic data. A Python reference API can read file-hub metadata or another
+system's normalized snapshot. Native framework clients and OTLP ingestion are
+not bundled; use the public contract to connect your coordinator.
 
 ## Four tabs, four main cards
 
 The agents workspace uses **Overview / Agents / Tasks / Events**. The existing
-four homelab cards remain a separate workspace; this design does not add a fifth
-hardware card. A firmware integration can enter Agents from the fleet's redundant
-Pick node tab while retaining the header node picker and Clock access.
+four homelab cards remain a separate workspace; the workspace does not add a fifth
+hardware card. Use the explicit **Agents / Nodes** control on the overview.
+The original purple logo and approved letterforms remain unchanged, and tapping
+the logo returns to the Nodes home screen. Both modes use **All systems / Clock / Pick system / Settings** in the same positions.
+The picker selects a node or system and offers **Switch to Agents**. Selected
+agent systems use **Overview / Agents / Tasks / Events** detail tabs.
 
 - **Overview:** at most four system cards per page. Select a system for four
-  metrics: tracked work, input needed, recent sessions, and operations/usage.
+  metrics: recent/tracked agents, separate waiting/blocked counts, running/queued tasks, and operations/usage.
 - **Agents:** rows in the style of Proxmox Guests. State, tracked task, host,
   heartbeat age and reported usage; tap for model, tokens, cost and source detail.
 - **Tasks:** queued/running/waiting/blocked/completed work, owner, elapsed time and
@@ -28,12 +32,12 @@ portrait 240×320, fixed four-tab navigation and scrollable details. Larger
 registries page through four system cards; they do not expand the main grid.
 Pointer excursions cancel taps. Expired sources mask current numeric metrics.
 Historical events retain their occurrence time; they are not presented as live
-work. Unknown progress uses an unfilled patterned bar, not a fake percentage.
+work. Unknown progress uses an unfilled dim bar, not a fake percentage.
 
-## Run the prototype
+## Run the reference source and design
 
 Use Python 3.10+ and install the small reference dependency in your own virtual
-environment. This does not replace or change the Rust collector:
+environment. The optional Python service publishes the same contract as your own adapter:
 
 ```sh
 python3 -m venv .venv-agent-ops
@@ -88,7 +92,7 @@ endpoint can expose its own configured source without that query.
 
 Examples in Python/TypeScript can serve the same JSON; a Rust collector adapter
 can poll it with the existing bounded HTTPS transport. Native LangGraph, CrewAI,
-AutoGen or other integrations are **not** bundled in this prototype. They need a
+AutoGen or other integrations are **not** bundled in the core. They need a
 source adapter or callback that maps their reported lifecycle into this contract.
 There is no mandatory provider account or Glimdock-specific SDK.
 
@@ -137,10 +141,10 @@ collector's existing authenticated transport for a production remote reader.
 
 The API has no execution authority. A future control interface would need a
 separate contract, identity and explicit permissions; monitoring data is never
-an instruction to run a command. The design/API have not been flashed into the
-ESP32. Firmware/Rust collector integration should consume the contract behind
-its bounded source scheduler, preserve the four-card/four-tab constraint and
-reuse the existing speaker/edge-notification policy for real new attention events.
+an instruction to run a command. The native workspace reads the contract through
+the collector's bounded scheduler, preserving the four-card/four-tab constraint.
+Hardware alerts retain their existing deduplicated notification policy; AI
+execution and approval actions are outside this monitoring interface.
 
 ## Verify
 
@@ -161,3 +165,28 @@ Codex account is required. `AGENT_OPS_PLAYWRIGHT_CLI` can select another CLI com
 Live shared-hub checks
 run when the server was started with `--hub`; generic sample and publisher checks
 do not require that NAS channel.
+
+## Production transport and verification
+
+See [AGENT-INTEGRATION.md](AGENT-INTEGRATION.md) for collector configuration, authentication and source failure behavior. `firmware/src/operations_ui.inc` implements the native workspace, `operations_parse.h` bounds the decoder, and `collector-rs/src/operations.rs` validates and polls the source. `node tools/web-emulator/test-operations.mjs` exercises the actual compiled UI, animated overview workspace switch, logo Home behavior, detail/back navigation, swipe guard, unknown progress, scoped IDs, heartbeat expiry and source failure. Public builds contain no Wi-Fi keys or private source data.
+
+## Optional private conversation review
+
+The local reference server accepts `--private-transcripts` only when bound to
+loopback. It adds a **Private conversations** link to the local navigation.
+This hands the browser to a separately installed, authenticated private chat
+reader using a single-use, short-lived launch ticket. The reader supports
+formatted user/assistant messages, code blocks and cursor-based history pages.
+The archive collector and chat reader are separate components; they are not
+bundled in the Glimdock Linux release.
+
+The handoff is disabled by default and never appears on the public website.
+It does not add transcript text, prompts, reader credentials or authenticated
+URLs to the operations snapshot, ESP32, public demo or telemetry. A reader must
+be installed locally with its restricted credential before enabling the link.
+The browser requests the handoff only from the exact local origin; foreign
+origins, alternate request targets and LAN binds are rejected.
+
+Agents, tasks and events appear newest first (smallest age), using heartbeat,
+last update and event timestamp respectively. Missing or future timestamps
+appear last; sorting does not modify source records or their stable IDs.

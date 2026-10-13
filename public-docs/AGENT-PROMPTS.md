@@ -3,8 +3,8 @@
 Copy one brief into your coding agent in a checkout of the current Glimdock
 source. Replace bracketed placeholders with your own project details. Provide
 credentials through private runtime configuration, never through the prompt.
-These briefs request implementation; they do not claim a framework integration
-or the ESP32 agents workspace already exists in production.
+The collector transport and native ESP32 workspace already exist. These briefs
+add or extend integrations; framework-specific clients must be implemented and verified.
 
 ## 1. Add my agent framework as a source
 
@@ -35,22 +35,22 @@ inconsistent ownership, duplicate IDs and provider failure. Demonstrate the
 result in the local reference viewer and document exactly which fields work.
 ```
 
-## 2. Bring the portable API into the Rust collector
+## 2. Extend the Rust collector with my source
 
 ```text
-Implement an optional agent-operations source adapter in Glimdock's production
-Rust collector. Read public-docs/AGENT-INTEGRATION.md, the agent-ops/v1 schema,
+Extend Glimdock's existing optional agent-operations source transport for
+[NEW SOURCE OR CAPABILITY]. Inspect collector-rs/src/operations.rs first. Read public-docs/AGENT-INTEGRATION.md, the agent-ops/v1 schema,
 OpenAPI description and reference API. Inspect the existing transport,
 authentication, scheduler, node registry and expiry behavior before changes.
 
 Keep the AI operations contract separate from the hardware schema=1 snapshot.
-Add explicit configuration for a read-only source; do not scan the LAN or infer
+Reuse the existing explicit configuration for a read-only source; do not scan the LAN or infer
 credentials. Poll through bounded transport with timeouts, a 48 KiB response
 limit, schema/version checks and validated scoped references. Preserve source
 timestamps, count/truncation metadata and nulls. Do not turn recent heartbeats
 into active model execution. Isolate source failures from hardware collection.
 
-Reuse existing reader-role authentication for an operations endpoint. Do not
+Reuse the existing /api/v1/agent-operations endpoint and reader-role authentication. Do not
 expose private source keys, internal paths, raw payloads or control commands.
 Treat all upstream text as inert metadata. Supply synthetic examples and
 meaningful tests for stale/malformed/oversized feeds, unknown state, lost claims,
@@ -59,17 +59,21 @@ document migration and compatibility. Do not claim ESP32 support until the
 firmware consumer is implemented and verified separately.
 ```
 
-## 3. Implement the agents workspace on the ESP32
+## 3. Extend the native ESP32 agents workspace
 
 ```text
-Implement Glimdock's agent-operations workspace using the production collector
+Extend Glimdock's existing agent-operations workspace with [NEW VIEW OR METRIC], using the production collector
 integration and contracts/agent-operations/snapshot-v1.schema.json. First read
 public-docs/AGENT-OPERATIONS.md, firmware/README.md and inspect the current LVGL
 UI, data model, authentication, network worker and native/WASM verification.
-Use design/agent-operations as the visual reference, not a replacement runtime.
+Inspect firmware/src/operations_ui.inc and operations_parse.h. The actual LVGL
+workspace is the implementation; use the WASM demo to verify matching behavior.
+Preserve the Nodes / Agents control on the overview and original Glimdock logo.
+Tapping the logo returns to the Nodes home screen; it is not a workspace toggle.
 
 Preserve the existing hardware dashboards and keep four top-level cards and
-four navigation tabs. The workspace uses Overview / Agents / Tasks / Events.
+four navigation tabs in matching positions: All systems / Clock / Pick system /
+Settings in both modes. A selected agent system uses Overview / Agents / Tasks / Events.
 Page larger system registries; use Guests-style scroll rows and linked details
 with correct Back context. Include waiting/blocked work, ownership, queues,
 resource locks, source age and optional measured usage. Keep missing values

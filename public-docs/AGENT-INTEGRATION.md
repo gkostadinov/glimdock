@@ -5,10 +5,47 @@ describes agent systems, sessions, tasks, events, channels, resource ownership a
 reported usage. It is independent of the Rust **device agent** that collects host
 telemetry. An AI framework does not need to enroll as a hardware device to use it.
 
-The current implementation is a browser design and Python reference API. The
-installed ESP32 firmware and production Rust collector do not yet consume this
-contract. [AGENT-OPERATIONS.md](AGENT-OPERATIONS.md) documents the working prototype;
-[AGENT-PROMPTS.md](AGENT-PROMPTS.md) provides implementation briefs.
+The production Rust collector and ESP32 firmware consume this contract. The
+browser demo compiles the same LVGL interface to WebAssembly and uses invented
+values. Use the explicit **Agents / Nodes** control on the overview to switch workspaces.
+The original Glimdock logo returns to the Nodes home screen. Both modes use **All systems / Clock / Pick system / Settings** in the same positions.
+The node picker also offers **Switch to Agents**. Selecting an agent system opens
+its **Overview / Agents / Tasks / Events** detail tabs. The picker selects
+a node or agent system.
+[AGENT-OPERATIONS.md](AGENT-OPERATIONS.md) covers the display and reference source;
+[AGENT-PROMPTS.md](AGENT-PROMPTS.md) provides scoped integration briefs.
+
+## Connect the production collector
+
+Add one optional source to your private collector configuration:
+
+```json
+{
+  "agent_operations": {
+    "enabled": true,
+    "url": "https://agents.example/v1/snapshot",
+    "token_file": "/etc/glimdock/operations-source.key",
+    "poll_interval_s": 5,
+    "timeout_s": 3
+  }
+}
+```
+
+Alternatively use `snapshot_file` with an absolute path instead of `url` and
+`token_file`. The collector must be able to read the private file. The input is
+bounded to 48 KiB and validated against `agent-ops/v1`, scoped references and
+count/truncation rules. Source collection runs independently of hardware probes;
+a failed source removes the current operations publication and leaves hardware
+monitoring available. A cached successful response retains its original ages.
+HTTPS verifies certificates; trusted remote HTTP requires the explicit
+`allow_insecure_http: true` option. Redirects are not followed. Source secrets go
+in a private key file, never the URL. Keep upstream and display keys separate.
+
+The display reads **GET `/api/v1/agent-operations`** at the same collector base
+address, with its existing `Authorization: Bearer DISPLAY_KEY`. HEAD is also
+supported. A setup/configuration key does not grant reader access; controls and
+POST are not supported. An unconfigured or invalid source returns 503. Firmware
+updates preserve saved pairing; no extra display key is needed for Agents.
 
 ## Choose an integration boundary
 
@@ -111,6 +148,6 @@ state, duplicate IDs, a lost owner claim, an oversized collection and a provider
 failure. Check that the adapter leaves its source unchanged and exports only
 approved metadata. Then test navigation with your snapshot in the local viewer.
 
-For a production Glimdock integration, also verify bounded Rust parsing, read-key
-roles, scheduler isolation and the four-card/four-tab layout. Those changes are a
-separate implementation step, not capabilities of this prototype.
+When extending the production integration, verify bounded Rust parsing, reader-key
+roles, scheduler isolation and the four-card/four-tab layout. Run the Rust operations
+tests and actual WASM UI checks alongside your framework adapter tests.
