@@ -90,9 +90,11 @@ jobs:
           path: output/toolchains/emsdk
       - run: output/toolchains/emsdk/emsdk install 6.0.12 && output/toolchains/emsdk/emsdk activate 6.0.12
       - run: python3 tools/web-emulator/build.py
-      - run: node tools/web-emulator/test.mjs && node tools/web-emulator/test-transport.mjs
+      - run: node tools/web-emulator/test.mjs && node tools/web-emulator/test-transport.mjs && node tools/web-emulator/test-operations.mjs
       - run: python3 tools/test-pairing-policy.py
       - run: python3 tools/native-preview/test_gestures.py --rotation 3
+      - run: python3 -m pip install -r tools/agent-operations/requirements.txt
+      - run: python3 tools/agent-operations/test_api.py && python3 tools/agent-operations/test_private_transcripts.py
       - run: python3 tools/package-public-release.py --check-only
       - name: Retain failed firmware build diagnostics
         if: failure()
