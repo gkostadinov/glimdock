@@ -8,25 +8,30 @@
   "lvgl": "9.3.0",
   "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
   "sources": {
-    "firmware/src/main.cpp": "20cb43bfabd3c1b544d7625e3f292c90a5457d4d10f81aa1a2d87e0f6551798c",
+    "firmware/src/main.cpp": "f7893ffc057b5b0914b5351a13e22e9f2b7ea43cda6b070d188d49baf43f2561",
     "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
     "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
     "firmware/src/operations_ui.inc": "17cbe5e3265c4fb292fe221c2905d9d06f1138f321ddfa9df94d58b06f45f36b",
+    "firmware/src/private_chat_model.h": "308453189ad124c1698b8bdde703d6b477fa82877bc61f09613b33a2674f0491",
+    "firmware/src/private_chat_parse.h": "253f24863ace008f111883888f495a734213386e44d5066464e17bd247ec498e",
+    "firmware/src/private_chat_network.h": "7bcc59ac75e2c898100c0c5ec2cb1c10536af612479fc9025f259f674a957154",
+    "firmware/src/private_chat_network.cpp": "d6b2e36de00dcb21315654fc65c6d3ea6c126118a0bd7966866a295f80c9c280",
+    "firmware/src/private_chat_ui.inc": "c330b91d920084de479776e619ac1ffd2236aca3bffdd2e6328d7466d4599b24",
     "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
     "firmware/src/model.h": "8efd753fc3d137e70066a71ca9675b8cb42b5056d1a797284e722d217e736d9d",
     "firmware/src/network.cpp": "c1bd8428c6e95085b087f4459a141a4e7ea6eb95e9485833bbd099647884f870",
     "firmware/include/lv_conf.h": "9317f832f88fd084dedb1e896bd860a081f2650ceccf965a1ad0544ab5e5f2d0",
     "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
-    "tools/web-emulator/emulator.cpp": "03d1453f38a29cefa5575a31d4f124f6e8e3a7287df4ff0a7a157a0a38baa81b"
+    "tools/web-emulator/emulator.cpp": "5dd6850cc57e0ad2d0e18c3c709244960e750592592f219eb283f13ae6adca22"
   },
   "assets": {
     "firmware.js": {
-      "sha256": "77586266fba77330c8282bae84a69867f7934bb5cb8c258acf8627b563920548",
-      "bytes": 17256
+      "sha256": "3abbaab72f8ec5a67c308caf0a00d08d595868fa57bd545ff8d7e0208ba6aac5",
+      "bytes": 17632
     },
     "firmware.wasm": {
-      "sha256": "635c60d0e3138f2b2faff609586495b06934ff3f0d52a80c621501075de858cc",
-      "bytes": 1176153
+      "sha256": "99962fae5fa6d4f18eba53250529d557bbf50355073c617ee31c3f20555db7da",
+      "bytes": 1212607
     }
   },
   "licenses": "LICENSES.txt"

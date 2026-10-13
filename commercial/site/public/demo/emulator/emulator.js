@@ -1,6 +1,6 @@
 
 // Browser transport only. Every pixel and touch target is drawn by firmware C++.
-export async function mountFirmwareEmulator({canvas, requestSnapshot, requestOperations, initialWorkspace = "nodes", requestConfig, updateConfig, onSelectNode, onStatus, endpoint = `${location.origin}/api/v1/snapshot`, setupPaired = false}) {
+export async function mountFirmwareEmulator({canvas, requestSnapshot, requestOperations, requestPrivateChat, initialWorkspace = "nodes", requestConfig, updateConfig, onSelectNode, onStatus, endpoint = `${location.origin}/api/v1/snapshot`, setupPaired = false}) {
   if (!(canvas instanceof HTMLCanvasElement)) throw new TypeError('A canvas is required for the firmware emulator.');
   if (typeof requestSnapshot !== 'function') throw new TypeError('A collector snapshot callback is required.');
   const nodeRuntime = typeof process !== 'undefined' && process.versions?.node;
@@ -95,12 +95,24 @@ export async function mountFirmwareEmulator({canvas, requestSnapshot, requestOpe
       if (!disposed) callString('glimdock_config', JSON.stringify({error: error?.message || 'Collector settings request failed.'}), 503);
     }
   }
+  async function privateRequest(payload) {
+    const request=JSON.parse(payload);
+    try {
+      if(typeof requestPrivateChat!=='function') throw Error('Sample reader unavailable');
+      const {status,body}=await responseValue(await requestPrivateChat(request));
+      // Native previews accept explicitly synthetic pages only. This public
+      // renderer has no archive credentials or private relay transport.
+      if(disposed) return;
+      if(status!==200||body?.demo!==true||!callString('glimdock_private_chat',JSON.stringify(body),request.generation)) throw Error('Sample page unavailable');
+    } catch {if(!disposed)callString('glimdock_private_error',request.generation);}
+  }
   firmware.onRequest = ({kind, payload}) => {
     if (disposed) return;
     if (kind === 'select') {
       selected = payload; generation++; onSelectNode?.(selected); emit('loading', 'Loading selected node');
       void refresh();
     } else if (kind === 'operations') void refreshOperations();
+    else if (kind === 'private') void privateRequest(payload);
     else if (kind === 'config' || kind === 'update') void configurationRequest(kind, payload);
   };
 

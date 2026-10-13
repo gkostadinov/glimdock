@@ -7,8 +7,8 @@
     "agents/demo/index.html": "64d32307cdbcc6e5831932f7ed4f2a7f351164de13a9dcad835391a3ef998b4d",
     "agents/demo/snapshot.json": "d0016d6d4aa4e53cc634be8a7151bd01ae7c55b2b50cb82ef40f90c536663642",
     "demo/agent-data.js": "144c48006dacf4767f566920d046568840cfdffb569b71c376b37256449aea32",
-    "demo/app.js": "630aff5a4f3896cac893868e8c546c10fe4935932deaf0071b801cb14701ecbe",
-    "demo/emulator/manifest.json": "503921e661b630b71252830213cee9cae937217c91ee798daf0f358edafa4d91",
+    "demo/app.js": "0c0e3250818e30dc4dc1c930756c9d3f7a434a8d9af500bffe9309c9752846da",
+    "demo/emulator/manifest.json": "cb7554d9fd51a582f273e4efaf9fd808b3e3f18b4947bcfb493b10eb56637211",
     "docs/agents-api/minimal.json": "d04224a582cc5aad996bcba0cd5f5eb8d9ce84b992db16dfc0294d54e00da942",
     "docs/agents-api/index.html": "a4a89fed934e376247b7e9663694229eaf30c7ccce3471b41b5fab4815900593",
     "docs/agents-api/publisher.py": "8504c58394a85471f9fc5db5c76669e88a42dcac1b18b6d555c74d06eb6a627a",
@@ -18,8 +18,9 @@
     "docs/agents-api/prompts/review.txt": "3e44a21321af3f264bce7d3c1d2d7b10a84116d3f3a7266523d04dcb1941a547",
     "docs/agents-api/prompts/firmware.txt": "22d9c2316bd9e876f6713f702e391d920e30545c1ec9fc569b9669ec95c959fe",
     "docs/agents-api/prompts/adapter.txt": "6759fcab806ba2922cacbbd9749409612fcc6ad7f55fe2cd93df2b13065bf6b9",
-    "docs/source/AGENT-OPERATIONS.md": "27293e4bce867f6f3b46c33c7d5752863613a4c7d0d2d353cfcd18bc756433d1",
+    "docs/source/AGENT-OPERATIONS.md": "2689e8c657ab060d0d2dd336490b4bb3f35640a2f98ac1a344d5458781bd92f8",
     "docs/source/AGENT-INTEGRATION.md": "30a54871291c9b6c2c1e3feef88da4f00ec695be67db99c97e9eb9c436fd170e",
-    "docs/source/AGENT-PROMPTS.md": "a86e3c04c6863c8fe2e6fecdc34792f9a6f88eb352e5938e24308db344b680c2"
+    "docs/source/AGENT-PROMPTS.md": "a86e3c04c6863c8fe2e6fecdc34792f9a6f88eb352e5938e24308db344b680c2",
+    "docs/source/PRIVATE-CONVERSATIONS.md": "0bb4c98245ea77ecc4d396539b213f6e6dacc379d4a56434267db1a062962d41"
   }
 }

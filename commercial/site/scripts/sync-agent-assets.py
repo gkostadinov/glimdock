@@ -21,6 +21,7 @@ shutil.copyfile(ROOT/'examples/agent-operations/publisher.py',docs/'publisher.py
 sources=PUBLIC/'docs/source';sources.mkdir(parents=True,exist_ok=True)
 for name in ['AGENT-OPERATIONS.md','AGENT-INTEGRATION.md','AGENT-PROMPTS.md']:
     shutil.copyfile(ROOT/'public-docs'/name,sources/name)
+shutil.copyfile(ROOT/'docs/private-conversations.md',sources/'PRIVATE-CONVERSATIONS.md')
 prompts=re.findall(r'```text\n(.*?)\n```',(ROOT/'public-docs/AGENT-PROMPTS.md').read_text(),re.S)
 assert len(prompts)==4
 folder=docs/'prompts';folder.mkdir(parents=True,exist_ok=True)
