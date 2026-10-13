@@ -1,7 +1,10 @@
 # Private conversations on Glimdock
 
 The optional private reader opens your authorized conversation archive from
-**Settings → Private conversations**. It is separate from hardware telemetry
+**Agents → Tasks → a task → Open conversation**. The list contains only
+conversations explicitly linked to that task; Back returns to task details.
+**Settings → Private conversations** remains available to browse the complete
+authorized archive. It is separate from hardware telemetry
 and the `agent-ops/v1` monitoring feed. Conversation text, titles and archive
 credentials do not belong in either public feed.
 
@@ -90,9 +93,25 @@ It does not print the file contents, credential, relay response or exception
 details. A successful acknowledgment confirms saved pairing, not successful
 archive access. Open the private view to check the connection.
 
+## Link a task to its conversations
+
+Task identity is the approved `(system_id, task_id)` pair from `agent-ops/v1`.
+The private reader requests `/v1/conversations?limit=12&system_id=SYSTEM_ID&task_id=TASK_ID`.
+Both IDs must contain 1–64 ASCII letters, digits or `._:-`. Send the same IDs
+with every session cursor page; keep cursors scoped to that pair.
+
+A filtered response must echo `system_id` and `task_id` at its root. The display
+rejects missing or mismatched context, so an older relay cannot silently show the
+whole archive. Resolve exact task registrations and source session identities
+inside the private service. Do not guess from a title or project path. Multiple
+linked conversations remain a selectable list; an unlinked task shows a clear
+empty state. Do not add archive IDs, source paths or transcript bodies to the
+public monitoring snapshot.
+
 ## Read pages on the display
 
-Open **Settings → Private conversations**, select a session, then read its
+Open a task in **Agents → Tasks**, tap **Open conversation**, select a linked
+session, then read its
 visible user/assistant messages. The display requests at most **12 sessions**
 or **5 messages** per page. Follow the supplied pagination controls to request
 another bounded page.

@@ -296,7 +296,8 @@ enabled child depends on them.
 
 ## Private conversations
 
-Settings → Private conversations opens the optional authenticated chat reader.
+Agents → Tasks → a task → Open conversation opens that task’s linked chats.
+Settings → Private conversations opens the complete optional authenticated archive.
 Pair over USB with the [private-reader guide](../docs/private-conversations.md).
 The runtime reader is separate from node/agent telemetry and clears text on exit;
 public builds contain no pairing credential or archive content. The browser
