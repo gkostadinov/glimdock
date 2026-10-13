@@ -21,7 +21,7 @@ FILES = (
     'deploy/homelab-monitor-config.service','deploy/homelab-monitor-collector.service','deploy/homelab-monitor-http.service',
     'deploy/rust/homelab-monitor-config.service','deploy/rust/homelab-monitor-collector.service','deploy/rust/homelab-monitor-http.service',
     'tools/build-release.sh','tools/build-web-firmware.py','tools/package-public-release.py','tools/package-binaries.py',
-    'tools/cargo-notices.py','tools/test-pairing-policy.py','tools/configure_truenas_ssh.py',
+    'tools/provision-private-reader.py','tools/test-provision-private-reader.py','tools/test-private-chat-model.cpp','docs/private-conversations.md','tools/cargo-notices.py','tools/test-pairing-policy.py','tools/configure_truenas_ssh.py',
     'integrations/truenas/probe.py','integrations/truenas/README.md',
     'examples/README.md','examples/collector.json','examples/nodes/proxmox.json',
     'commercial/site/package.json','commercial/site/package-lock.json','commercial/site/.gitignore',
