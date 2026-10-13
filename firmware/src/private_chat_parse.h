@@ -68,6 +68,7 @@ inline bool parse(JsonDocument&document,privatechat::Model&model){
   model.demo=root["demo"].as<bool>();model.generated=timestamp(root["generated_at"]);
   if(!integer(root["total"],model.total)||!root["has_more"].is<bool>())return false;model.hasMore=root["has_more"].as<bool>();
   bool clipped=false;
+  if(!root["task_id"].isNull()||!root["system_id"].isNull()){if(!id(model.taskId,root["task_id"])||!id(model.systemId,root["system_id"]))return false;}
   if(sessions){
     model.kind=privatechat::Kind::Sessions;
     if(root["items"].size()>privatechat::MAX_SESSIONS)return false;

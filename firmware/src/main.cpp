@@ -38,7 +38,7 @@ constexpr uint8_t OPS_OVERVIEW=22,OPS_AGENTS=23,OPS_TASKS=24,OPS_EVENTS=25,OPS_A
 constexpr uint8_t PRIVATE_SESSIONS=32,PRIVATE_MESSAGES=33;
 bool privatePage(uint8_t p){return p==PRIVATE_SESSIONS||p==PRIVATE_MESSAGES;}
 bool privateNewRequest=false;privatechat::Model*privateChat=nullptr;privatechat::State privateState;
-void privateOpen(lv_event_t*);void privateRender();void privateBack();void privateResetUi();void privateWipeLabels(lv_obj_t*);void privateHeader();
+void privateOpen(lv_event_t*);void privateOpenTask(lv_event_t*);void privateRender();void privateBack();void privateResetUi();void privateWipeLabels(lv_obj_t*);void privateHeader();
 bool operationsPage(uint8_t p){return p>=OPS_OVERVIEW&&p<=OPS_SYSTEMS;}
 void toggleWorkspace(lv_event_t*);void workspaceSwitchControl();void operationsRender();void operationsHeader();
 int operationsTab();void operationsBack();bool operationsAll();void operationsHome();void operationsClockGo();String operationsClockSummary();void operationsClockExtras(int);

@@ -22,7 +22,7 @@ struct Message {
 struct Model {
   bool valid=false,demo=false,truncated=false;Kind kind=Kind::None;
   double generated=NAN;uint32_t received=0;
-  char sessionId[97]{},nextCursor[513]{},selectedSessionTitle[193]{},selectedSessionProvider[24]{},selectedSessionMachine[24]{};
+  char taskId[65]{},systemId[65]{},sessionId[97]{},nextCursor[513]{},selectedSessionTitle[193]{},selectedSessionProvider[24]{},selectedSessionMachine[24]{};
   int64_t nextAfter=-1,total=-1;bool hasMore=false;
   uint8_t nSessions=0,nMessages=0;Session sessions[MAX_SESSIONS];Message messages[MAX_MESSAGES];
 };
@@ -41,15 +41,18 @@ inline bool validCursor(const char*cursor){
   for(size_t i=0;cursor[i];i++){unsigned char c=cursor[i];if(i>=512||!((c>='a'&&c<='z')||(c>='A'&&c<='Z')||(c>='0'&&c<='9')||c=='_'||c=='-'))return false;}
   return true;
 }
-inline bool requestPath(char*out,size_t cap,Kind kind,const char*session,const char*cursor,int64_t after=-1,int64_t order=-1,int64_t offset=-1){
+inline bool requestPath(char*out,size_t cap,Kind kind,const char*session,const char*cursor,int64_t after=-1,int64_t order=-1,int64_t offset=-1,const char*task="",const char*system=""){
   if(!out||!cap)return false;out[0]=0;int n=-1;
+  if(!task||!system||bool(task[0])!=bool(system[0])||(task[0]&&(!validId(task,64)||!validId(system,64))))return false;
   if(kind==Kind::Sessions&&validCursor(cursor))n=snprintf(out,cap,"/v1/conversations?limit=12%s%s",cursor&&cursor[0]?"&cursor=":"",cursor?cursor:"");
   else if(kind==Kind::Messages&&validSessionId(session)&&after>=-1&&order>=-1&&offset>=-1&&(order<0)==(offset<0)){
     if(order>=0)n=snprintf(out,cap,"/v1/conversations/%s/messages?limit=5&message_order=%lld&text_offset=%lld",session,(long long)order,(long long)offset);
     else if(after>=0)n=snprintf(out,cap,"/v1/conversations/%s/messages?limit=5&after=%lld",session,(long long)after);
     else n=snprintf(out,cap,"/v1/conversations/%s/messages?limit=5",session);
   }
-  return n>=0&&size_t(n)<cap;
+  if(n<0||size_t(n)>=cap)return false;
+  if(kind==Kind::Sessions&&task[0]){int added=snprintf(out+n,cap-size_t(n),"&system_id=%s&task_id=%s",system,task);return added>=0&&size_t(added)<cap-size_t(n);}
+  return true;
 }
 inline void wipe(void*memory,size_t bytes){volatile uint8_t*p=static_cast<volatile uint8_t*>(memory);while(bytes--)*p++=0;}
 }

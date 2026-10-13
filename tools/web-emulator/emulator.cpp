@@ -48,8 +48,8 @@ EM_JS(void, webRequest, (const char *kind, const char *payload), {
 });
 
 void requestOperationsTransport(){webRequest("operations","");}
-extern "C" void homelabPrivateChatRequest(int kind,const char*session,const char*cursor,int64_t after,int64_t order,int64_t offset,uint32_t generation){
- JsonDocument doc;doc["kind"]=kind;doc["session"]=session;doc["cursor"]=cursor;doc["after"]=double(after);doc["order"]=double(order);doc["offset"]=double(offset);doc["generation"]=generation;std::string payload;serializeJson(doc,payload);webRequest("private",payload.c_str());
+extern "C" void homelabPrivateChatRequest(int kind,const char*session,const char*cursor,const char*taskId,const char*systemId,int64_t after,int64_t order,int64_t offset,uint32_t generation){
+ JsonDocument doc;doc["kind"]=kind;doc["session"]=session;doc["cursor"]=cursor;doc["task"]=taskId;doc["system"]=systemId;doc["after"]=double(after);doc["order"]=double(order);doc["offset"]=double(offset);doc["generation"]=generation;std::string payload;serializeJson(doc,payload);webRequest("private",payload.c_str());
 }
 extern "C" EMSCRIPTEN_KEEPALIVE int glimdock_private_chat(const char*json,uint32_t generation){bool accepted=ingestPrivateChat(json,generation);if(accepted&&!homelabPreviewBusy())homelabPreviewPoll();return accepted;}
 extern "C" EMSCRIPTEN_KEEPALIVE void glimdock_private_error(uint32_t generation){privateChatRuntimeError("Sample conversation page unavailable.",generation);}
