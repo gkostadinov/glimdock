@@ -1,0 +1,84 @@
+{
+  "schema_version": "agent-ops/v1",
+  "generated_at": 1791896400,
+  "sequence": 1,
+  "demo": false,
+  "sources": [
+    {
+      "id": "external",
+      "name": "My framework",
+      "status": "healthy",
+      "sampled_at": 1791896400,
+      "ttl_s": 30,
+      "capabilities": [
+        "agents"
+      ],
+      "provenance": "Publisher-provided operational state"
+    }
+  ],
+  "systems": [
+    {
+      "id": "my-system",
+      "name": "My agents",
+      "provider": "custom",
+      "source_id": "external",
+      "status": "healthy",
+      "sampled_at": 1791896400,
+      "ttl_s": 30,
+      "summary": {
+        "agents_total": 1,
+        "agents_recent": 1,
+        "running": null,
+        "queued": null,
+        "blocked": null,
+        "needs_input": null,
+        "failed_24h": null
+      },
+      "usage": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "cost": null,
+        "currency": null,
+        "window": null,
+        "provenance": null
+      }
+    }
+  ],
+  "agents": [
+    {
+      "id": "worker-1",
+      "name": "Worker 1",
+      "system_id": "my-system",
+      "source_id": "external",
+      "provider": "custom",
+      "host_name": null,
+      "model": null,
+      "state": "unknown",
+      "heartbeat_at": 1791896400,
+      "ttl_s": 30,
+      "task_id": null,
+      "usage": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "cost": null,
+        "currency": null,
+        "provenance": null
+      }
+    }
+  ],
+  "tasks": [],
+  "events": [],
+  "resources": [],
+  "channels": [],
+  "limits": {
+    "counts": {
+      "systems": 1,
+      "agents": 1,
+      "tasks": 0,
+      "events": 0,
+      "resources": 0,
+      "channels": 0
+    },
+    "truncated": {}
+  }
+}
