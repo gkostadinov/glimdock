@@ -118,12 +118,18 @@ uint8_t tabPage(uint8_t index){static const uint8_t devicePages[]={0,2,3,6},pare
 int pageTab(uint8_t selected){if(!deviceNode())return selected<4?selected:-1;if(hasSubnodes())return selected==0?0:selected==SUBNODES_PAGE?1:selected==2?2:selected==3?3:-1;return selected==0?0:selected==2?1:selected==3?2:selected==6?3:-1;}
 bool printerFresh();
 lv_obj_t *box(lv_obj_t *parent,int x,int y,int w,int h,uint32_t bg=CARD,int radius=7){auto*o=lv_obj_create(parent);lv_obj_set_pos(o,x,y);lv_obj_set_size(o,w,h);lv_obj_remove_flag(o,lv_obj_flag_t(LV_OBJ_FLAG_SCROLLABLE|LV_OBJ_FLAG_CLICKABLE));lv_obj_set_style_bg_color(o,color(bg),0);lv_obj_set_style_bg_opa(o,LV_OPA_COVER,0);lv_obj_set_style_border_width(o,bg!=BG?1:0,0);lv_obj_set_style_border_color(o,color(EDGE),0);lv_obj_set_style_radius(o,radius,0);lv_obj_set_style_pad_all(o,0,0);return o;}
+// Normalize display punctuation only; source text and Unicode paging offsets stay intact.
+void normalizeDisplayText(String&text){
+  text.replace("\xC2\xB7","•");
+  for(const char*mark:{"‘","’","‛","ʼ","＇"})text.replace(mark,"'");
+  for(const char*mark:{"“","”","‟"})text.replace(mark,"\"");
+  text.replace("–","-");text.replace("—","-");text.replace("…","...");
+}
+void setDisplayText(lv_obj_t*object,const String&text){String compatible=text;normalizeDisplayText(compatible);lv_label_set_text(object,compatible.c_str());privatechat::wipe(const_cast<char*>(compatible.c_str()),compatible.length());}
+void displayTextSize(lv_point_t*size,const String&text,const lv_font_t*font,int32_t letterSpace,int32_t lineSpace,int32_t width,lv_text_flag_t flags){String compatible=text;normalizeDisplayText(compatible);lv_text_get_size(size,compatible.c_str(),font,letterSpace,lineSpace,width,flags);privatechat::wipe(const_cast<char*>(compatible.c_str()),compatible.length());}
 lv_obj_t *label(lv_obj_t *parent,const String &text,int x,int y,int w,uint32_t fg=INK,const lv_font_t *font=&lv_font_montserrat_12){
   auto*l=lv_label_create(parent);
-  // The collector uses middle dots in NAS names; Montserrat supports bullets.
-  // Allocate a normalized copy only for labels containing the missing glyph.
-  if(strstr(text.c_str(),"\xC2\xB7")){String compatible=text;compatible.replace("\xC2\xB7","•");lv_label_set_text(l,compatible.c_str());privatechat::wipe(const_cast<char*>(compatible.c_str()),compatible.length());}
-  else lv_label_set_text(l,text.c_str());
+  setDisplayText(l,text);
   lv_obj_set_pos(l,x,y);lv_obj_set_width(l,w);lv_obj_set_height(l,lv_font_get_line_height(font));lv_label_set_long_mode(l,LV_LABEL_LONG_DOT);lv_obj_set_style_text_color(l,color(fg),0);lv_obj_set_style_text_font(l,font,0);return l;
 }
 void clickable(lv_obj_t *o,lv_event_cb_t cb,void *data=nullptr){lv_obj_add_flag(o,lv_obj_flag_t(LV_OBJ_FLAG_CLICKABLE|LV_OBJ_FLAG_PRESS_LOCK));lv_obj_add_event_cb(o,tapGuard,LV_EVENT_ALL,nullptr);lv_obj_add_event_cb(o,cb,LV_EVENT_CLICKED,data);}
@@ -131,7 +137,7 @@ void dismissNotification(lv_event_t* =nullptr){if(notification){auto*o=notificat
 void styleNotification(){if(!notification)return;uint32_t accent=notificationKind==2?RED:notificationKind==1?AMBER:notificationKind==3?MINT:CYAN;lv_obj_set_style_bg_color(notification,color(CARD),0);lv_obj_set_style_border_color(notification,color(accent),0);lv_obj_set_style_text_color(lv_obj_get_child(notification,0),color(accent),0);lv_obj_set_style_text_color(lv_obj_get_child(notification,1),color(INK),0);lv_obj_set_style_text_color(lv_obj_get_child(notification,2),color(MUTED),0);}
 void showNotification(const String&title,const String&message,uint8_t kind=0){
   if(!uiReady)return;dismissNotification();notificationKind=kind;notificationStarted=millis();
-  lv_point_t size;lv_text_get_size(&size,message.c_str(),&lv_font_montserrat_10,0,0,PAGE_W-20,LV_TEXT_FLAG_NONE);int bodyH=min(26,int(size.y));
+  lv_point_t size;displayTextSize(&size,message,&lv_font_montserrat_10,0,0,PAGE_W-20,LV_TEXT_FLAG_NONE);int bodyH=min(26,int(size.y));
   notification=box(lv_screen_active(),8,HEADER_H+4,PAGE_W,38+bodyH,CARD,9);lv_obj_set_style_border_width(notification,2,0);
   label(notification,title,10,8,PAGE_W-40,INK,&lv_font_montserrat_12);auto*body=label(notification,message,10,29,PAGE_W-20,INK,&lv_font_montserrat_10);lv_obj_set_height(body,bodyH);label(notification,LV_SYMBOL_CLOSE,PAGE_W-23,8,14,MUTED);
   clickable(notification,dismissNotification);styleNotification();lv_obj_move_foreground(notification);
@@ -219,19 +225,19 @@ void heading(const String&title,const String&right="",bool withBack=false){
   label(content,title,x,7,PORTRAIT?VIEW_W-x-8:right.length()?196:PAGE_W-x,INK,&lv_font_montserrat_12);
   if(right.length()){auto*l=label(content,right,PORTRAIT?8:211,PORTRAIT?25:8,PORTRAIT?PAGE_W:101,MUTED,&lv_font_montserrat_10);lv_obj_set_style_text_align(l,LV_TEXT_ALIGN_RIGHT,0);}
 }
-const lv_font_t*fitFont(const String&text,int width,const lv_font_t*preferred){lv_point_t size;const lv_font_t*fonts[]={preferred,&lv_font_montserrat_10,&lv_font_montserrat_8};for(auto*font:fonts){lv_text_get_size(&size,text.c_str(),font,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);if(size.x<=width)return font;}return &lv_font_montserrat_8;}
+const lv_font_t*fitFont(const String&text,int width,const lv_font_t*preferred){lv_point_t size;const lv_font_t*fonts[]={preferred,&lv_font_montserrat_10,&lv_font_montserrat_8};for(auto*font:fonts){displayTextSize(&size,text,font,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);if(size.x<=width)return font;}return &lv_font_montserrat_8;}
 void section(lv_obj_t*parent,int y,const String&t,uint32_t fg=MUTED){label(parent,t,4,y,LIST_W-4,fg,fitFont(t,LIST_W-4,&lv_font_montserrat_10));}
 void cell(lv_obj_t*p,int index,int top,const String&key,const String&value,uint32_t fg=INK){
   int w=PORTRAIT?LIST_W:147;auto*c=box(p,PORTRAIT?0:(index%2)*152,top+(index/CELL_COLUMNS)*45,w,40,CARD,6);
   label(c,key,7,6,w-14,MUTED,&lv_font_montserrat_10);label(c,value,7,21,w-14,fg,fitFont(value,w-14));
 }
-int note(lv_obj_t*p,int y,const String&text,uint32_t fg=MUTED){lv_point_t size;lv_text_get_size(&size,text.c_str(),&lv_font_montserrat_10,0,0,(LIST_W-14),LV_TEXT_FLAG_NONE);auto*l=label(p,text,7,y,(LIST_W-14),fg,&lv_font_montserrat_10);lv_label_set_long_mode(l,LV_LABEL_LONG_WRAP);lv_obj_set_height(l,LV_SIZE_CONTENT);return y+size.y+8;}
+int note(lv_obj_t*p,int y,const String&text,uint32_t fg=MUTED){lv_point_t size;displayTextSize(&size,text,&lv_font_montserrat_10,0,0,(LIST_W-14),LV_TEXT_FLAG_NONE);auto*l=label(p,text,7,y,(LIST_W-14),fg,&lv_font_montserrat_10);lv_label_set_long_mode(l,LV_LABEL_LONG_WRAP);lv_obj_set_height(l,LV_SIZE_CONTENT);return y+size.y+8;}
 double sampleAge(double age,double updated){double elapsed=(millis()-snapshot->received)/1000.0;if(isfinite(age))return max(0.0,age+elapsed);time_t now=time(nullptr);return isfinite(updated)&&now>1700000000?max(0.0,double(now)-updated):NAN;}
 bool guestOs(const Guest&g){return !strcmp(g.memoryBasis,"guest-os")||!strcmp(g.memoryBasis,"guest-os-arc");}
 bool guestArc(const Guest&g){return !strcmp(g.memoryBasis,"guest-os-arc");}
 String guestAge(const Guest&g){double age=sampleAge(g.memAge,g.memUpdated);return isfinite(age)?number(age,0,"s ago"):String("age unknown");}
 double guestPrimary(const Guest&g){return guestArc(g)?g.noncache:g.used;}
-void metricValue(lv_obj_t*p,double value,int digits,uint32_t fg){String text=number(value,digits);label(p,text,8,22,128,fg,&lv_font_montserrat_32);lv_point_t size;lv_text_get_size(&size,text.c_str(),&lv_font_montserrat_32,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);label(p,"%",min(130,8+size.x+3),37,18,fg,&lv_font_montserrat_14);}
+void metricValue(lv_obj_t*p,double value,int digits,uint32_t fg){String text=number(value,digits);label(p,text,8,22,128,fg,&lv_font_montserrat_32);lv_point_t size;displayTextSize(&size,text,&lv_font_montserrat_32,0,0,LV_COORD_MAX,LV_TEXT_FLAG_NONE);label(p,"%",min(130,8+size.x+3),37,18,fg,&lv_font_montserrat_14);}
 uint32_t batteryColor(BatteryLevel level){return level==BatteryLevel::VeryLow?RED:level==BatteryLevel::Low?AMBER:MUTED;}
 const char*batterySymbol(BatteryLevel level){return level==BatteryLevel::High?LV_SYMBOL_BATTERY_3:level==BatteryLevel::Medium?LV_SYMBOL_BATTERY_2:level==BatteryLevel::Low?LV_SYMBOL_BATTERY_1:LV_SYMBOL_BATTERY_EMPTY;}
 String batteryVoltage(const BoardBatteryStatus&battery){return battery.available()?String("~")+number(battery.volts,1," V"):String("-- V");}
@@ -248,7 +254,7 @@ void header(){
   lv_obj_set_style_bg_color(nodeButton,color(CARD),0);lv_obj_set_style_border_color(nodeButton,color(EDGE),0);lv_obj_set_style_text_color(lv_obj_get_child(nodeButton,1),color(CYAN),0);
   lv_obj_set_style_bg_color(settingsButton,color(BG),0);lv_obj_set_style_text_color(lv_obj_get_child(settingsButton,0),color(MUTED),0);
   if(fleetPage()){headerStale=!snapshot->valid||(millis()-snapshot->received)>HOMELAB_STALE_MS;offline=!net.wifi;}
-  String host=fleetPage()?String("All systems"):snapshot->node.name[0]?String(snapshot->node.name):snapshot->valid?String(snapshot->host):String("Choose node");lv_label_set_text(headerHost,host.c_str());lv_obj_set_style_text_font(headerHost,fitFont(host,lv_obj_get_width(headerHost),PORTRAIT?&lv_font_montserrat_12:&lv_font_montserrat_10),0);
+  String host=fleetPage()?String("All systems"):snapshot->node.name[0]?String(snapshot->node.name):snapshot->valid?String(snapshot->host):String("Choose node");setDisplayText(headerHost,host);lv_obj_set_style_text_font(headerHost,fitFont(host,lv_obj_get_width(headerHost),PORTRAIT?&lv_font_montserrat_12:&lv_font_montserrat_10),0);
   struct tm clockTime{};char clockText[8]="--:--";if(displayClockTm(time(nullptr),clockZone,clockTime))strftime(clockText,sizeof(clockText),"%H:%M",&clockTime);lv_label_set_text(headerClock,clockText);lv_obj_set_style_text_color(headerClock,color(page==CLOCK_PAGE?CYAN:INK),0);lv_obj_set_style_bg_color(clockButton,color(BG),0);
   updateBatteryLabels();
   uint32_t previousStatusColor=feedStatusColor;feedStatusColor=demo()?LAVENDER:offline?RED:(!fleetPage()&&net.loading)||headerStale?AMBER:(lightTheme?glimdock::PURPLE:LAVENDER);
@@ -485,7 +491,7 @@ void alerts(){
   if(!snapshot->nFaults){row(s,y,"Recent fault history",isfinite(snapshot->faultEvents24h)?"None":"Unavailable",isfinite(snapshot->faultEvents24h)?MINT:AMBER);y+=44;}
   for(int i=0;i<snapshot->nFaults;i++){auto&f=snapshot->faults[i];lv_point_t textSize;lv_text_get_size(&textSize,f.message,&lv_font_montserrat_12,0,0,(LIST_W-20),LV_TEXT_FLAG_NONE);int h=36+textSize.y;auto*c=box(s,0,y,LIST_W,h);label(c,f.kind,10,8,LIST_W-132,!strcmp(f.kind,"segfault")?AMBER:RED,&lv_font_montserrat_10);auto*l=label(c,since(f.timestamp),LIST_W-116,8,106,MUTED,&lv_font_montserrat_10);lv_obj_set_style_text_align(l,LV_TEXT_ALIGN_RIGHT,0);l=label(c,f.message,10,28,(LIST_W-20),INK);lv_label_set_long_mode(l,LV_LABEL_LONG_WRAP);lv_obj_set_height(l,LV_SIZE_CONTENT);y+=h+6;}
   }
-  section(s,y,"DATA SOURCES");y+=18;for(int i=0;i<snapshot->nSources;i++){auto&v=snapshot->sources[i];String message=v.error[0]?String(v.error):!v.enabled?"Source disabled by configuration":"Source reporting normally";lv_point_t textSize;lv_text_get_size(&textSize,message.c_str(),&lv_font_montserrat_10,0,0,(LIST_W-20),LV_TEXT_FLAG_NONE);int h=(PORTRAIT?60:42)+textSize.y;auto*c=box(s,0,y,LIST_W,h);label(c,v.name,10,7,PORTRAIT?LIST_W-20:152,INK);double age=isfinite(v.age)?v.age+(millis()-snapshot->received)/1000.0:NAN;auto*l=label(c,!v.enabled?"DISABLED":v.ok?"OK  "+number(age,0,"s")+" ago":"UNAVAILABLE",PORTRAIT?10:164,PORTRAIT?25:7,PORTRAIT?LIST_W-20:121,!v.enabled?MUTED:v.ok?MINT:AMBER,&lv_font_montserrat_10);lv_obj_set_style_text_align(l,LV_TEXT_ALIGN_RIGHT,0);auto*errorLabel=label(c,message,10,PORTRAIT?50:32,(LIST_W-20),MUTED,&lv_font_montserrat_10);lv_label_set_long_mode(errorLabel,LV_LABEL_LONG_WRAP);lv_obj_set_height(errorLabel,LV_SIZE_CONTENT);y+=h+6;}
+  section(s,y,"DATA SOURCES");y+=18;for(int i=0;i<snapshot->nSources;i++){auto&v=snapshot->sources[i];String message=v.error[0]?String(v.error):!v.enabled?"Source disabled by configuration":"Source reporting normally";lv_point_t textSize;displayTextSize(&textSize,message,&lv_font_montserrat_10,0,0,(LIST_W-20),LV_TEXT_FLAG_NONE);int h=(PORTRAIT?60:42)+textSize.y;auto*c=box(s,0,y,LIST_W,h);label(c,v.name,10,7,PORTRAIT?LIST_W-20:152,INK);double age=isfinite(v.age)?v.age+(millis()-snapshot->received)/1000.0:NAN;auto*l=label(c,!v.enabled?"DISABLED":v.ok?"OK  "+number(age,0,"s")+" ago":"UNAVAILABLE",PORTRAIT?10:164,PORTRAIT?25:7,PORTRAIT?LIST_W-20:121,!v.enabled?MUTED:v.ok?MINT:AMBER,&lv_font_montserrat_10);lv_obj_set_style_text_align(l,LV_TEXT_ALIGN_RIGHT,0);auto*errorLabel=label(c,message,10,PORTRAIT?50:32,(LIST_W-20),MUTED,&lv_font_montserrat_10);lv_label_set_long_mode(errorLabel,LV_LABEL_LONG_WRAP);lv_obj_set_height(errorLabel,LV_SIZE_CONTENT);y+=h+6;}
   if(!snapshot->nSources){row(s,y,"Source health","Unavailable",AMBER);y+=44;}
   if(deviceNode()&&snapshot->nInterfaces){section(s,y,"NETWORK INTERFACES");y+=20;for(int i=0;i<snapshot->nInterfaces;i++){auto&n=snapshot->interfaces[i];row(s,y,n.name,String(n.status)+" • "+number(n.speed,0," Mb/s"),!strcmp(n.status,"up")?MINT:!strcmp(n.status,"down")?AMBER:MUTED);y+=44;y=note(s,y,"RX "+rate(n.rx)+" • TX "+rate(n.tx));if(isfinite(n.errorsIn)||isfinite(n.errorsOut))y=note(s,y,"Errors in/out: "+number(n.errorsIn,0)+" / "+number(n.errorsOut,0));if(isfinite(n.dropsIn)||isfinite(n.dropsOut))y=note(s,y,"Drops in/out: "+number(n.dropsIn,0)+" / "+number(n.dropsOut,0));}}
   if(snapshot->truncated)note(s,y,"Some entries exceed the display inventory limits.",AMBER);
@@ -588,9 +594,9 @@ void noData(){
   // Error text can span several lines; keep every action reachable by scrolling.
   auto*s=scroll();auto*c=box(s,0,0,LIST_W,CONTENT_H-6);int textW=LIST_W-24;
   String title=net.loading?"LOADING NODE":net.wifi?"WAITING FOR COLLECTOR":"CONNECTING";
-  lv_point_t textSize;lv_text_get_size(&textSize,title.c_str(),&lv_font_montserrat_18,0,0,textW,LV_TEXT_FLAG_NONE);
+  lv_point_t textSize;displayTextSize(&textSize,title,&lv_font_montserrat_18,0,0,textW,LV_TEXT_FLAG_NONE);
   auto*l=label(c,title,12,12,textW,CYAN,&lv_font_montserrat_18);lv_label_set_long_mode(l,LV_LABEL_LONG_WRAP);lv_obj_set_height(l,LV_SIZE_CONTENT);int y=12+textSize.y+12;
-  String message=net.message[0]?String(net.message):String("Waiting for network worker");lv_text_get_size(&textSize,message.c_str(),&lv_font_montserrat_12,0,0,textW,LV_TEXT_FLAG_NONE);
+  String message=net.message[0]?String(net.message):String("Waiting for network worker");displayTextSize(&textSize,message,&lv_font_montserrat_12,0,0,textW,LV_TEXT_FLAG_NONE);
   l=label(c,message,12,y,textW,MUTED);lv_label_set_long_mode(l,LV_LABEL_LONG_WRAP);lv_obj_set_height(l,LV_SIZE_CONTENT);y+=textSize.y+12;
   smallButton(c,"Wi-Fi & collector setup",12,y,textW,CYAN,openConnection);y+=48;label(c,"No live readings received yet",12,y,textW,MUTED,&lv_font_montserrat_10);lv_obj_set_height(c,y+lv_font_get_line_height(&lv_font_montserrat_10)+12);
 }

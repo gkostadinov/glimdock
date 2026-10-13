@@ -24,7 +24,7 @@ String operationAgeText(double sampled){double age=operationAge(sampled);return 
 uint32_t stateColor(const char*state){return !strcmp(state,"failed")||!strcmp(state,"error")?RED:!strcmp(state,"blocked")||!strcmp(state,"waiting")||!strcmp(state,"degraded")?AMBER:!strcmp(state,"running")||!strcmp(state,"healthy")||!strcmp(state,"ready")||!strcmp(state,"ok")?MINT:MUTED;}
 String agentState(const ops::Agent&a){return !operationsNet.connected?String("Offline"):agentFresh(a)?String(a.state):String("Stale");}
 void operationsHeader(){
-  int chosen=chosenSystem();String name=fleetPage()?String("All systems"):chosen<0?String("All systems"):String(operations->systems[chosen].name);lv_label_set_text(headerHost,name.c_str());lv_obj_set_style_text_font(headerHost,fitFont(name,lv_obj_get_width(headerHost),PORTRAIT?&lv_font_montserrat_12:&lv_font_montserrat_10),0);
+  int chosen=chosenSystem();String name=fleetPage()?String("All systems"):chosen<0?String("All systems"):String(operations->systems[chosen].name);setDisplayText(headerHost,name);lv_obj_set_style_text_font(headerHost,fitFont(name,lv_obj_get_width(headerHost),PORTRAIT?&lv_font_montserrat_12:&lv_font_montserrat_10),0);
   bool fresh=false;if(operations)for(int i=0;i<operations->nSystems;i++)if(includedSystem(i)&&systemFresh(i))fresh=true;
   feedStatus=!operationsNet.connected?"OFFLINE":operations&&operations->demo?"DEMO":fresh?"LIVE":"STALE";
   feedStatusColor=!operationsNet.connected?RED:operations&&operations->demo?LAVENDER:fresh?(lightTheme?glimdock::PURPLE:LAVENDER):AMBER;

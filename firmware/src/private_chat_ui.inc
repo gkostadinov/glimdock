@@ -35,7 +35,7 @@ void privateHeader(){feedStatus=privateChat&&privateChat->demo?"DEMO":"PRIVATE";
 String privateTime(double value){if(!isfinite(value))return "Time unavailable";struct tm local{};if(!displayClockTm(time_t(value),clockZone,local))return "Time unavailable";char text[24];strftime(text,sizeof(text),"%d %b %H:%M",&local);return String(text);}
 void privateWipeString(String&text){privatechat::wipe(const_cast<char*>(text.c_str()),text.length());}
 lv_obj_t*privateLabel(lv_obj_t*p,String text,int x,int y,int w,uint32_t fg=INK,const lv_font_t*font=&lv_font_montserrat_12){auto*l=label(p,text,x,y,w,fg,font);privateWipeString(text);return l;}
-int privateWrapped(lv_obj_t*p,int x,int y,int w,String text,uint32_t fg,const lv_font_t*font){lv_point_t size;lv_text_get_size(&size,text.c_str(),font,0,2,w,LV_TEXT_FLAG_NONE);auto*l=privateLabel(p,text,x,y,w,fg,font);lv_label_set_long_mode(l,LV_LABEL_LONG_WRAP);lv_obj_set_style_text_line_space(l,2,0);lv_obj_set_height(l,LV_SIZE_CONTENT);privateWipeString(text);return y+size.y;}
+int privateWrapped(lv_obj_t*p,int x,int y,int w,String text,uint32_t fg,const lv_font_t*font){lv_point_t size;displayTextSize(&size,text,font,0,2,w,LV_TEXT_FLAG_NONE);auto*l=privateLabel(p,text,x,y,w,fg,font);lv_label_set_long_mode(l,LV_LABEL_LONG_WRAP);lv_obj_set_style_text_line_space(l,2,0);lv_obj_set_height(l,LV_SIZE_CONTENT);privateWipeString(text);return y+size.y;}
 int privateNote(lv_obj_t*p,int y,String text,uint32_t fg=MUTED){int next=privateWrapped(p,7,y,LIST_W-14,text,fg,&lv_font_montserrat_10)+8;privateWipeString(text);return next;}
 // A small, non-executing renderer: paragraphs, headings and fenced code blocks.
 // URLs/HTML/tool commands are always plain text; no remote assets are loaded.
