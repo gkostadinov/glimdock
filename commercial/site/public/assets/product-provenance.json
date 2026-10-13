@@ -61,7 +61,7 @@
       "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
       "firmware/src/operations_ui.inc": "17cbe5e3265c4fb292fe221c2905d9d06f1138f321ddfa9df94d58b06f45f36b",
       "firmware/src/private_chat_model.h": "308453189ad124c1698b8bdde703d6b477fa82877bc61f09613b33a2674f0491",
-      "firmware/src/private_chat_parse.h": "253f24863ace008f111883888f495a734213386e44d5066464e17bd247ec498e",
+      "firmware/src/private_chat_parse.h": "ccac9f1b1b409bb99de9b69934c383922960ca6024bc9d1c85e249be718ef57e",
       "firmware/src/private_chat_network.h": "7bcc59ac75e2c898100c0c5ec2cb1c10536af612479fc9025f259f674a957154",
       "firmware/src/private_chat_network.cpp": "d6b2e36de00dcb21315654fc65c6d3ea6c126118a0bd7966866a295f80c9c280",
       "firmware/src/private_chat_ui.inc": "c330b91d920084de479776e619ac1ffd2236aca3bffdd2e6328d7466d4599b24",
@@ -88,7 +88,7 @@
     "renderer_sha256": "99962fae5fa6d4f18eba53250529d557bbf50355073c617ee31c3f20555db7da",
     "transport": "commercial/site/public/demo/data.js",
     "transport_sha256": "90db3cf785e55c091a41618453eb5e848417bc12a756be788e909e85bb8ab3d1",
-    "sha256": "f8ffcf8708047111d99e3037b5cb9dcf606d687f0ca6209c4a2b3270c1705da2",
+    "sha256": "97fcec1d64bb6575db8a8005adc06e48644c1d4c9deeca0afd61811b2b8c260a",
     "data": "Four synthetic nodes; no live collector or LAN telemetry",
     "width": 320,
     "height": 240
