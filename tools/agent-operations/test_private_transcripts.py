@@ -103,6 +103,7 @@ class BrokerTests(unittest.TestCase):
         self.key=Path(self.directory.name)/'reader.key'
         self.key.write_bytes(b's'*48);self.key.chmod(0o600)
         self.calls=[]
+        self.contexts=[]
         self.body=json.dumps({'ticket':'t'*48,'expires_in':60,'one_use':True}).encode()
         self.status=200
         outer=self
@@ -110,9 +111,11 @@ class BrokerTests(unittest.TestCase):
             def log_message(self,*args):pass
             def do_POST(self):
                 # Keep only non-secret observations; never persist Authorization.
+                request_body=self.rfile.read(int(self.headers.get('Content-Length',0)))
+                outer.contexts.append(json.loads(request_body))
                 outer.calls.append({'method':self.command,'path':self.path,
                                     'auth_ok':self.headers.get('Authorization')=='Bearer '+('s'*48),
-                                    'body_ok':self.rfile.read(int(self.headers.get('Content-Length',0)))==b'{}'})
+                                    'body_ok':request_body==b'{}'})
                 self.send_response(outer.status)
                 if outer.status==302:self.send_header('Location','http://127.0.0.1:1/forbidden')
                 self.send_header('Content-Type','application/json');self.send_header('Content-Length',str(len(outer.body)))
@@ -179,6 +182,21 @@ class BrokerTests(unittest.TestCase):
                 self.assertFalse(('t'*48).encode() in body)
             _,_,body=self.request(server,'/v1/snapshot?mode=demo')
             self.assertFalse(b'Private conversations' in body or b'ticket=' in body or ('s'*48).encode() in body)
+
+    def test_task_context_is_bound_to_ticket_and_not_redirect_query(self):
+        context={'system_id':'sample-system','task_id':'sample-task'}
+        with RunningServer(api.create_server(settings(True))) as server:
+            status,headers,_=self.request(server,'/private-transcripts?system_id=sample-system&task_id=sample-task')
+            self.assertEqual(status,303);self.assertEqual(self.contexts,[context])
+            self.assertEqual(headers['Location'],self.origin+'/#ticket='+('t'*48))
+            for path in ('/private-transcripts?system_id=sample-system','/private-transcripts?task_id=sample-task',
+                         '/private-transcripts?system_id=sample-system&task_id=sample-task&task_id=other',
+                         '/private-transcripts?system_id=sample-system&task_id=sample-task&redirect=http://evil.example',
+                         '/private-transcripts?system_id=sample-system&task_id=../secret',
+                         '/private-transcripts?system_id=sample-system&task_id='+('x'*65),
+                         '//private-transcripts?system_id=sample-system&task_id=sample-task'):
+                self.assertEqual(self.request(server,path)[0],404)
+            self.assertEqual(len(self.contexts),1,'rejected contexts never reach the private broker')
 
     def test_forbidden_requests_do_not_contact_broker_and_failures_are_generic(self):
         with RunningServer(api.create_server(settings(True))) as server:

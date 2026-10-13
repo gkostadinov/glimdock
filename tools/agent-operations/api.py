@@ -38,10 +38,10 @@ def private_key(path):
 class NoPrivateRedirect(HTTPRedirectHandler):
     def redirect_request(self,*args,**kwargs):return None
 
-def private_launch_ticket():
+def private_launch_ticket(context=None):
     """One fixed, bounded local broker call; no proxy, redirect or stored URL."""
     key=private_key(PRIVATE_READER_KEY)
-    request=Request(PRIVATE_READER_ORIGIN+'/v1/launch-ticket',data=b'{}',method='POST',
+    request=Request(PRIVATE_READER_ORIGIN+'/v1/launch-ticket',data=json.dumps(context or {},separators=(',',':')).encode(),method='POST',
                     headers={'Authorization':'Bearer '+key,'Content-Type':'application/json','Accept':'application/json'})
     opener=build_opener(ProxyHandler({}),NoPrivateRedirect())
     with opener.open(request,timeout=3) as response:raw=response.read(2049)
@@ -239,20 +239,23 @@ def create_server(args):
             self.end_headers();self.wfile.write(data)
         def do_GET(self):
             url=urlparse(self.path)
-            if self.path=='/private-transcripts':
+            if url.path=='/private-transcripts':
                 # BaseHTTPRequestHandler collapses leading // before dispatch.
                 # Require the actual request target, not its normalized form.
-                if self.raw_requestline.split()[1]!=b'/private-transcripts':return self.send(404,{'error':'not_found'})
+                target=self.raw_requestline.split()[1]
+                match=re.fullmatch(rb'/private-transcripts\?system_id=([A-Za-z0-9_.:-]{1,64})&task_id=([A-Za-z0-9_.:-]{1,64})',target)
+                context={'system_id':match[1].decode('ascii'),'task_id':match[2].decode('ascii')} if match else None
+                if target!=b'/private-transcripts' and not match:return self.send(404,{'error':'not_found'})
                 if not private_enabled:return self.send(404,{'error':'not_found'})
                 if not private_request_allowed(self.client_address[0],self.headers,self.server.private_host):return self.send(403,{'error':'private_reader_forbidden'})
-                try:ticket=private_launch_ticket()
+                try:ticket=private_launch_ticket(context)
                 except Exception:return self.send(503,{'error':'private_reader_unavailable'})
                 return self.send(303,b'',headers=(('Location',PRIVATE_READER_ORIGIN+'/#ticket='+ticket),))
             if url.path.startswith('/v1/'):
                 if token and not hmac.compare_digest(self.headers.get('Authorization',''),'Bearer '+token):return self.send(401,{'error':'read_token_required'})
                 query=parse_qs(url.query)
                 if set(query)-{'mode'} or query.get('mode',['demo'])[0] not in ('demo','hub','file'):return self.send(400,{'error':'unsupported_query'})
-                if url.path=='/v1/capabilities':return self.send(200,{'schema_version':'agent-ops/v1','read_only':True,'max_snapshot_bytes':MAX_BYTES,'auth':'bearer' if token else 'loopback-only','sources':['demo']+(['hub'] if args.hub else [])+(['file'] if args.snapshot else [])})
+                if url.path=='/v1/capabilities':return self.send(200,{'schema_version':'agent-ops/v1','read_only':True,'max_snapshot_bytes':MAX_BYTES,'private_conversations':private_enabled,'auth':'bearer' if token else 'loopback-only','sources':['demo']+(['hub'] if args.hub else [])+(['file'] if args.snapshot else [])})
                 if url.path!='/v1/snapshot':return self.send(404,{'error':'not_found'})
                 mode=query.get('mode',['hub' if args.hub else 'file' if args.snapshot else 'demo'])[0]
                 try:
