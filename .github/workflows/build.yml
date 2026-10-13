@@ -98,7 +98,26 @@ jobs:
           output/private-chat-model-test
       - run: python3 tools/native-preview/test_gestures.py --rotation 3
       - run: python3 -m pip install -r tools/agent-operations/requirements.txt
-      - run: python3 tools/agent-operations/test_api.py && python3 tools/agent-operations/test_private_transcripts.py
+      - name: Verify reference APIs against an isolated synthetic server
+        run: |
+          python3 tools/agent-operations/api.py --port 8784 > output/reference-api-test.log 2>&1 &
+          reference_api_pid=$!
+          trap 'kill "$reference_api_pid"' EXIT
+          python3 - <<'PYTHON'
+          import time
+          from urllib.request import urlopen
+          for attempt in range(100):
+              try:
+                  with urlopen('http://127.0.0.1:8784/v1/capabilities', timeout=.2) as response:
+                      assert response.status == 200
+                  break
+              except OSError:
+                  time.sleep(.05)
+          else:
+              raise RuntimeError('Synthetic reference server did not start')
+          PYTHON
+          python3 tools/agent-operations/test_api.py
+          python3 tools/agent-operations/test_private_transcripts.py
       - run: python3 tools/package-public-release.py --check-only
       - name: Retain failed firmware build diagnostics
         if: failure()
