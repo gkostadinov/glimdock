@@ -1,5 +1,5 @@
 // The private reader has its own transient model; it never enters snapshots.
-struct PrivateRequest {int64_t after=-1,order=-1,offset=-1;};
+struct PrivateRequest {int64_t after=-1,order=-1,offset=-1,before=-1;bool newest=true;};
 char privateSession[97]{},privateCursor[513]{},privateCursorBack[16][513]{};
 uint8_t privateCursorDepth=0,privateMessageDepth=0;
 PrivateRequest privateRequest,privateMessageBack[64];
@@ -13,11 +13,11 @@ void privateWipeLabels(lv_obj_t*o){
 void privateResetUi(){
   privateWipeLabels(content);privateLabels=false;
   if(privateChat){privatechat::wipe(privateChat,sizeof(*privateChat));new(privateChat)privatechat::Model{};}
-  privatechat::wipe(privateSession,sizeof(privateSession));privatechat::wipe(privateCursor,sizeof(privateCursor));privatechat::wipe(privateCursorBack,sizeof(privateCursorBack));privatechat::wipe(privateMessageBack,sizeof(privateMessageBack));privateRequest=PrivateRequest{};privateCursorDepth=privateMessageDepth=0;privateState=privatechat::State{};privateTask[0]=privateSystem[0]=0;privateReturnPage=7;
+  privatechat::wipe(privateSession,sizeof(privateSession));privatechat::wipe(privateCursor,sizeof(privateCursor));privatechat::wipe(privateCursorBack,sizeof(privateCursorBack));privatechat::wipe(privateMessageBack,sizeof(privateMessageBack));privateRequest=PrivateRequest{};privateCursorDepth=privateMessageDepth=0;privateState=privatechat::State{};privateTask[0]=privateSystem[0]=0;privateReturnPage=7;privateScrollToBottom=false;
 }
 void privateRead(){if(privateChat)readPrivateChat(*privateChat,privateState);}
 void privateLoadSessions(){requestPrivateSessions(privateCursor,privateTask,privateSystem);privateRead();privateNewRequest=true;render();}
-void privateLoadMessages(){requestPrivateMessages(privateSession,privateRequest.after,privateRequest.order,privateRequest.offset);privateRead();privateNewRequest=true;render();}
+void privateLoadMessages(){requestPrivateMessages(privateSession,privateRequest.after,privateRequest.order,privateRequest.offset,privateRequest.newest,privateRequest.before);privateScrollToBottom=privateRequest.order<0;privateRead();privateNewRequest=true;render();}
 void privateOpen(lv_event_t*){privateTask[0]=privateSystem[0]=0;privateReturnPage=7;agentsWorkspace=true;setViewPage(PRIVATE_SESSIONS);privateCursor[0]=0;privateCursorDepth=privateMessageDepth=0;privateRead();if(privateChatConfigured())privateLoadSessions();else render();}
 void privateOpenTask(lv_event_t*){if(!operations||page!=OPS_TASK||!privatechat::validId(selectedOperation,64)||!privatechat::validId(selectedOperationSystem,64))return;strlcpy(privateTask,selectedOperation,sizeof(privateTask));strlcpy(privateSystem,selectedOperationSystem,sizeof(privateSystem));privateReturnPage=OPS_TASK;agentsWorkspace=true;setViewPage(PRIVATE_SESSIONS);privateCursor[0]=0;privateCursorDepth=privateMessageDepth=0;privateRead();if(privateChatConfigured())privateLoadSessions();else render();}
 void privateSelectIndex(size_t i){if(!privateChat||i>=privateChat->nSessions)return;strlcpy(privateSession,privateChat->sessions[i].id,sizeof(privateSession));privateRequest=PrivateRequest{};privateMessageDepth=0;setViewPage(PRIVATE_MESSAGES);privateLoadMessages();}
@@ -25,10 +25,10 @@ void privateSelect(lv_event_t*e){privateSelectIndex(uintptr_t(lv_event_get_user_
 void privateRememberMessage(){if(privateMessageDepth==64){memmove(privateMessageBack,privateMessageBack+1,63*sizeof(PrivateRequest));privateMessageDepth=63;}privateMessageBack[privateMessageDepth++]=privateRequest;}
 void privateNext(lv_event_t*){if(!privateChat||!privateChat->valid)return;
   if(page==PRIVATE_SESSIONS){if(!privateChat->hasMore||!privateChat->nextCursor[0])return;if(privateCursorDepth==16){memmove(privateCursorBack,privateCursorBack+1,15*sizeof(privateCursorBack[0]));privateCursorDepth=15;}strlcpy(privateCursorBack[privateCursorDepth++],privateCursor,sizeof(privateCursor));strlcpy(privateCursor,privateChat->nextCursor,sizeof(privateCursor));privateLoadSessions();}
-  else if(privateChat->hasMore&&privateChat->nextAfter>=0){privateRememberMessage();privateRequest={privateChat->nextAfter,-1,-1};privateLoadMessages();}
+  else if(privateChat->hasMore&&privateChat->nextBefore>=0){privateRememberMessage();privateRequest={-1,-1,-1,privateChat->nextBefore,true};privateLoadMessages();}
 }
 void privatePrevious(lv_event_t*){if(page==PRIVATE_SESSIONS&&privateCursorDepth){strlcpy(privateCursor,privateCursorBack[--privateCursorDepth],sizeof(privateCursor));privatechat::wipe(privateCursorBack[privateCursorDepth],sizeof(privateCursorBack[0]));privateLoadSessions();}else if(page==PRIVATE_MESSAGES&&privateMessageDepth){privateRequest=privateMessageBack[--privateMessageDepth];privateMessageBack[privateMessageDepth]=PrivateRequest{};privateLoadMessages();}}
-void privateContinue(lv_event_t*e){size_t i=uintptr_t(lv_event_get_user_data(e));if(!privateChat||i>=privateChat->nMessages)return;auto&m=privateChat->messages[i];if(m.nextTextOffset<0)return;privateRememberMessage();privateRequest={privateRequest.after,int64_t(m.order),m.nextTextOffset};privateLoadMessages();}
+void privateContinue(lv_event_t*e){size_t i=uintptr_t(lv_event_get_user_data(e));if(!privateChat||i>=privateChat->nMessages)return;auto&m=privateChat->messages[i];if(m.nextTextOffset<0)return;privateRememberMessage();privateRequest.order=int64_t(m.order);privateRequest.offset=m.nextTextOffset;privateLoadMessages();}
 void privateRetry(lv_event_t*){if(page==PRIVATE_SESSIONS)privateLoadSessions();else privateLoadMessages();}
 void privateBack(){if(page==PRIVATE_MESSAGES){setViewPage(PRIVATE_SESSIONS);privateSession[0]=0;privateMessageDepth=0;privateLoadSessions();}else openPage(privateReturnPage);}
 void privateHeader(){feedStatus=privateChat&&privateChat->demo?"DEMO":"PRIVATE";feedStatusColor=privateState.loading?AMBER:LAVENDER;lv_label_set_text(headerHost,"Chat history");lv_obj_invalidate(headerTitle);}
@@ -64,13 +64,13 @@ void privateRender(){
     privatePager(s,y,privateCursorDepth>0,privateChat->hasMore,"More conversations");
   }else{
     y=privateWrapped(s,5,y,LIST_W-10,privateChat->selectedSessionTitle,INK,&lv_font_montserrat_12)+7;y=privateNote(s,y,String(privateChat->selectedSessionProvider)+" • "+privateChat->selectedSessionMachine);
+    if(privateRequest.order<0){y=privateNote(s,y,privateRequest.before<0?"Latest messages • scroll up for earlier history":"Older history");if(privateChat->hasMore&&privateChat->nextBefore>=0){smallButton(s,"Earlier messages",0,y,LIST_W,CYAN,privateNext);y+=48;}}
     if(!privateChat->nMessages)y=privateNote(s,y,"No messages on this page.");
     for(int i=0;i<privateChat->nMessages;i++){auto&m=privateChat->messages[i];bool user=!strcmp(m.role,"user");int x=user?14:0,w=LIST_W-14;auto*c=box(s,x,y,w,40,CARD,9);lv_obj_set_style_border_color(c,color(user?LAVENDER:CYAN),0);String role=user?"YOU":!strcmp(m.role,"assistant")?"ASSISTANT":String(m.role);privateLabel(c,role,10,9,w-20,user?LAVENDER:CYAN,&lv_font_montserrat_10);privateLabel(c,privateTime(m.timestamp),10,26,w-20,MUTED,&lv_font_montserrat_8);int h=43;if(m.textOffset>0)h=privateWrapped(c,10,h,w-20,"Continued message",MUTED,&lv_font_montserrat_10)+8;if(m.redactions>0)h=privateWrapped(c,10,h,w-20,String(m.redactions)+" redaction(s)",MUTED,&lv_font_montserrat_8)+8;h=privateBody(c,h,w,m.text);
       if(m.nextTextOffset>=0){smallButton(c,"Read more of this message",8,h,w-16,LAVENDER,privateContinue,(void*)(uintptr_t)i);h+=48;}else if(m.truncated)h=privateWrapped(c,10,h,w-20,"More text is unavailable from this source.",AMBER,&lv_font_montserrat_10)+8;
       lv_obj_set_height(c,h+4);y+=h+14;
     }
-    privatePager(s,y,privateMessageDepth>0,privateChat->hasMore,"Next messages");
-    y+=48;privateNote(s,y,"Read-only • leave this view to clear conversation text",MUTED);
+    if(privateMessageDepth)smallButton(s,privateRequest.order>=0?"Back to messages":"Newer messages",0,y,LIST_W,CYAN,privatePrevious);
   }
 
 }

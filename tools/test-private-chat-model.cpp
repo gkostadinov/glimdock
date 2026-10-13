@@ -9,7 +9,7 @@
 
 uint32_t millis(){return 1234;}
 static int requests=0,lastKind=0;static std::string lastSession,lastCursor,lastTask,lastSystem;static int64_t lastAfter=-2,lastOrder=-2,lastOffset=-2;static uint32_t lastGeneration=0;
-extern "C" void homelabPrivateChatRequest(int kind,const char*session,const char*cursor,const char*taskId,const char*systemId,int64_t after,int64_t order,int64_t offset,uint32_t generation){requests++;lastKind=kind;lastSession=session;lastCursor=cursor;lastTask=taskId;lastSystem=systemId;lastAfter=after;lastOrder=order;lastOffset=offset;lastGeneration=generation;}
+extern "C" void homelabPrivateChatRequest(int kind,const char*session,const char*cursor,const char*taskId,const char*systemId,int64_t after,int64_t order,int64_t offset,bool newest,int64_t before,uint32_t generation){requests++;lastKind=kind;lastSession=session;lastCursor=cursor;lastTask=taskId;lastSystem=systemId;lastAfter=after;lastOrder=order;lastOffset=offset;lastGeneration=generation;}
 static std::string sessionId(64,'a');
 static JsonDocument sessions(){JsonDocument doc;doc["schema_version"]="private-chat/v1";doc["demo"]=true;doc["items"].to<JsonArray>();doc["total"]=1;doc["has_more"]=false;doc["next_cursor"]=nullptr;auto row=doc["items"].add<JsonObject>();row["id"]=sessionId;row["title"]="Synthetic conversation";row["machine"]="sample-machine";row["provider"]="sample-provider";row["last_message_at"]=nullptr;row["message_count"]=nullptr;return doc;}
 static JsonDocument messages(){JsonDocument doc;doc["schema_version"]="private-chat/v1";doc["demo"]=true;doc["session"]["id"]=sessionId;doc["session"]["title"]="Synthetic conversation";doc["session"]["provider"]="sample-provider";doc["session"]["machine"]="sample-machine";doc["total"]=1;doc["has_more"]=false;doc["next_after"]=0;auto row=doc["messages"].add<JsonObject>();row["id"]="sample-message";row["order"]=0;row["role"]="assistant";row["timestamp"]=nullptr;row["text"]="Synthetic message only.";row["text_offset"]=0;row["text_characters"]=23;row["next_text_offset"]=nullptr;return doc;}
@@ -58,5 +58,9 @@ int main(){
   doc=sessions();text=encoded(doc);assert(!ingestPrivateChat(text.c_str(),lastGeneration)); // An old relay must not silently return every chat.
   assert(requestPrivateSessions("","task-demo","system-demo"));doc=sessions();doc["task_id"]="other-task";doc["system_id"]="system-demo";text=encoded(doc);assert(!ingestPrivateChat(text.c_str(),lastGeneration));
   assert(requestPrivateSessions("","task-demo","system-demo"));doc=sessions();doc["task_id"]="task-demo";doc["system_id"]="system-demo";text=encoded(doc);assert(ingestPrivateChat(text.c_str(),lastGeneration));assert(readPrivateChat(model,state)&&std::string(model.taskId)=="task-demo");
+  assert(privatechat::requestPath(path,sizeof(path),privatechat::Kind::Messages,sessionId.c_str(),"",-1,-1,-1,"","",true));assert(std::string(path).find("&direction=backward")!=std::string::npos&&std::string(path).find("before=")==std::string::npos);
+  assert(privatechat::requestPath(path,sizeof(path),privatechat::Kind::Messages,sessionId.c_str(),"",-1,-1,-1,"","",true,13));assert(std::string(path).find("&direction=backward&before=13")!=std::string::npos);
+  assert(requestPrivateMessages(sessionId.c_str(),-1,-1,-1,true));doc=messages();text=encoded(doc);assert(!ingestPrivateChat(text.c_str(),lastGeneration));
+  assert(requestPrivateMessages(sessionId.c_str(),-1,-1,-1,true));doc=messages();doc["direction"]="backward";doc["next_before"]=0;text=encoded(doc);assert(ingestPrivateChat(text.c_str(),lastGeneration));assert(readPrivateChat(model,state)&&model.backward&&model.nextBefore==0);
   std::cout<<"Private chat synthetic model/lifecycle checks passed.\n";
 }

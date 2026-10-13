@@ -83,6 +83,8 @@ inline bool parse(JsonDocument&document,privatechat::Model&model){
     }
   }else{
     model.kind=privatechat::Kind::Messages;
+    if(!root["direction"].isNull()){const char*direction=root["direction"]|"";if(strcmp(direction,"forward")&&strcmp(direction,"backward"))return false;model.backward=!strcmp(direction,"backward");}
+    if(!integer(root["next_before"],model.nextBefore))return false;
     auto session=root["session"].as<JsonObjectConst>();
     if(!session||!id(model.sessionId,session["id"])||!privatechat::validSessionId(model.sessionId)||root["messages"].size()>privatechat::MAX_MESSAGES||!integer(root["next_after"],model.nextAfter))return false;
     if(!text(model.selectedSessionTitle,session["title"],clipped)||!text(model.selectedSessionProvider,session["provider"],clipped)||!text(model.selectedSessionMachine,session["machine"],clipped))return false;

@@ -37,7 +37,7 @@ lv_obj_t*workspaceHighlight=nullptr;int workspaceStep=60;
 constexpr uint8_t OPS_OVERVIEW=22,OPS_AGENTS=23,OPS_TASKS=24,OPS_EVENTS=25,OPS_AGENT=26,OPS_TASK=27,OPS_EVENT=28,OPS_OPERATIONS=29,OPS_SOURCES=30,OPS_SYSTEMS=31;
 constexpr uint8_t PRIVATE_SESSIONS=32,PRIVATE_MESSAGES=33;
 bool privatePage(uint8_t p){return p==PRIVATE_SESSIONS||p==PRIVATE_MESSAGES;}
-bool privateNewRequest=false;privatechat::Model*privateChat=nullptr;privatechat::State privateState;
+bool privateNewRequest=false,privateScrollToBottom=false;privatechat::Model*privateChat=nullptr;privatechat::State privateState;
 void privateOpen(lv_event_t*);void privateOpenTask(lv_event_t*);void privateRender();void privateBack();void privateResetUi();void privateWipeLabels(lv_obj_t*);void privateHeader();
 bool operationsPage(uint8_t p){return p>=OPS_OVERVIEW&&p<=OPS_SYSTEMS;}
 void toggleWorkspace(lv_event_t*);void workspaceSwitchControl();void operationsRender();void operationsHeader();
@@ -596,7 +596,7 @@ void noData(){
 void render(){
   if(!uiReady)return;applyAppearance();struct tm appearanceTime{};appearanceClockSynced=themeMode==THEME_AUTO&&displayClockTm(time(nullptr),clockZone,appearanceTime);readManagement();if(keyboard){lv_obj_delete(keyboard);keyboard=nullptr;fieldArea=nullptr;}if(page==18)lv_obj_add_flag(tabBar,LV_OBJ_FLAG_HIDDEN);else lv_obj_remove_flag(tabBar,LV_OBJ_FLAG_HIDDEN);int oldScroll=privateNewRequest?0:scrollArea?lv_obj_get_scroll_y(scrollArea):0;static uint8_t previousPage=255;feedStatusLabel=nullptr;deviceBatteryLabel=nullptr;privateWipeLabels(content);lv_obj_clean(content);workspaceHighlight=nullptr;scrollArea=nullptr;header();
   if(privatePage(page))privateRender();else if(operationsPage(page))operationsRender();else if(page==18)fieldEditor();else if(page==17)deleteScreen();else if(page==16)nodeForm();else if(page==15)nodeManager();else if(page==14)connectionForm();else if(page==13)nodePicker();else if(page==8)setupScreen();else if(page==7)settings();else if(page==ALL_NODES_PAGE)nodesOverview();else if(page==CLOCK_PAGE)clockOverview();else if(page==SUBNODES_PAGE)subnodesList();else if(!snapshot->valid)noData();else if(printerNode()){switch(page){case 1:printerJob();break;case 2:printerTemps();break;case 3:case 6:printerHealth();break;default:printerOverview();break;}}else switch(page){case 0:overview();break;case 1:guests();break;case 2:storage();break;case 3:sensors();break;case 4:guestDetail();break;case 5:powerDetail();break;case 6:alerts();break;case 9:diskDetail();break;case 10:memoryDetail();break;case 11:gpuList();break;case 12:gpuDetail();break;}
-  if(scrollArea&&previousPage==page)lv_obj_scroll_to_y(scrollArea,oldScroll,LV_ANIM_OFF);previousPage=page;privateNewRequest=false;lastRender=millis();styleNotification();
+  if(scrollArea&&previousPage==page)lv_obj_scroll_to_y(scrollArea,oldScroll,LV_ANIM_OFF);if(scrollArea&&page==PRIVATE_MESSAGES&&privateScrollToBottom&&privateChat&&privateChat->valid&&!privateState.loading){lv_obj_update_layout(scrollArea);lv_obj_scroll_to_y(scrollArea,lv_obj_get_scroll_y(scrollArea)+lv_obj_get_scroll_bottom(scrollArea),LV_ANIM_OFF);privateScrollToBottom=false;}previousPage=page;privateNewRequest=false;lastRender=millis();styleNotification();
 }
 void buildUI(){
   lv_obj_t*screen=lv_screen_active();lv_obj_set_style_bg_color(screen,color(BG),0);lv_obj_set_style_pad_all(screen,0,0);lv_obj_remove_flag(screen,LV_OBJ_FLAG_SCROLLABLE);
