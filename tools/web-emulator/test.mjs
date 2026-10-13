@@ -50,7 +50,7 @@ try {
   assert.equal(firmware._glimdock_page(),19, 'actual firmware starts on all nodes');
   assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);
   tick(600);
-  assert(texts().includes('All nodes'));
+  assert(texts().includes('All systems'));
   assert(texts().some(text => text.includes('CPU 0%') && text.includes('RAM 0%')), 'zero is displayed as a valid value');
   assert(texts().some(text => text.includes('0 sensors') && text.includes('--')), 'unknown temperature stays unknown');
   assert(texts().some(text => text.includes('3 guests')), 'Proxmox keeps its additional inventory');
@@ -62,7 +62,7 @@ try {
   tap(statusDot());assert.equal(firmware._glimdock_page(),7,'fleet wordmark status dot opens Settings');settingsStatus('LIVE');
   tick(16000);settingsStatus('STALE');brandStatus(0x8a5300,'wordmark dot becomes amber while Settings content remains retained');
   document.generated_at=stamp+Math.floor((clock-1000)/1000);document.sequence++;assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);tick(600);settingsStatus('LIVE');brandStatus(0x6644dd,'wordmark dot returns to live brand purple without leaving Settings');
-  mac.status='offline';document.sequence++;assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);tick(600);settingsStatus('LIVE');brandStatus(0x6644dd,'offline cached node does not change the fleet feed status');assert(labels().some(label=>label.text==='All nodes'&&label.y<34));firmware._glimdock_show(0);tap(labels().find(label=>label.text==='\uf013'));settingsStatus('OFFLINE');brandStatus(0xb32632,'node Settings still shows the selected node status');
+  mac.status='offline';document.sequence++;assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);tick(600);settingsStatus('LIVE');brandStatus(0x6644dd,'offline cached node does not change the fleet feed status');assert(labels().some(label=>label.text==='All systems'&&label.y<34));firmware._glimdock_show(0);tap(labels().find(label=>label.text==='\uf013'));settingsStatus('OFFLINE');brandStatus(0xb32632,'node Settings still shows the selected node status');
   mac.status='healthy';document.demo=true;document.sequence++;assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);tick(600);settingsStatus('DEMO');brandStatus(0x6047ba,'sample data colors the original wordmark dot purple');
   document.demo=false;document.sequence++;assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);tick(600);settingsStatus('LIVE');brandStatus(0x6644dd,'live snapshot restores the wordmark dot to brand purple');
   firmware._glimdock_time(stamp);document.generated_at=stamp;document.sequence++;assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);firmware._glimdock_show(19);tick();cleanNavigation();
@@ -72,17 +72,17 @@ try {
   tick();firmware._glimdock_pointer(clockX,clockY,1);tick();firmware._glimdock_pointer(clockX+16,clockY,1);tick();firmware._glimdock_pointer(clockX,clockY,1);tick();firmware._glimdock_pointer(clockX,clockY,0);tick();
   assert.equal(firmware._glimdock_page(),19,'returning clock-button drag does not enter clock mode');
   const selectRequestsBeforeSettings=requests.filter(request=>request.kind==='select').length;
-  const fleetHeader=()=>assert(labels().some(label=>label.text==='All nodes'&&label.y<34),'Settings retains All nodes in the header');
+  const fleetHeader=()=>assert(labels().some(label=>label.text==='All systems'&&label.y<34),'Settings retains All systems in the header');
   const nav=title=>labels().find(label=>label.text===title&&label.y>=200);
   const gear=()=>labels().find(label=>label.text==='\uf013');
-  tap(gear());assert.equal(firmware._glimdock_page(),7);fleetHeader();assert(nav('Settings')&&nav('Clock')&&nav('Pick node'));
+  tap(gear());assert.equal(firmware._glimdock_page(),7);fleetHeader();assert(nav('Settings')&&nav('Clock')&&nav('Pick system'));
   tap(labels().find(label=>label.text==='Dark'));tap(labels().find(label=>label.text==='White'));fleetHeader();
   let connectionButton;for(let scroll=0;scroll<=1200;scroll+=40){firmware._glimdock_scroll(scroll);connectionButton=labels().find(label=>label.text==='Wi-Fi & collector setup'&&label.y>=34&&label.y+label.height<200);if(connectionButton)break;}tap(connectionButton);assert.equal(firmware._glimdock_page(),14);fleetHeader();
   tap(labels().find(label=>label.text==='\uf053'));assert.equal(firmware._glimdock_page(),7);fleetHeader();
   document.node=pve;document.sequence++;assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);tick(600);assert.equal(firmware._glimdock_page(),7);fleetHeader();
   document.node=mac;document.sequence++;assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);tick(600);fleetHeader();
-  tap(nav('Clock'));assert.equal(firmware._glimdock_page(),20);tap(gear());fleetHeader();tap(nav('All nodes'));assert.equal(firmware._glimdock_page(),19);
-  tap(nav('Settings'));fleetHeader();tap(nav('All nodes'));assert.equal(firmware._glimdock_page(),19);
+  tap(nav('Clock'));assert.equal(firmware._glimdock_page(),20);tap(gear());fleetHeader();tap(nav('All systems'));assert.equal(firmware._glimdock_page(),19);
+  tap(nav('Settings'));fleetHeader();tap(nav('All systems'));assert.equal(firmware._glimdock_page(),19);
   assert.equal(requests.filter(request=>request.kind==='select').length,selectRequestsBeforeSettings,'Settings navigation does not select a cached node');
   tap(headerClock());assert.equal(firmware._glimdock_page(),20,'header clock deliberately enters desk clock mode');
   assert(texts().includes('DESK CLOCK')&&texts().includes('3 / 3 healthy'),'clock mode reports fleet health');cleanNavigation();
@@ -136,8 +136,8 @@ try {
   summaryGeometry([...summaryTitles,'Graphics']);
   firmware._glimdock_time(stamp);document.sequence++;
   assert.equal(call('glimdock_snapshot',JSON.stringify(document)),1);tick(600);
-  firmware._glimdock_show(20);tick();tap(labels().find(label=>label.text==='All nodes'&&label.y>=206));
-  assert.equal(firmware._glimdock_page(),19,'clock All nodes tab returns to the fleet overview');
+  firmware._glimdock_show(20);tick();tap(labels().find(label=>label.text==='All systems'&&label.y>=206));
+  assert.equal(firmware._glimdock_page(),19,'clock All systems tab returns to the fleet overview');
   const pixelPointer = firmware._glimdock_pixels() >>> 1;
   assert(new Set(firmware.HEAPU16.subarray(pixelPointer,pixelPointer+320*240)).size>100, 'LVGL rasterizer produced a real frame');
   if(process.argv[2]){

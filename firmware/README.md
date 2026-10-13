@@ -4,7 +4,7 @@ The display pairs with the host-agnostic central collector and consumes its node
 registry. Native OS and router/API adapter agents send readings to that
 collector; optional local probes and polling feeds share the same registry. The
 display keeps one central read connection and never needs a per-device agent
-endpoint or publisher key. It starts on **All nodes**, then opens a server/device, Proxmox or Klipper
+endpoint or publisher key. It starts on **All systems**, then opens a server/device, Proxmox or Klipper
 dashboard when a card is selected. Node configuration belongs to the collector;
 Wi-Fi, pairing, selected node and appearance belong to the display.
 
@@ -157,16 +157,16 @@ reordered or repeated snapshots do not trigger alarm replay. New-event sounds ar
 limited to one per ten seconds. This does not enable music playback, gyro/RTC
 drivers, charging changes or power-button shutdown.
 
-## All nodes and detail dashboards
+## All systems and detail dashboards
 
-**All nodes** shows up to four bento cards without scrolling in either orientation.
+**All systems** shows up to four bento cards without scrolling in either orientation.
 Cards contain name, platform/type, health and the available primary readings:
 CPU/RAM for servers, guest count for Proxmox, job state/progress for Klipper,
 and temperatures/sensor counts. Each node expires independently using its
 summary age and TTL. A frozen central feed also makes the fleet stale.
 
-Tap a card to open its dashboard. The Glimdock logo returns to All nodes; the
-header picker includes **All nodes • summary**. Node selection immediately
+Tap a card to open its dashboard. The Glimdock logo returns to All systems; the
+header picker includes **All systems • summary**. Node selection immediately
 clears the previous metrics and history, rejects late responses for an old
 selection and keeps the stable selected ID. Removed selections fall back to the
 configured default; no platform gets priority.
@@ -267,9 +267,9 @@ Run the checks in [BUILDING.md](../public-docs/BUILDING.md). Native/WASM results
 verify layout and software interactions; physical power, touch, radio, USB and
 assembled enclosure fit require the supported board.
 
-Settings and its setup/editing screens preserve the active All nodes or Clock context, including fleet navigation and collector status. A node dashboard is selected only by an explicit node choice. The landscape header balances the visible gaps around the selector, clock, and right-edge Settings icon.
+Settings and its setup/editing screens preserve the active All systems or Clock context, including fleet navigation and collector status. A node dashboard is selected only by an explicit node choice. The landscape header balances the visible gaps around the selector, clock, and right-edge Settings icon.
 
-The All nodes cards use four aligned text rows with consistent font sizes per
+The All systems cards use four aligned text rows with consistent font sizes per
 orientation and a centered text block, leaving balanced top and bottom padding
 for both computer and printer summaries.
 

@@ -32,11 +32,11 @@ uint32_t BG=LIGHT.bg,CARD=LIGHT.card,INK=LIGHT.ink,MUTED=LIGHT.muted,CYAN=LIGHT.
 Snapshot *snapshot=nullptr;NetworkState net;
 ops::Snapshot*operations=nullptr;ops::Network operationsNet;
 bool agentsWorkspace=false;uint8_t savedNodesPage=19,savedAgentsPage=22;
-lv_obj_t*modeTrack=nullptr,*modeThumb=nullptr;
+lv_obj_t*workspaceHighlight=nullptr;int workspaceStep=60;
 constexpr uint8_t OPS_OVERVIEW=22,OPS_AGENTS=23,OPS_TASKS=24,OPS_EVENTS=25,OPS_AGENT=26,OPS_TASK=27,OPS_EVENT=28,OPS_OPERATIONS=29,OPS_SOURCES=30,OPS_SYSTEMS=31;
 bool operationsPage(uint8_t p){return p>=OPS_OVERVIEW&&p<=OPS_SYSTEMS;}
-void toggleWorkspace(lv_event_t*);void operationsRender();void operationsHeader();
-int operationsTab();void operationsBack();
+void toggleWorkspace(lv_event_t*);void workspaceSwitchControl();void operationsRender();void operationsHeader();
+int operationsTab();void operationsBack();bool operationsAll();void operationsHome();
 lv_obj_t *content=nullptr,*scrollArea=nullptr,*headerTitle=nullptr,*headerMark=nullptr,*headerHost=nullptr,*nodeButton=nullptr,*headerLine=nullptr,*brandStatusButton=nullptr,*feedStatusLabel=nullptr,*settingsButton=nullptr,*headerClock=nullptr,*clockButton=nullptr,*headerBattery=nullptr,*deviceBatteryLabel=nullptr,*tabBar=nullptr,*tabs[4]{};
 const char*feedStatus="OFFLINE";uint32_t feedStatusColor=LIGHT.amber;
 constexpr uint8_t ALL_NODES_PAGE=19;
@@ -55,8 +55,8 @@ uint8_t notificationKind=0;
 uint8_t page=ALL_NODES_PAGE,detailOrigin=0,brightness=80,clockZone=0;int selectedGuestId=0;char selectedDiskName[48]{};bool autoRotate=false,idleDim=false,dimmed=false,manualDemo=false,uiReady=false,lightTheme=true;
 bool fleetContext=true;
 bool utilityPage(uint8_t p){return p==7||p==8||(p>=13&&p<=18);}
-bool fleetPage(){return page==ALL_NODES_PAGE||page==CLOCK_PAGE||(utilityPage(page)&&fleetContext);}
-void setViewPage(uint8_t p){fleetContext=p==ALL_NODES_PAGE||p==CLOCK_PAGE||(utilityPage(p)&&fleetPage());page=p;}
+bool fleetPage(){return page==ALL_NODES_PAGE||page==CLOCK_PAGE||(agentsWorkspace&&(page==OPS_SYSTEMS||(page==OPS_OVERVIEW&&operationsAll())))||(utilityPage(page)&&fleetContext);}
+void setViewPage(uint8_t p){fleetContext=p==ALL_NODES_PAGE||p==CLOCK_PAGE||(agentsWorkspace&&(p==OPS_SYSTEMS||(p==OPS_OVERVIEW&&operationsAll())))||(utilityPage(p)&&fleetPage());page=p;}
 char selectedGpuId[64]{},gpuLinkIds[MAX_GPUS][64]{},nodeLinkIds[MAX_NODES][64]{},trackedNodeId[64]{};uint8_t pickerOrigin=0;uint8_t gpuReturnPage=11,gpuListOrigin=5;
 uint32_t lastTouch=0,lastRender=0,lastPoll=0,lastRotate=0,lastNetRevision=0;uint64_t lastSequence=0;
 float cpuHistory[32]{},ramHistory[32]{};uint8_t historyCount=0;
@@ -135,11 +135,11 @@ void render();
 void openNodeSettings(lv_event_t*);
 void finishField(bool cancel);
 void openPage(uint8_t p){if(p==11&&page!=11&&page!=12)gpuListOrigin=page;if(p>=4&&p!=7&&p!=8&&page<4)detailOrigin=page;setViewPage(p);lastRotate=millis();render();}
-void tabGo(lv_event_t*e){uint8_t selected=uintptr_t(lv_event_get_user_data(e));if(agentsWorkspace){openPage(OPS_OVERVIEW+selected%4);return;}if(fleetPage()){if(selected==2&&page!=13)pickerOrigin=page;static const uint8_t allPages[]={ALL_NODES_PAGE,CLOCK_PAGE,13,7};openPage(allPages[selected%4]);}else openPage(tabPage(selected));}
+void tabGo(lv_event_t*e){uint8_t selected=uintptr_t(lv_event_get_user_data(e))%4;if(fleetPage()){if(selected==0){if(agentsWorkspace)operationsHome();else openPage(ALL_NODES_PAGE);}else if(selected==1)openPage(CLOCK_PAGE);else if(selected==2){if(agentsWorkspace)openPage(OPS_SYSTEMS);else{if(page!=13)pickerOrigin=page;openPage(13);}}else openPage(7);return;}if(agentsWorkspace){openPage(OPS_OVERVIEW+selected);return;}openPage(tabPage(selected));}
 void resetNodeView(bool retainContext=false){uint8_t previous=page;bool retain=retainContext&&(agentsWorkspace||utilityPage(page)||page==ALL_NODES_PAGE||page==CLOCK_PAGE);bool previousFleet=fleetPage();for(int i=0;i<32;i++){cpuHistory[i]=NAN;ramHistory[i]=NAN;}historyCount=0;lastSequence=0;selectedGuestId=0;selectedDiskName[0]=0;selectedGpuId[0]=0;detailOrigin=0;gpuReturnPage=11;gpuListOrigin=5;page=retain?previous:0;fleetContext=retain&&previousFleet;strlcpy(trackedNodeId,snapshot->node.id,sizeof(trackedNodeId));}
 void go(lv_event_t *e){uint8_t selected=uintptr_t(lv_event_get_user_data(e));openPage(printerNode()&&selected==6?3:selected);}
 void chooseNode(lv_event_t*){if(agentsWorkspace){openPage(OPS_SYSTEMS);return;}if(page==13)return;pickerOrigin=page;openPage(13);}
-void allNodesGo(lv_event_t*){openPage(ALL_NODES_PAGE);}
+void allNodesGo(lv_event_t*){agentsWorkspace=false;savedNodesPage=ALL_NODES_PAGE;Preferences p;if(p.begin("display",false)){p.putBool("agentsMode",false);p.end();}openPage(ALL_NODES_PAGE);}
 void clockGo(lv_event_t*){openPage(CLOCK_PAGE);}
 void feedStatusGo(lv_event_t*e){if(agentsWorkspace){openPage(OPS_SOURCES);return;}if(fleetPage())openPage(7);else go(e);}
 void nodeGo(lv_event_t*e){size_t index=uintptr_t(lv_event_get_user_data(e));if(index>=MAX_NODES||!nodeLinkIds[index][0])return;if(manualDemo){int selected=nodeIndexForId(*snapshot,nodeLinkIds[index]);if(selected>=0){snapshot->node=snapshot->nodes[selected];makeDemo(*snapshot);resetNodeView();render();}return;}if(requestNodeSelection(nodeLinkIds[index])){readSnapshot(*snapshot,net);resetNodeView();render();}}
@@ -159,7 +159,7 @@ void drawIcon(lv_event_t*e){
   auto line=[&](int x1,int y1,int x2,int y2){lv_draw_line_dsc_t d;lv_draw_line_dsc_init(&d);d.color=fg;d.width=1;d.round_start=d.round_end=true;d.p1={X(x1),Y(y1)};d.p2={X(x2),Y(y2)};lv_draw_line(layer,&d);};
   auto rect=[&](int x,int y,int rw,int rh,int r){lv_draw_rect_dsc_t d;lv_draw_rect_dsc_init(&d);d.bg_opa=LV_OPA_TRANSP;d.border_color=fg;d.border_width=1;d.radius=r;lv_area_t b={X(x),Y(y),X(x+rw),Y(y+rh)};lv_draw_rect(layer,&d,&b);};
   auto arc=[&](int x,int y,int r,int start,int end){lv_draw_arc_dsc_t d;lv_draw_arc_dsc_init(&d);d.color=fg;d.width=1;d.center={X(x),Y(y)};d.radius=max(1,r*w/24);d.start_angle=start;d.end_angle=end;lv_draw_arc(layer,&d);};
-  uint8_t kind=uintptr_t(lv_event_get_user_data(e));if(kind>=16){int tab=kind-16;kind=agentsWorkspace?(tab==0?0:tab==1?9:tab==2?10:8):fleetPage()?(tab==0?0:tab==1?8:tab==3?7:1):printerNode()?(tab==2?3:tab==3?6:tab):deviceNode()?(tab==1?2:tab==2?3:tab==3?6:0):tab;}switch(kind){
+  uint8_t kind=uintptr_t(lv_event_get_user_data(e));if(kind>=16){int tab=kind-16;kind=fleetPage()?(tab==0?0:tab==1?8:tab==3?7:1):agentsWorkspace?(tab==0?0:tab==1?9:tab==2?10:8):printerNode()?(tab==2?3:tab==3?6:tab):deviceNode()?(tab==1?2:tab==2?3:tab==3?6:0):tab;}switch(kind){
     case 0:rect(3,3,7,7,1);rect(14,3,7,7,1);rect(3,14,7,7,1);rect(14,14,7,7,1);break;
     case 1:rect(3,3,18,7,1);rect(3,14,18,7,1);line(7,6,8,6);line(12,6,17,6);line(7,17,8,17);line(12,17,17,17);break;
     case 2:rect(4,3,16,18,2);arc(12,11,4,0,359);line(12,11,16,15);line(7,18,9,18);break;
@@ -242,7 +242,7 @@ void header(){
   lv_obj_set_style_bg_color(nodeButton,color(CARD),0);lv_obj_set_style_border_color(nodeButton,color(EDGE),0);lv_obj_set_style_text_color(lv_obj_get_child(nodeButton,1),color(CYAN),0);
   lv_obj_set_style_bg_color(settingsButton,color(BG),0);lv_obj_set_style_text_color(lv_obj_get_child(settingsButton,0),color(MUTED),0);
   if(fleetPage()){headerStale=!snapshot->valid||(millis()-snapshot->received)>HOMELAB_STALE_MS;offline=!net.wifi;}
-  String host=fleetPage()?String("All nodes"):snapshot->node.name[0]?String(snapshot->node.name):snapshot->valid?String(snapshot->host):String("Choose node");lv_label_set_text(headerHost,host.c_str());
+  String host=fleetPage()?String("All systems"):snapshot->node.name[0]?String(snapshot->node.name):snapshot->valid?String(snapshot->host):String("Choose node");lv_label_set_text(headerHost,host.c_str());lv_obj_set_style_text_font(headerHost,fitFont(host,lv_obj_get_width(headerHost),PORTRAIT?&lv_font_montserrat_12:&lv_font_montserrat_10),0);
   struct tm clockTime{};char clockText[8]="--:--";if(displayClockTm(time(nullptr),clockZone,clockTime))strftime(clockText,sizeof(clockText),"%H:%M",&clockTime);lv_label_set_text(headerClock,clockText);lv_obj_set_style_text_color(headerClock,color(page==CLOCK_PAGE?CYAN:INK),0);lv_obj_set_style_bg_color(clockButton,color(BG),0);
   updateBatteryLabels();
   uint32_t previousStatusColor=feedStatusColor;feedStatusColor=demo()?LAVENDER:offline?RED:(!fleetPage()&&net.loading)||headerStale?AMBER:(lightTheme?glimdock::PURPLE:LAVENDER);
@@ -250,12 +250,12 @@ void header(){
   feedStatus=demo()?"DEMO":fleetPage()?(offline?"OFFLINE":!snapshot->valid?net.setup?"SETUP":"LOADING":headerStale?"STALE":"LIVE"):net.loading?(net.wifi?"LOADING":"OFFLINE"):snapshot->valid?(!strcmp(snapshot->node.status,"offline")?"OFFLINE":headerStale?"STALE":"LIVE"):net.setup?"SETUP":"OFFLINE";
   if(feedStatusLabel){lv_label_set_text(feedStatusLabel,feedStatus);lv_obj_set_style_text_color(feedStatusLabel,color(feedStatusColor),0);}
   if(agentsWorkspace)operationsHeader();
-  if(modeTrack){uint32_t accent=agentsWorkspace?0x008b88:glimdock::PURPLE;lv_obj_set_style_bg_color(modeTrack,color(lightTheme?(agentsWorkspace?0xc8eeeb:0xe0d7fc):EDGE),0);lv_obj_set_style_bg_color(modeThumb,color(accent),0);lv_obj_set_x(modeThumb,agentsWorkspace?7:1);lv_obj_set_style_radius(headerMark,agentsWorkspace?9:5,0);}
+
   lv_obj_set_style_bg_color(tabBar,color(CARD),0);lv_obj_set_style_border_color(tabBar,color(EDGE),0);
   int active=page<4?page:page==4?1:page==9?2:page==12&&gpuReturnPage==4?1:page==5||page==6||page==10||page==11||page==12?detailOrigin:-1;
-  const char*const printerTitles[]={"Overview","Job","Temps","Health"};const char*const deviceTitles[]={"Overview","Storage","Sensors","Health"};const char*const parentTitles[]={"Overview","Subnodes","Storage","Sensors"};const char*const allTitles[]={"All nodes","Clock","Pick node","Settings"};if(deviceNode())active=page==9?1:pageTab(page)>=0?pageTab(page):pageTab(detailOrigin);if(fleetPage())active=page==CLOCK_PAGE?1:page==13?2:utilityPage(page)?3:0;
-  const char*const operationsTitles[]={"Overview","Agents","Tasks","Events"};if(agentsWorkspace)active=operationsTab();
-  for(int i=0;i<4;i++){lv_label_set_text(lv_obj_get_child(tabs[i],1),agentsWorkspace?operationsTitles[i]:fleetPage()?allTitles[i]:printerNode()?printerTitles[i]:deviceNode()?(hasSubnodes()?parentTitles[i]:deviceTitles[i]):titles[i]);lv_obj_set_style_bg_color(tabs[i],color(i==active?(lightTheme?BG:DARK_SELECTED):CARD),0);for(int j=0;j<2;j++)lv_obj_set_style_text_color(lv_obj_get_child(tabs[i],j),color(i==active?CYAN:MUTED),0);auto*rule=lv_obj_get_child(tabs[i],2);lv_obj_set_style_bg_color(rule,color(CYAN),0);if(i==active)lv_obj_remove_flag(rule,LV_OBJ_FLAG_HIDDEN);else lv_obj_add_flag(rule,LV_OBJ_FLAG_HIDDEN);}
+  const char*const printerTitles[]={"Overview","Job","Temps","Health"};const char*const deviceTitles[]={"Overview","Storage","Sensors","Health"};const char*const parentTitles[]={"Overview","Subnodes","Storage","Sensors"};const char*const allTitles[]={"All systems","Clock","Pick system","Settings"};if(deviceNode())active=page==9?1:pageTab(page)>=0?pageTab(page):pageTab(detailOrigin);if(fleetPage())active=page==CLOCK_PAGE?1:(page==13||page==OPS_SYSTEMS)?2:utilityPage(page)?3:0;
+  const char*const operationsTitles[]={"Overview","Agents","Tasks","Events"};if(agentsWorkspace&&!fleetPage())active=operationsTab();
+  for(int i=0;i<4;i++){lv_label_set_text(lv_obj_get_child(tabs[i],1),fleetPage()?allTitles[i]:agentsWorkspace?operationsTitles[i]:printerNode()?printerTitles[i]:deviceNode()?(hasSubnodes()?parentTitles[i]:deviceTitles[i]):titles[i]);lv_obj_set_style_text_font(lv_obj_get_child(tabs[i],1),fleetPage()&&PORTRAIT?&lv_font_montserrat_8:&lv_font_montserrat_10,0);lv_obj_set_style_bg_color(tabs[i],color(i==active?(lightTheme?BG:DARK_SELECTED):CARD),0);for(int j=0;j<2;j++)lv_obj_set_style_text_color(lv_obj_get_child(tabs[i],j),color(i==active?CYAN:MUTED),0);auto*rule=lv_obj_get_child(tabs[i],2);lv_obj_set_style_bg_color(rule,color(CYAN),0);if(i==active)lv_obj_remove_flag(rule,LV_OBJ_FLAG_HIDDEN);else lv_obj_add_flag(rule,LV_OBJ_FLAG_HIDDEN);}
 }
 String span(double value){if(!isfinite(value)||value<0)return "--";uint32_t t=value;return t>=86400?String(t/86400)+"d "+String(t%86400/3600)+"h":t>=3600?String(t/3600)+"h "+String(t%3600/60)+"m":t>=60?String(t/60)+"m":String(t)+"s";}
 double printerAge(){return sampleAge(snapshot->printer.age,snapshot->printer.updated);}
@@ -323,7 +323,7 @@ void clockOverview(){
   if(!snapshot->nNodes){auto*c=box(content,x,top,w,PORTRAIT?50:150,CARD,9);label(c,"No nodes yet",8,12,w-16,MUTED,&lv_font_montserrat_10);label(c,"Add nodes",8,32,w-16,CYAN,&lv_font_montserrat_12);clickable(c,openNodeSettings);}
 }
 void nodesOverview(){
-  heading("All nodes",healthySummary());
+  heading("All systems",PORTRAIT?healthySummary():String(""));if(!PORTRAIT)label(content,healthySummary(),94,9,88,MUTED,fitFont(healthySummary(),88,&lv_font_montserrat_10));workspaceSwitchControl();
   if(!snapshot->nNodes){auto*s=scroll(PORTRAIT?40:28);int y=note(s,0,net.loading?"Waiting for the collector node list...":"Add nodes to your collector to see their summaries here.");smallButton(s,"Manage collector nodes",0,y,LIST_W,CYAN,openNodeSettings);return;}
   constexpr int gap=6;const int width=(PAGE_W-gap)/2,height=PORTRAIT?83:62,top=PORTRAIT?40:28;
   for(int i=0;i<MAX_NODES;i++)strlcpy(nodeLinkIds[i],i<snapshot->nNodes?snapshot->nodes[i].id:"",sizeof(nodeLinkIds[i]));
@@ -337,7 +337,7 @@ void nodesOverview(){
   }
 }
 void nodePicker(){
-  heading("Choose node",String(snapshot->nNodes)+" nodes",true);auto*s=scroll(28);smallButton(s,"All nodes • summary",0,0,LIST_W,CYAN,allNodesGo);int y=46;for(int i=0;i<MAX_NODES;i++)strlcpy(nodeLinkIds[i],i<snapshot->nNodes?snapshot->nodes[i].id:"",sizeof(nodeLinkIds[i]));
+  heading("Pick system",String(snapshot->nNodes)+" nodes",true);auto*s=scroll(PORTRAIT?40:28);smallButton(s,"All systems • summary",0,0,LIST_W,CYAN,allNodesGo);smallButton(s,"Switch to Agents",0,46,LIST_W,LAVENDER,toggleWorkspace);int y=92;for(int i=0;i<MAX_NODES;i++)strlcpy(nodeLinkIds[i],i<snapshot->nNodes?snapshot->nodes[i].id:"",sizeof(nodeLinkIds[i]));
   for(int i=0;i<snapshot->nNodes;i++){auto&n=snapshot->nodes[i];auto*c=box(s,0,y,LIST_W,62,CARD,7);if(!strcmp(n.id,snapshot->node.id))lv_obj_set_style_border_color(c,color(CYAN),0);label(c,n.name,10,8,LIST_W-99,INK,&lv_font_montserrat_12);auto*state=label(c,n.status,LIST_W-85,10,75,!strcmp(n.status,"healthy")?MINT:AMBER,&lv_font_montserrat_8);lv_obj_set_style_text_align(state,LV_TEXT_ALIGN_RIGHT,0);int parent=nodeIndexForId(*snapshot,n.parentId);int height=note(c,30,parent>=0?String("Subnode of ")+snapshot->nodes[parent].name:String(nodeTypeName(n))+" • "+n.address);lv_obj_set_height(c,max(62,height+4));y+=max(62,height+4)+6;clickable(c,nodeGo,(void*)(uintptr_t)i);}
   if(!snapshot->nNodes)note(s,y,"Connect to a collector feed to discover configured nodes.",MUTED);
 }
@@ -588,16 +588,16 @@ void noData(){
   smallButton(c,"Wi-Fi & collector setup",12,y,textW,CYAN,openConnection);y+=48;label(c,"No live readings received yet",12,y,textW,MUTED,&lv_font_montserrat_10);lv_obj_set_height(c,y+lv_font_get_line_height(&lv_font_montserrat_10)+12);
 }
 void render(){
-  if(!uiReady)return;applyAppearance();struct tm appearanceTime{};appearanceClockSynced=themeMode==THEME_AUTO&&displayClockTm(time(nullptr),clockZone,appearanceTime);readManagement();if(keyboard){lv_obj_delete(keyboard);keyboard=nullptr;fieldArea=nullptr;}if(page==18)lv_obj_add_flag(tabBar,LV_OBJ_FLAG_HIDDEN);else lv_obj_remove_flag(tabBar,LV_OBJ_FLAG_HIDDEN);int oldScroll=scrollArea?lv_obj_get_scroll_y(scrollArea):0;static uint8_t previousPage=255;feedStatusLabel=nullptr;deviceBatteryLabel=nullptr;lv_obj_clean(content);scrollArea=nullptr;header();
+  if(!uiReady)return;applyAppearance();struct tm appearanceTime{};appearanceClockSynced=themeMode==THEME_AUTO&&displayClockTm(time(nullptr),clockZone,appearanceTime);readManagement();if(keyboard){lv_obj_delete(keyboard);keyboard=nullptr;fieldArea=nullptr;}if(page==18)lv_obj_add_flag(tabBar,LV_OBJ_FLAG_HIDDEN);else lv_obj_remove_flag(tabBar,LV_OBJ_FLAG_HIDDEN);int oldScroll=scrollArea?lv_obj_get_scroll_y(scrollArea):0;static uint8_t previousPage=255;feedStatusLabel=nullptr;deviceBatteryLabel=nullptr;lv_obj_clean(content);workspaceHighlight=nullptr;scrollArea=nullptr;header();
   if(operationsPage(page))operationsRender();else if(page==18)fieldEditor();else if(page==17)deleteScreen();else if(page==16)nodeForm();else if(page==15)nodeManager();else if(page==14)connectionForm();else if(page==13)nodePicker();else if(page==8)setupScreen();else if(page==7)settings();else if(page==ALL_NODES_PAGE)nodesOverview();else if(page==CLOCK_PAGE)clockOverview();else if(page==SUBNODES_PAGE)subnodesList();else if(!snapshot->valid)noData();else if(printerNode()){switch(page){case 1:printerJob();break;case 2:printerTemps();break;case 3:case 6:printerHealth();break;default:printerOverview();break;}}else switch(page){case 0:overview();break;case 1:guests();break;case 2:storage();break;case 3:sensors();break;case 4:guestDetail();break;case 5:powerDetail();break;case 6:alerts();break;case 9:diskDetail();break;case 10:memoryDetail();break;case 11:gpuList();break;case 12:gpuDetail();break;}
   if(scrollArea&&previousPage==page)lv_obj_scroll_to_y(scrollArea,oldScroll,LV_ANIM_OFF);previousPage=page;lastRender=millis();styleNotification();
 }
 void buildUI(){
   lv_obj_t*screen=lv_screen_active();lv_obj_set_style_bg_color(screen,color(BG),0);lv_obj_set_style_pad_all(screen,0,0);lv_obj_remove_flag(screen,LV_OBJ_FLAG_SCROLLABLE);
   operations=(ops::Snapshot*)heap_caps_malloc(sizeof(ops::Snapshot),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);if(operations)new(operations)ops::Snapshot{};
-  int homeH=PORTRAIT?26:HEADER_H;auto*home=box(screen,0,0,114,homeH,BG,0);lv_obj_set_style_bg_opa(home,LV_OPA_TRANSP,0);headerMark=brandMark(home,4,PORTRAIT?4:8);headerTitle=brandWordmark(home,27,PORTRAIT?0:4);clickable(home,toggleWorkspace);modeTrack=box(home,100,PORTRAIT?10:15,13,7,lightTheme?0xe0d7fc:EDGE,4);lv_obj_set_style_border_width(modeTrack,0,0);modeThumb=box(modeTrack,1,1,5,5,glimdock::PURPLE,3);lv_obj_set_style_border_width(modeThumb,0,0);
+  int homeH=PORTRAIT?26:HEADER_H;auto*home=box(screen,0,0,104,homeH,BG,0);lv_obj_set_style_bg_opa(home,LV_OPA_TRANSP,0);headerMark=brandMark(home,4,PORTRAIT?4:8);headerTitle=brandWordmark(home,27,PORTRAIT?0:4);clickable(home,allNodesGo);
   // The wordmark's existing dot carries status; its hit area draws nothing.
-  brandStatusButton=box(home,86,PORTRAIT?8:12,14,18,BG,0);lv_obj_set_style_bg_opa(brandStatusButton,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(brandStatusButton,0,0);clickable(brandStatusButton,feedStatusGo,(void*)6);
+  brandStatusButton=box(home,86,PORTRAIT?8:12,18,18,BG,0);lv_obj_set_style_bg_opa(brandStatusButton,LV_OPA_TRANSP,0);lv_obj_set_style_border_width(brandStatusButton,0,0);clickable(brandStatusButton,feedStatusGo,(void*)6);
   // Balance the visible gaps around the time, rather than the wider touch boxes.
   int clockW=PORTRAIT?60:52,clockX=VIEW_W-(PORTRAIT?8:34)-clockW,nodeX=PORTRAIT?8:116,nodeW=PORTRAIT?156:104;
   nodeButton=box(screen,nodeX,PORTRAIT?27:4,nodeW,26,CARD,7);headerHost=label(nodeButton,"Choose node",8,PORTRAIT?6:7,nodeW-34,MUTED,PORTRAIT?&lv_font_montserrat_12:&lv_font_montserrat_10);label(nodeButton,LV_SYMBOL_DOWN,nodeW-20,8,12,CYAN,&lv_font_montserrat_10);clickable(nodeButton,chooseNode);

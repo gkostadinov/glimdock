@@ -49,7 +49,7 @@ EM_JS(void, webRequest, (const char *kind, const char *payload), {
 void requestOperationsTransport(){webRequest("operations","");}
 
 extern "C" EMSCRIPTEN_KEEPALIVE int glimdock_operations(const char*json){
- if(!json||strlen(json)>49152)return 0;JsonDocument document;if(deserializeJson(document,json))return 0;static ops::Snapshot next;if(!ops_json::parse(document,next))return 0;auto&old=opsTransportSnapshot();next.received=old.valid&&old.sequence==next.sequence&&old.generated==next.generated?old.received:millis();old=next;auto&state=opsTransportState();state.connected=true;state.revision++;state.message[0]=0;homelabPreviewPoll();return 1;
+ if(!json||strlen(json)>49152)return 0;JsonDocument document;if(deserializeJson(document,json))return 0;static ops::Snapshot next;if(!ops_json::parse(document,next))return 0;auto&old=opsTransportSnapshot();next.received=old.valid&&old.sequence==next.sequence&&old.generated==next.generated?old.received:millis();old=next;auto&state=opsTransportState();state.connected=true;state.revision++;state.message[0]=0;if(!homelabPreviewBusy())homelabPreviewPoll();return 1;
 }
 extern "C" EMSCRIPTEN_KEEPALIVE void glimdock_operations_error(const char*message){auto&state=opsTransportState();state.connected=false;state.revision++;strlcpy(state.message,message?message:"Agent source unavailable",sizeof(state.message));}
 
