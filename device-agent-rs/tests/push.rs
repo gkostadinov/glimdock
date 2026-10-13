@@ -510,7 +510,7 @@ fn process_keeps_sampling_during_outage_resumes_identity_without_listener_and_st
             let _ = self.0.wait();
         }
     }
-    fn request(socket: &mut TcpStream) -> Value {
+    fn request(socket: &mut TcpStream) -> Option<Value> {
         socket.set_nonblocking(false).unwrap();
         socket
             .set_read_timeout(Some(Duration::from_secs(3)))
@@ -519,8 +519,14 @@ fn process_keeps_sampling_during_outage_resumes_identity_without_listener_and_st
         let mut byte = [0u8; 1];
         while !header.ends_with(b"\r\n\r\n") {
             assert!(header.len() < 8192);
-            socket.read_exact(&mut byte).unwrap();
-            header.push(byte[0]);
+            // A cancelled connection attempt may reach accept() before it
+            // closes without sending any HTTP bytes. It is not a request.
+            match socket.read(&mut byte).unwrap() {
+                0 if header.is_empty() => return None,
+                0 => panic!("Truncated HTTP request header"),
+                1 => header.push(byte[0]),
+                _ => unreachable!(),
+            }
         }
         let header = String::from_utf8(header).unwrap();
         let size = header
@@ -534,7 +540,7 @@ fn process_keeps_sampling_during_outage_resumes_identity_without_listener_and_st
         assert!(size <= push::MAX_PUSH_BODY);
         let mut body = vec![0u8; size];
         socket.read_exact(&mut body).unwrap();
-        serde_json::from_slice(&body).unwrap()
+        Some(serde_json::from_slice(&body).unwrap())
     }
     fn reply(socket: &mut TcpStream, code: u16, body: Value) {
         let raw = serde_json::to_string(&body).unwrap();
@@ -617,7 +623,13 @@ fn process_keeps_sampling_during_outage_resumes_identity_without_listener_and_st
             }
             Err(error) => panic!("{error}"),
         };
-        let body = request(&mut socket);
+        let Some(body) = request(&mut socket) else {
+            assert!(
+                began.elapsed() < Duration::from_secs(15),
+                "Only abandoned connections were received"
+            );
+            continue;
+        };
         if body.get("snapshot").is_none() {
             enrolled_agent = Some(body["agent_id"].clone());
             reply(
@@ -676,7 +688,13 @@ fn process_keeps_sampling_during_outage_resumes_identity_without_listener_and_st
             }
             Err(error) => panic!("{error}"),
         };
-        let body = request(&mut socket);
+        let Some(body) = request(&mut socket) else {
+            assert!(
+                began.elapsed() < Duration::from_secs(15),
+                "Only abandoned connections were received"
+            );
+            continue;
+        };
         assert!(
             body.get("snapshot").is_some(),
             "Restart unexpectedly required enrollment"
@@ -706,7 +724,13 @@ fn process_keeps_sampling_during_outage_resumes_identity_without_listener_and_st
             }
             Err(error) => panic!("{error}"),
         };
-        let body = request(&mut socket);
+        let Some(body) = request(&mut socket) else {
+            assert!(
+                began.elapsed() < Duration::from_secs(15),
+                "Only abandoned connections were received"
+            );
+            continue;
+        };
         assert_eq!(body["agent_id"], saved.agent_id);
         if body.get("snapshot").is_none() {
             assert_ne!(body["agent_token"], saved.agent_token);

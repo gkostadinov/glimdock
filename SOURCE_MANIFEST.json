@@ -992,7 +992,7 @@
     "device-agent-rs/src/snmp.rs": "ab8f36a669c01291dac967d2b181ddcf5997bdd2a1d9bb4465211d9752e35a01",
     "device-agent-rs/tests/contract.rs": "6e5a975eb72feb9a316bb68fd533e951ea37b4b4e3eb9890da75887fd1eae9b8",
     "device-agent-rs/tests/host.rs": "edc86dce81c67b1ce8b8177a4cec210959ef7839257b9bb86bcb8ca60ed0460e",
-    "device-agent-rs/tests/push.rs": "d138982811ad7b45b05acc54a10c2db45614d0e31ae386a6eb2ad5c1995be4bb",
+    "device-agent-rs/tests/push.rs": "45d4b70659d99e32e01a21d0d66e8f1e7a7683c61c29958adc41836b3fb44e40",
     "device-agent-rs/tests/snmp.rs": "c98662675cce3040883ff04ed26c638d6be0dc53be04a2a901fe5069b8841dc3",
     "docs/DRIVER_PROVENANCE.md": "3956ea09a6023218eaaad166d6cce715f969b75473cb4c76fc5a5c5020257c84",
     "docs/architecture.md": "4ab446f91538687fe80dbff362b009dc31e1ef872c573a1db5f0a8279b9edfca",
