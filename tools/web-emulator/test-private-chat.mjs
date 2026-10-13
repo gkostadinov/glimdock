@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import {readFile,writeFile,mkdtemp,rm,mkdir} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {createPrivateChatDemo} from '../../collector-web/emulator/private-demo.js';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),assets=process.env.GLIMDOCK_EMULATOR_ASSETS||path.join(root,'collector-web/emulator'),temp=await mkdtemp(path.join(tmpdir(),'glimdock-private-ui-'));
+try{
+ await writeFile(path.join(temp,'firmware.mjs'),await readFile(path.join(assets,'firmware.js')));
+ const {default:createFirmware}=await import(pathToFileURL(path.join(temp,'firmware.mjs'))),f=await createFirmware({locateFile:name=>path.join(assets,name)});
+ const call=(name,...args)=>f.ccall(name,'number',args.map(v=>typeof v==='string'?'string':'number'),args);
+ const labels=()=>JSON.parse(f.UTF8ToString(f._glimdock_labels())),texts=()=>labels().map(l=>l.text);
+ let clock=1000,lastRequest;const tick=(delta=40)=>{clock+=delta;f._glimdock_tick(clock);},pointer=(x,y,down)=>{f._glimdock_pointer(x,y,down);tick();};
+ const tap=l=>{assert(l,'control exists');const target=l.text;f._glimdock_scroll(0);l=labels().find(a=>a.text===target);const top=f._glimdock_width()===240?106:72;if(l.y<top||l.y+l.height>f._glimdock_height()-40){f._glimdock_scroll(Math.max(0,l.y-top));l=labels().find(a=>a.text===l.text);assert(l,'scrolled control exists');}pointer(l.x+Math.min(12,l.width/2),l.y+l.height/2,1);pointer(l.x+Math.min(12,l.width/2),l.y+l.height/2,0);};
+ const demo=createPrivateChatDemo();f.onRequest=({kind,payload})=>{if(kind==='private')lastRequest=JSON.parse(payload);};
+ const reply=async()=>{await new Promise(r=>setTimeout(r,0));assert(lastRequest,'private request made');const captured=lastRequest;lastRequest=null;const body=await demo(captured);assert.equal(call('glimdock_private_chat',JSON.stringify(body),captured.generation),1);tick(550);return {body,captured};};
+ const capture=async name=>{f._glimdock_tick(clock+30);const width=f._glimdock_width(),height=f._glimdock_height(),pixels=f.HEAPU16.subarray(f._glimdock_pixels()>>>1,(f._glimdock_pixels()>>>1)+width*height),rgb=Buffer.alloc(width*height*3);for(let i=0;i<pixels.length;i++){rgb[i*3]=((pixels[i]>>>11)&31)*255/31;rgb[i*3+1]=((pixels[i]>>>5)&63)*255/63;rgb[i*3+2]=(pixels[i]&31)*255/31;}const output=path.join(root,'output/private-chat-qa');await mkdir(output,{recursive:true});await writeFile(path.join(output,name+'-'+width+'.ppm'),Buffer.concat([Buffer.from(`P6\n${width} ${height}\n255\n`),rgb]));};
+ f._glimdock_show(7);assert(texts().includes('Private conversations'));tap(labels().find(l=>l.text==='Private conversations'));assert.equal(f._glimdock_page(),32);const first=await reply();assert.equal(first.body.items.length,12);assert(texts().includes(first.body.items[0].title));assert(texts().includes('Sample conversations • no private archive access'));for(const t of ['All systems','Clock','Pick system','Settings'])assert(texts().includes(t));await capture('sessions');
+ // A swipe over a conversation remains a scroll, including a returning drag.
+ pointer(50,100,1);pointer(50,70,1);pointer(50,100,1);pointer(50,100,0);tick(550);assert.equal(f._glimdock_page(),32);
+ f._glimdock_scroll(0);tap(labels().find(l=>l.text===first.body.items[0].title));assert.equal(f._glimdock_page(),33);const messages=await reply();assert.equal(messages.body.messages.length,5);assert(texts().includes('YOU')&&texts().includes('ASSISTANT'));assert(texts().some(t=>t.includes('backup schedule')));await capture('messages');
+ tap(labels().find(l=>l.text==='Next messages'));const second=await reply();assert.equal(second.body.messages[0].order,5);assert(texts().includes('Read more of this message'));f._glimdock_scroll(0);await capture('long-message');tap(labels().find(l=>l.text==='Read more of this message'));const continuation=await reply();assert.equal(continuation.body.messages[0].text_offset,1900);assert(texts().includes('Continued message'));
+ tap(labels().find(l=>l.text==='Previous page'));await reply();assert(texts().includes('Read more of this message'));
+ // A late response cannot revive text after exiting or replace a new request.
+ f._glimdock_show(32);await new Promise(r=>setTimeout(r,0));const old=lastRequest;f._glimdock_show(19);assert(!texts().includes('YOU'));assert.equal(call('glimdock_private_chat',JSON.stringify(await demo(old)),old.generation),0);f._glimdock_show(32);await new Promise(r=>setTimeout(r,0));assert.equal(call('glimdock_private_chat',JSON.stringify(await demo(old)),old.generation),0);await reply();
+ tap(labels().find(l=>l.text==='More conversations'));const page2=await reply();assert.equal(page2.body.items[0].id,'d'.padStart(64,'0'));tap(labels().find(l=>l.text==='Previous page'));await reply();assert(texts().includes(first.body.items[0].title));
+ const invalid=structuredClone(first.body);delete invalid.demo;assert.equal(call('glimdock_private_chat',JSON.stringify(invalid),f._glimdock_private_generation()),0,'public renderer rejects non-demo private pages');
+ console.log(JSON.stringify({passed:true,viewport:[f._glimdock_width(),f._glimdock_height()],checks:['Settings entry','shared navigation','12-session paging','5-message chat bubbles','swipe guard','fenced code/paragraph rendering','long-text continuation/back','private view cleanup','late response rejection','synthetic-only browser ingestion']}));
+}finally{await rm(temp,{recursive:true,force:true});}

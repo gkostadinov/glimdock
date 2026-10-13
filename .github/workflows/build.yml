@@ -90,8 +90,12 @@ jobs:
           path: output/toolchains/emsdk
       - run: output/toolchains/emsdk/emsdk install 6.0.12 && output/toolchains/emsdk/emsdk activate 6.0.12
       - run: python3 tools/web-emulator/build.py
-      - run: node tools/web-emulator/test.mjs && node tools/web-emulator/test-transport.mjs && node tools/web-emulator/test-operations.mjs
-      - run: python3 tools/test-pairing-policy.py
+      - run: node tools/web-emulator/test.mjs && node tools/web-emulator/test-transport.mjs && node tools/web-emulator/test-operations.mjs && node tools/web-emulator/test-private-chat.mjs
+      - run: python3 tools/test-pairing-policy.py && python3 tools/test-provision-private-reader.py
+      - name: Verify private reader parser and lifecycle with synthetic pages
+        run: |
+          c++ -std=c++17 -DHOMELAB_NATIVE_PREVIEW -DARDUINOJSON_ENABLE_ARDUINO_STRING=0 -DARDUINOJSON_ENABLE_ARDUINO_STREAM=0 -Itools/native-preview/shims -Ifirmware/src -Ifirmware/.pio/libdeps/homelab_s3/ArduinoJson/src tools/test-private-chat-model.cpp firmware/src/private_chat_network.cpp -o output/private-chat-model-test
+          output/private-chat-model-test
       - run: python3 tools/native-preview/test_gestures.py --rotation 3
       - run: python3 -m pip install -r tools/agent-operations/requirements.txt
       - run: python3 tools/agent-operations/test_api.py && python3 tools/agent-operations/test_private_transcripts.py
