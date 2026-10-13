@@ -7,7 +7,7 @@
 namespace privatechat_json {
 inline double timestamp(JsonVariantConst value){
   if(value.is<bool>()||value.is<const char*>()||!value.is<double>())return NAN;
-  double result=value.as<double>();return isfinite(result)&&result>=0?result:NAN;
+  double result=value.as<double>();return std::isfinite(result)&&result>=0?result:NAN;
 }
 }
 namespace privatechat_http {
