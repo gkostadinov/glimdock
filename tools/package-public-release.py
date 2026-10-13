@@ -100,7 +100,8 @@ def candidate():
         if not p.is_file() or p.is_symlink(): raise ValueError(f'Required public source missing: {name}')
         data=p.read_bytes()
         if p.suffix not in BINARY:
-            text=data.decode('utf8')
+            # Match the LF checkout required by .gitattributes and source fingerprints.
+            text=data.decode('utf8').replace('\r\n','\n')
             def replace_address(m):
                 if not private_address(m.group()): return m.group()
                 counts['private_addresses_replaced']+=1
