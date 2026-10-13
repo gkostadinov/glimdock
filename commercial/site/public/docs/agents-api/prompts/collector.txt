@@ -1,0 +1,19 @@
+Extend Glimdock's existing optional agent-operations source transport for
+[NEW SOURCE OR CAPABILITY]. Inspect collector-rs/src/operations.rs first. Read public-docs/AGENT-INTEGRATION.md, the agent-ops/v1 schema,
+OpenAPI description and reference API. Inspect the existing transport,
+authentication, scheduler, node registry and expiry behavior before changes.
+
+Keep the AI operations contract separate from the hardware schema=1 snapshot.
+Reuse the existing explicit configuration for a read-only source; do not scan the LAN or infer
+credentials. Poll through bounded transport with timeouts, a 48 KiB response
+limit, schema/version checks and validated scoped references. Preserve source
+timestamps, count/truncation metadata and nulls. Do not turn recent heartbeats
+into active model execution. Isolate source failures from hardware collection.
+
+Reuse the existing /api/v1/agent-operations endpoint and reader-role authentication. Do not
+expose private source keys, internal paths, raw payloads or control commands.
+Treat all upstream text as inert metadata. Supply synthetic examples and
+meaningful tests for stale/malformed/oversized feeds, unknown state, lost claims,
+partial collections and repeated network failure. Run relevant Rust checks and
+document migration and compatibility. Do not claim ESP32 support until the
+firmware consumer is implemented and verified separately.

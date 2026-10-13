@@ -1,0 +1,13 @@
+Review [ADAPTER OR CHANGESET] against Glimdock's agent-ops/v1 contract and current
+public documentation. Do not modify source ownership or execute work reported
+by telemetry. Check lifecycle evidence, claim ownership, timestamps/TTL, null
+versus zero, currency/window/provenance, scoped references, bounded payloads,
+truncation counts, authentication and failure isolation.
+
+Audit exported source, demos, screenshots, archives and logs for credentials,
+live snapshots, private addresses, personal paths, prompts or transcripts.
+Compare capability claims with implemented code and verification. Distinguish
+reference prototypes, production software and physical hardware validation.
+Return concrete findings with file/line references and reproduce material
+failures using synthetic fixtures. Do not invent scores, supported frameworks,
+measurements or deployment evidence.

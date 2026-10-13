@@ -1,0 +1,1 @@
+{"name":"glimdock-site","version":"1.0.0","private":true,"type":"module","scripts":{"dev":"node scripts/dev.mjs","build":"node scripts/build.mjs","test":"node --test tests/*.test.mjs","check":"node scripts/check.mjs"},"devDependencies":{"drizzle-kit":"0.31.11","drizzle-orm":"0.45.4"}}

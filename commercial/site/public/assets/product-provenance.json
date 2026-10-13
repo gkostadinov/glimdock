@@ -1,0 +1,91 @@
+{
+  "schema": 2,
+  "case_revision": "r25 body and cradle / r24 internals / r26 print trial",
+  "design_sha256": "9ac10ade6dc6b5b2357a4eb25e14554cf3e0bf81aca5fddd2e38585de24ec17a",
+  "geometry": "CAD_PROTOTYPE_PHYSICAL_VALIDATION_PENDING",
+  "screen_artwork": "Synthetic illustration on nominal CAD, not current installed firmware or a physical product photo",
+  "renders": {
+    "hero": {
+      "source": "enclosure/public/pebble-r26-prototype-v2/assets/hero.png",
+      "source_sha256": "8f084f417e72c0416749f91a72fc0d90eeab52fe0b6eab3f4e41836d85f0fe66",
+      "public": "commercial/site/public/assets/hero.webp",
+      "sha256": "ed9245343227155d3851e4ca6733a12c6be0c89ef6200d0f94811b8744f814d4",
+      "width": 1100,
+      "height": 968
+    },
+    "side": {
+      "source": "enclosure/public/pebble-r26-prototype-v2/assets/side.png",
+      "source_sha256": "e99f464f35a4c6c759a2ba7f224cb964b1228f251a0c5d6bb834f4767fe2f9db",
+      "public": "commercial/site/public/assets/side.webp",
+      "sha256": "e8b3570d77746a21dc875e036a7a41592325bc41e8074cd8ad90934858e081b8",
+      "width": 1100,
+      "height": 968
+    },
+    "usb-detail": {
+      "source": "enclosure/public/pebble-r26-prototype-v2/assets/usb-detail.png",
+      "source_sha256": "20af9659113cc8d6ad177c0a61cae9530c4fb86689a4a36b0b80d3576ee51b75",
+      "public": "commercial/site/public/assets/usb-detail.webp",
+      "sha256": "378698de6f312ce0e1b8bfa9da7536ad33f4002e272cb410fca28b69fdebc4dd",
+      "width": 1100,
+      "height": 850
+    },
+    "cradle-detail": {
+      "source": "enclosure/public/pebble-r26-prototype-v2/assets/cradle-detail.png",
+      "source_sha256": "ed6fa3aeaaf38240329d9a856d908ac48a828379aed757ea887be9dfd428e545",
+      "public": "commercial/site/public/assets/cradle-detail.webp",
+      "sha256": "23d63cda1fad28c2dd5c090cef9b16c31abc4acd7bc00f885faf96ef13f4dfa6",
+      "width": 1000,
+      "height": 850
+    },
+    "exploded": {
+      "source": "enclosure/public/pebble-r26-prototype-v2/assets/exploded.png",
+      "source_sha256": "d83b5aa95b431a40472076481dff1ee0e12c0250bc7ad7c4fac6012153013cf4",
+      "public": "commercial/site/public/assets/exploded.webp",
+      "sha256": "1ffdde2ad9ae9336ba65e7db05275aaa0ef203c8f676d951cf121701d3807037",
+      "width": 1400,
+      "height": 1232
+    }
+  },
+  "renderer": {
+    "format": 1,
+    "implementation": "production firmware UI, LVGL software renderer, production snapshot/config parser",
+    "public_build": true,
+    "width": 320,
+    "height": 240,
+    "rotation": 3,
+    "lvgl": "9.3.0",
+    "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+    "sources": {
+      "firmware/src/main.cpp": "053ee2a9a5e1b6465d7d531b362e0fd662a804c664ac592333dca15202839b08",
+      "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
+      "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
+      "firmware/src/operations_ui.inc": "35cfbb3fe24364a71d7112f98e0899f1f349723411dd7441430b5d85be82ad36",
+      "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
+      "firmware/src/model.h": "8efd753fc3d137e70066a71ca9675b8cb42b5056d1a797284e722d217e736d9d",
+      "firmware/src/network.cpp": "c1bd8428c6e95085b087f4459a141a4e7ea6eb95e9485833bbd099647884f870",
+      "firmware/include/lv_conf.h": "9317f832f88fd084dedb1e896bd860a081f2650ceccf965a1ad0544ab5e5f2d0",
+      "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
+      "tools/web-emulator/emulator.cpp": "03d1453f38a29cefa5575a31d4f124f6e8e3a7287df4ff0a7a157a0a38baa81b"
+    },
+    "assets": {
+      "firmware.js": {
+        "sha256": "77586266fba77330c8282bae84a69867f7934bb5cb8c258acf8627b563920548",
+        "bytes": 17256
+      },
+      "firmware.wasm": {
+        "sha256": "f0894f5a7544d8d561108cb72c3bf7cf2adefb7aab0200c8d742d5cb28823c9b",
+        "bytes": 1173352
+      }
+    },
+    "licenses": "LICENSES.txt"
+  },
+  "fallback": {
+    "renderer_sha256": "f0894f5a7544d8d561108cb72c3bf7cf2adefb7aab0200c8d742d5cb28823c9b",
+    "transport": "commercial/site/public/demo/data.js",
+    "transport_sha256": "90db3cf785e55c091a41618453eb5e848417bc12a756be788e909e85bb8ab3d1",
+    "sha256": "8aa8df973dd93b001a2df08a1bc1e0ef5c7abaf4a54f12ffd4bb5d3599890bcd",
+    "data": "Four synthetic nodes; no live collector or LAN telemetry",
+    "width": 320,
+    "height": 240
+  }
+}

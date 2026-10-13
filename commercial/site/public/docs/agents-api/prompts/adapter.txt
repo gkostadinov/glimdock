@@ -1,0 +1,24 @@
+Implement a read-only agent-ops/v1 publisher for [FRAMEWORK OR COORDINATOR].
+Use its [LIFECYCLE CALLBACKS OR DOCUMENTED READ API] as the authoritative source.
+Read public-docs/AGENT-INTEGRATION.md, public-docs/AGENT-OPERATIONS.md,
+contracts/agent-operations/snapshot-v1.schema.json and the minimal fixture first.
+
+Inspect the source's actual fields and permissions before writing the adapter.
+Map systems, agents, tasks, parent task IDs, events, channels and locks only when
+that source exposes them. Use stable IDs scoped by system. Keep unsupported
+state and measurements unknown/null. An advisory heartbeat is not running work.
+Only report measured tokens, cost and progress with their source provenance;
+cost must include currency and an accurate window when provided.
+
+Publish a bounded snapshot atomically to [PRIVATE OUTPUT FILE], or expose a
+read-only authenticated HTTP endpoint. Preserve measurement and heartbeat
+timestamps when serving cached data. Validate the schema and 48 KiB budget.
+Mark truncation explicitly and retain original totals. Source and viewer keys
+must be separate and stored privately. Do not implement execution or approvals.
+
+Export only approved operational labels and metadata. Exclude prompts, output,
+messages, transcripts, authorization notes, secrets and personal paths. Use
+synthetic fixtures in tests and demos. Never query live private services from
+the public website. Verify missing/zero usage, expiry, unsupported state,
+inconsistent ownership, duplicate IDs and provider failure. Demonstrate the
+result in the local reference viewer and document exactly which fields work.

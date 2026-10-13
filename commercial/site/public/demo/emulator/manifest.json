@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "implementation": "production firmware UI, LVGL software renderer, production snapshot/config parser",
+  "public_build": true,
+  "width": 320,
+  "height": 240,
+  "rotation": 3,
+  "lvgl": "9.3.0",
+  "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+  "sources": {
+    "firmware/src/main.cpp": "053ee2a9a5e1b6465d7d531b362e0fd662a804c664ac592333dca15202839b08",
+    "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
+    "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
+    "firmware/src/operations_ui.inc": "35cfbb3fe24364a71d7112f98e0899f1f349723411dd7441430b5d85be82ad36",
+    "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
+    "firmware/src/model.h": "8efd753fc3d137e70066a71ca9675b8cb42b5056d1a797284e722d217e736d9d",
+    "firmware/src/network.cpp": "c1bd8428c6e95085b087f4459a141a4e7ea6eb95e9485833bbd099647884f870",
+    "firmware/include/lv_conf.h": "9317f832f88fd084dedb1e896bd860a081f2650ceccf965a1ad0544ab5e5f2d0",
+    "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
+    "tools/web-emulator/emulator.cpp": "03d1453f38a29cefa5575a31d4f124f6e8e3a7287df4ff0a7a157a0a38baa81b"
+  },
+  "assets": {
+    "firmware.js": {
+      "sha256": "77586266fba77330c8282bae84a69867f7934bb5cb8c258acf8627b563920548",
+      "bytes": 17256
+    },
+    "firmware.wasm": {
+      "sha256": "f0894f5a7544d8d561108cb72c3bf7cf2adefb7aab0200c8d742d5cb28823c9b",
+      "bytes": 1173352
+    }
+  },
+  "licenses": "LICENSES.txt"
+}

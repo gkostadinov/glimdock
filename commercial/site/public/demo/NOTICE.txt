@@ -1,0 +1,7 @@
+Glimdock browser demo
+
+The canvas runs the production Glimdock C++ firmware UI and snapshot parser with LVGL 9.3.0, compiled to WebAssembly. The renderer files are copied without modification from collector-web/emulator; emulator/manifest.json records the source and binary hashes.
+
+All four nodes and all readings are synthetic. The transport generates them in browser memory, makes no collector or LAN requests, and has no credentials. Node configuration is read-only in this public demo. Display settings are temporary and reset with the demo.
+
+Original transport and site code: MIT (LICENSE.txt). Firmware, LVGL, ArduinoJson, fonts and Emscripten runtime notices: emulator/LICENSES.txt.

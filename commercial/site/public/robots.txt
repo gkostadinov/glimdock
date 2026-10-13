@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /order/complete/
+Sitemap: https://glimdock.com/sitemap.xml

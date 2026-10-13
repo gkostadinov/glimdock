@@ -1,0 +1,28 @@
+Extend Glimdock's existing agent-operations workspace with [NEW VIEW OR METRIC], using the production collector
+integration and contracts/agent-operations/snapshot-v1.schema.json. First read
+public-docs/AGENT-OPERATIONS.md, firmware/README.md and inspect the current LVGL
+UI, data model, authentication, network worker and native/WASM verification.
+Inspect firmware/src/operations_ui.inc and operations_parse.h. The actual LVGL
+workspace is the implementation; use the WASM demo to verify matching behavior.
+Preserve the Nodes / Agents control on the overview and original Glimdock logo.
+Tapping the logo returns to the Nodes home screen; it is not a workspace toggle.
+
+Preserve the existing hardware dashboards and keep four top-level cards and
+four navigation tabs in matching positions: All systems / Clock / Pick system /
+Settings in both modes. A selected agent system uses Overview / Agents / Tasks / Events.
+Page larger system registries; use Guests-style scroll rows and linked details
+with correct Back context. Include waiting/blocked work, ownership, queues,
+resource locks, source age and optional measured usage. Keep missing values
+unavailable and mask expired current metrics. Unknown progress is not 0%.
+
+Parse into bounded structures and keep JSON/network work off the touch thread.
+Preserve swipe-cancels-tap behavior, white/dark readability and supported screen
+rotations. New real attention events may use existing short banners and saved
+sound volume, with deduplication and re-arm rules; initial, demo and stale data
+must not cause repeated sounds. No start/stop/approval controls are in scope.
+
+Verify native LVGL pointer input, both orientations, four-card geometry, nested
+navigation, source expiry, unsupported states, partial arrays and memory budget.
+Rebuild the public WASM and credential-free firmware from matching source.
+Keep all pairing credentials and real telemetry out of distributable artifacts.
+Report software verification separately from physical flash/touch evidence.

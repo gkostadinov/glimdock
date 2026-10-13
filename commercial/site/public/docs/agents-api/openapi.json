@@ -1,0 +1,106 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Agent Operations read API",
+    "version": "1.0.0",
+    "description": "Portable metadata-only monitoring. The reference server reads a shared hub or a publisher-owned snapshot file; it does not accept agent control commands."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8784"
+    }
+  ],
+  "paths": {
+    "/v1/snapshot": {
+      "get": {
+        "summary": "Read bounded agent-system telemetry",
+        "description": "Query mode is reference-adapter specific. No query defaults to the configured live/file source, otherwise explicit demo. Never use fetch time as source freshness.",
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "demo",
+                "hub",
+                "file"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent Operations Snapshot v1; <=49152 UTF-8 bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "snapshot-v1.schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Read token required"
+          },
+          "503": {
+            "description": "Source unavailable or invalid; cached telemetry must not become fresh"
+          }
+        }
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "summary": "Read endpoint limits, configured source kinds and read-only capability",
+        "responses": {
+          "200": {
+            "description": "Capability manifest"
+          },
+          "401": {
+            "description": "Read token required"
+          }
+        }
+      }
+    },
+    "/api/v1/agent-operations": {
+      "get": {
+        "summary": "Read the configured source through the production Glimdock collector",
+        "description": "Reader-key authenticated, independent of hardware snapshot collection. Preserves source timestamps and null measurements. An unconfigured or failed source returns 503. No control endpoint.",
+        "responses": {
+          "200": {
+            "description": "Agent Operations Snapshot v1; <=49152 UTF-8 bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "snapshot-v1.schema.json"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Read token required"
+          },
+          "503": {
+            "description": "Source unavailable or invalid; cached telemetry must not become fresh"
+          }
+        },
+        "operationId": "getCollectorAgentOperations"
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "readToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Reference server requires this on non-loopback binds. Never put it in query strings or snapshots."
+      }
+    }
+  },
+  "security": [
+    {
+      "readToken": []
+    }
+  ]
+}
