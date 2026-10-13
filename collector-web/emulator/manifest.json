@@ -8,7 +8,7 @@
   "lvgl": "9.3.0",
   "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
   "sources": {
-    "firmware/src/main.cpp": "3fc89de0e190954840f32432591c87809a2e079af85bc7a97840c88ecbab9ee3",
+    "firmware/src/main.cpp": "4057f409a1e63ec0bd6ea37d595ca4a98d067768dcf60a2987c952e2188f9b01",
     "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
     "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
     "firmware/src/operations_ui.inc": "02bf9ff52b682bd636a41b871a082f0bc65f91f8eb0e6fb3d57788a3aa476b6f",
@@ -30,8 +30,8 @@
       "bytes": 17632
     },
     "firmware.wasm": {
-      "sha256": "b3af96291eb142619a92fbcec441c465224b8d0e8a9c090ace8c27948b1ec475",
-      "bytes": 1218834
+      "sha256": "be9a1ebc36cdeecbf598120f3ed206a1b0a2502817deab358c758d0fbfd57ca3",
+      "bytes": 1219001
     }
   },
   "licenses": "LICENSES.txt"
