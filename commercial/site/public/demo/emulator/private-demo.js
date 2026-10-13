@@ -13,7 +13,7 @@ export function createPrivateChatDemo() {
     'A small example:\n\n```json\n{\n  "schedule": "nightly",\n  "retention_days": 7,\n  "verify_restore": true\n}\n```\n\nThis example uses fictional values. Review it before adapting it to your system.',
     'Can you explain the implementation details?',longText,
     'Do we need to change anything else?',
-    'The monitoring setup is ready. Add a clear source timestamp and report unavailable readings honestly.\n\nThe conversation reader is read-only. It does not run commands from messages.',
+    'The monitoring setup is ready. We’ll keep “smart” quotes readable — they won’t show empty boxes. Add a clear source timestamp and report unavailable readings honestly.\n\nThe conversation reader is read-only. It does not run commands from messages.',
   ];
   const chunk=(message,offset=0)=>{const points=Array.from(message.text),part=points.slice(offset,offset+1900).join(''),next=offset+Array.from(part).length;return {...message,text:part,text_offset:offset,text_characters:points.length,next_text_offset:next<points.length?next:null,redactions:0};};
   return async request=>{

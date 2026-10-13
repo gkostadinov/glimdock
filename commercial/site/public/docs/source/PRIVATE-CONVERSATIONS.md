@@ -118,6 +118,10 @@ chronological order within each page, as user and assistant chat bubbles. The di
 or **5 messages** per page. Follow the supplied pagination controls to request
 another bounded page.
 
+The display uses font-supported straight quotes and plain dashes for smart
+punctuation. Text measurement uses the same display form; the archived text
+and Unicode continuation offsets remain unchanged.
+
 A long message is continued using its message order and the relay's returned
 text offset. Pass the returned offset unchanged; do not infer offsets from
 displayed byte length. Each returned text chunk must fit within **4096 UTF-8
