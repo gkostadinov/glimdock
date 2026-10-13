@@ -23,17 +23,25 @@ pixel comparison. The All nodes view and selected-node navigation are exercised
 through real LVGL input. The website runs this renderer with explicitly authored
 example Mac, Windows, router and printer readings.
 
-The configuration parser retains up to sixteen saved nodes and limits active
-nodes to four. Pointer and WebAssembly checks cover paused nodes, agent edits,
+The configuration parser retains up to sixteen saved remote nodes and limits
+active nodes to four top-level nodes and eight total nodes. Parent grouping
+preserves child identity and independent freshness. Pointer and WebAssembly checks cover paused nodes, agent edits,
 capacity, duplicate identities and active selection. Publisher credentials are
 held by the agent and are never copied into display settings.
 
 The public firmware image was programmed to a physical V1 display through the
 guarded command-line uploader, and it reconnected using saved NVS pairing.
 Chrome/Edge Web Serial image planning and hash-verification behavior are tested;
-a browser-controlled hardware transaction is not yet recorded. Case USB extension
-fit and assembled power/data are separate unverified physical checks.
+a browser-controlled hardware transaction is not yet recorded. The current native USB opening and complete case assembly require separate
+physical fit checks.
 
 Workspace operational logs and older device observations remain local evidence.
 A source or binary package does not contain private addresses, credentials or
 live telemetry. Synthetic snapshots in `examples/` are labeled as examples.
+
+The agent-operations transport is implemented in the Rust collector and native
+ESP32/WASM firmware. Compiled UI checks cover logo mode switching, four-card
+geometry, detail/back navigation, swipe cancellation, unknown progress, scoped
+references, heartbeat expiry and source failure. Physical verification is
+recorded separately from software checks. Public examples and the website demo
+are synthetic; no live hub telemetry or personal coordination history is distributed.

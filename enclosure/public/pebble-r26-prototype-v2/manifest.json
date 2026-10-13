@@ -1,0 +1,551 @@
+{
+  "package": "pebble-r26-prototype-v2",
+  "as_of": "2026-10-13",
+  "geometry_status": "CAD_PROTOTYPE_PHYSICAL_VALIDATION_PENDING",
+  "body_geometry_revision": "r25",
+  "cradle_geometry_revision": "r25",
+  "other_parts_revision": "r24",
+  "print_trial_revision": "r26",
+  "print_trial_started": true,
+  "print_trial_physical_result": "unverified",
+  "units": "mm",
+  "assembly_contains": "Original enclosure geometry only; no vendor board CAD or fastener models.",
+  "pod_to_world": {
+    "mirror": "XY",
+    "rotate_x_degrees": 72,
+    "translate_z_mm": 35.78841298756866
+  },
+  "parts": [
+    {
+      "name": "purple-body",
+      "source_revision": "r25",
+      "source_cad_sha256": "b9b0a974c0462799739b07087a160ba07b9927f7d6908b78271e18b1a0ce98e4",
+      "frame": "pod-local",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -41.43697609719285,
+          -32.09684718373404,
+          -2.0447625820621194
+        ],
+        [
+          47.245332828541414,
+          32.645316954969545,
+          14.140724084747795
+        ]
+      ],
+      "volume_mm3": 9520.368951197368
+    },
+    {
+      "name": "white-cradle-500",
+      "source_revision": "r25",
+      "source_cad_sha256": "1a1d8e024d7c8da3e365a338021d0d4e59f24b1cb6759bbdf19d41f954f77acb",
+      "frame": "assembled-world",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -44.715384715384616,
+          -10.530381649028227,
+          -0.09521590163389927
+        ],
+        [
+          50.715384715384616,
+          43.0871346491785,
+          15.838692902843503
+        ]
+      ],
+      "volume_mm3": 39658.209728316404
+    },
+    {
+      "name": "rear-cover",
+      "source_revision": "r24",
+      "source_cad_sha256": "f723acac5dfccd4f675490be57fe1e7e222b11bb0d62664c5149611e083cbe21",
+      "frame": "pod-local",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -36.610575634358916,
+          -28.271815751125914,
+          12.399864968337441
+        ],
+        [
+          42.60984151136854,
+          29.46476258206221,
+          17.68380557206221
+        ]
+      ],
+      "volume_mm3": 7743.4499987982035
+    },
+    {
+      "name": "display-carrier",
+      "source_revision": "r24",
+      "source_cad_sha256": "fec7d7ff06c6ae02a72f22963410115d4d8bfc7e60c8cf27237769807775e554",
+      "frame": "pod-local",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -31.850655482360985,
+          -28.20021213546973,
+          8.799787864530268
+        ],
+        [
+          37.65065548236099,
+          28.200212135469734,
+          13.355535127686304
+        ]
+      ],
+      "volume_mm3": 4187.768337939237
+    },
+    {
+      "name": "saddle-left",
+      "source_revision": "r24",
+      "source_cad_sha256": "030d6f54c0fbfb472776514b0af2a8dee3879e6ae7240b3634d355e0be4cabb7",
+      "frame": "assembled-world",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -41.850578378553806,
+          -2.8711064265382578,
+          2.3962099068608103
+        ],
+        [
+          -29.249135589224664,
+          10.9005763383199,
+          16.658258768097085
+        ]
+      ],
+      "volume_mm3": 1065.4131025751944
+    },
+    {
+      "name": "saddle-right",
+      "source_revision": "r24",
+      "source_cad_sha256": "f2e4027c70236fc5fd7cf7055c88a55e490c76820a1436092c38a7d5a7d39589",
+      "frame": "assembled-world",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          35.2490034014109,
+          -2.8711064265381134,
+          2.3971666326659693
+        ],
+        [
+          47.850578378553806,
+          10.9005763383199,
+          16.658258768097085
+        ]
+      ],
+      "volume_mm3": 1067.756099366258
+    },
+    {
+      "name": "battery-hatch-500",
+      "source_revision": "r24",
+      "source_cad_sha256": "6363137fa0a630f95f6de82178379382e10329336ab4f3d1a7ff665cafebe6bd",
+      "frame": "assembled-world",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -28.003178222715192,
+          9.194571034570608,
+          -0.0059168250630465685
+        ],
+        [
+          34.003178222715206,
+          39.80542896542939,
+          2.4054289654293934
+        ]
+      ],
+      "volume_mm3": 3177.558768647682
+    },
+    {
+      "name": "battery-tray-500",
+      "source_revision": "r24",
+      "source_cad_sha256": "406a1aa36d5bb76e214e0df670a61a4a1dca945f8bb4f3c991a267fc5df3798c",
+      "frame": "assembled-world",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -15.50013503166256,
+          9.399864968337441,
+          1.7998219967930555
+        ],
+        [
+          21.500135031662563,
+          39.60013503166257,
+          3.6001350316625635
+        ]
+      ],
+      "volume_mm3": 1323.7839289474448
+    },
+    {
+      "name": "power-follower",
+      "source_revision": "r24",
+      "source_cad_sha256": "e925b7c3709d522eae734a3ba032e90f1f85032e71f832fe623c87127ef7bada",
+      "frame": "pod-local",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -25.623460287948866,
+          -31.800000100000037,
+          6.099913158216911
+        ],
+        [
+          18.37677122347268,
+          -24.59988424428922,
+          11.105955665169315
+        ]
+      ],
+      "volume_mm3": 295.7634643038273
+    },
+    {
+      "name": "power-input",
+      "source_revision": "r24",
+      "source_cad_sha256": "c541d18d6aee6c6ae78ab081351cbd7cb0cee23e65a7627fdaed085dc3ace583",
+      "frame": "assembled-world",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -17.123460287948863,
+          -6.176878316622533,
+          -0.00011575571076354639
+        ],
+        [
+          9.876771223472703,
+          9.700000100000036,
+          3.6587836026015403
+        ]
+      ],
+      "volume_mm3": 208.78652088852692
+    },
+    {
+      "name": "input-window-cover-left",
+      "source_revision": "r24",
+      "source_cad_sha256": "268125b9b68eb3e94c24149ee094628876f77943e40c3a48f51313a249ead149",
+      "frame": "assembled-world",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -15.273402460093482,
+          -4.200489555203339,
+          -0.0004895552033396595
+        ],
+        [
+          -3.6728549770347203,
+          -0.7999420721446182,
+          0.6004895552033397
+        ]
+      ],
+      "volume_mm3": 19.854333064449182
+    },
+    {
+      "name": "accessory-blank-cap-left",
+      "source_revision": "r24",
+      "source_cad_sha256": "722037f3cc4fe64a7b0423fc16be3ac2605e65a2e84feb2dcfb86487b3aeebd3",
+      "frame": "pod-local",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -15.984214055241196,
+          27.199999899999984,
+          5.038618961144297
+        ],
+        [
+          -8.015785944758804,
+          31.916837368009997,
+          10.803735550241196
+        ]
+      ],
+      "volume_mm3": 110.6712726493844
+    },
+    {
+      "name": "rear-screw-cap-left",
+      "source_revision": "r24",
+      "source_cad_sha256": "46807d6cf025c6413fb64b626f65a32c98f7f2317e99592296fece0eb43a0069",
+      "frame": "pod-local",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -21.576044852601093,
+          20.424562983355955,
+          15.137998137398906
+        ],
+        [
+          -15.29997517745387,
+          26.575437016644045,
+          15.640087842601094
+        ]
+      ],
+      "volume_mm3": 14.871427584215756
+    },
+    {
+      "name": "input-window-cover-right",
+      "source_revision": "r24",
+      "source_cad_sha256": "ae90c18063c309f32711d239084565e5729469d99f287399367fca8b513f28e7",
+      "frame": "assembled-world",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          -3.573845219708789,
+          -4.200500687470719,
+          -0.0005006874707192209
+        ],
+        [
+          8.026713395617321,
+          -0.7999420721446182,
+          0.6005006874707189
+        ]
+      ],
+      "volume_mm3": 19.854333060171648
+    },
+    {
+      "name": "accessory-blank-cap-right",
+      "source_revision": "r24",
+      "source_cad_sha256": "8e7cd972cabd60a870e7ca2a3e4152bbbbc981739d11de02792c2e497b87858b",
+      "frame": "pod-local",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          14.015785944758804,
+          27.199999899999973,
+          5.02136312946539
+        ],
+        [
+          21.984214055241196,
+          31.9168373680007,
+          10.803735550241196
+        ]
+      ],
+      "volume_mm3": 110.6712663831356
+    },
+    {
+      "name": "rear-screw-cap-right",
+      "source_revision": "r24",
+      "source_cad_sha256": "b09a699c9a6b45aaceed5d8f30a982b0d50e3230d4e246f16905fbc75356d178",
+      "frame": "pod-local",
+      "solids": 1,
+      "valid": true,
+      "mesh_watertight": true,
+      "bounds_mm": [
+        [
+          21.423955147398907,
+          -26.575437016644045,
+          15.137998137398906
+        ],
+        [
+          27.70002482254613,
+          -20.424562983355955,
+          15.640087842601094
+        ]
+      ],
+      "volume_mm3": 14.871427584215759
+    }
+  ],
+  "optional_accessories": [
+    "accessory-collar-left",
+    "accessory-collar-right",
+    "accessory-fit-socket-strip",
+    "accessory-fit-test-pin",
+    "bunny-ear-accent-left",
+    "bunny-ear-accent-right",
+    "bunny-ear-left",
+    "bunny-ear-right",
+    "eye-accent-left",
+    "eye-accent-right",
+    "eye-foot-left",
+    "eye-foot-right",
+    "eye-left",
+    "eye-right",
+    "tv-antenna-accent-left",
+    "tv-antenna-accent-right",
+    "tv-antenna-left",
+    "tv-antenna-right"
+  ],
+  "evidence": {
+    "r25_body_cad_pass": true,
+    "r25_cradle_cad_pass": true,
+    "physical_assembly_validated": false,
+    "physical_warp_resistance_validated": false,
+    "r26_zero_floating_model_starts": true,
+    "r26_tested_core_intrusions": 0,
+    "strict_roof_screen_passed": false,
+    "adaptive_short_span_review_passed": true,
+    "maximum_trial_span_mm": 0.9540717499
+  },
+  "excluded": [
+    "Printer addresses and profiles",
+    "G-code",
+    "Orca projects",
+    "Dispatch tools and records",
+    "Live telemetry",
+    "Task histories",
+    "Vendor board CAD",
+    "Private model reference files"
+  ],
+  "public_package_verification": {
+    "original_main_cad_hashes_verified": true,
+    "analytic_assembly_reimport_valid": true,
+    "assembly_volume_matches_part_sum": true,
+    "assembly_volume_difference_mm3": 0.0025663004926173016,
+    "volume_measurement": "Adaptive analytic integration, relative face tolerance 1e-8; round-trip difference below 0.01 mm3.",
+    "regenerated_meshes": 34,
+    "meshes_watertight": true,
+    "mesh_bounds_and_volumes_match_editable_source": true,
+    "renders_metadata_removed_without_pixel_changes": true,
+    "allowlisted_private_content_scan_passed": true,
+    "print_recipe_included": false
+  },
+  "renders": {
+    "filenames": [
+      "hero.png",
+      "side.png",
+      "usb-detail.png",
+      "cradle-detail.png",
+      "exploded.png"
+    ],
+    "geometry": "Actual r25 body and continuous cradle with compatible r24 internal components.",
+    "display": "Synthetic demo screenshot; no live telemetry.",
+    "finish": "Smooth nominal CAD; not a photograph or a prediction of the physical fuzzy finish.",
+    "exploded": "Display separations illustrate parts, not assembly travel paths."
+  },
+  "package_version": 2,
+  "supersedes_archive_sha256": "f4bcf01497a6ed6c42f870c89b38146518059458d463403c63ab7a486f55a67b",
+  "licensing": {
+    "policy_source": "Glimdock LICENSE_POLICY.md",
+    "policy_sha256": "c7a5ba03e08aec6a8ee26ffab1c6342e479b82540791084b13f3cb31035248f9",
+    "copyright": "2026 Glimdock contributors",
+    "geometry": "CERN-OHL-P-2.0",
+    "tools_docs_renders": "MIT",
+    "full_texts": [
+      "LICENSES/CERN-OHL-P-2.0.txt",
+      "LICENSES/MIT.txt"
+    ],
+    "per_asset": {
+      "cad/accessory-blank-cap-left.brep": "CERN-OHL-P-2.0",
+      "cad/accessory-blank-cap-left.step": "CERN-OHL-P-2.0",
+      "cad/accessory-blank-cap-right.brep": "CERN-OHL-P-2.0",
+      "cad/accessory-blank-cap-right.step": "CERN-OHL-P-2.0",
+      "cad/accessory-collar-left.step": "CERN-OHL-P-2.0",
+      "cad/accessory-collar-right.step": "CERN-OHL-P-2.0",
+      "cad/accessory-fit-socket-strip.step": "CERN-OHL-P-2.0",
+      "cad/accessory-fit-test-pin.step": "CERN-OHL-P-2.0",
+      "cad/battery-hatch-500.brep": "CERN-OHL-P-2.0",
+      "cad/battery-hatch-500.step": "CERN-OHL-P-2.0",
+      "cad/battery-tray-500.brep": "CERN-OHL-P-2.0",
+      "cad/battery-tray-500.step": "CERN-OHL-P-2.0",
+      "cad/bunny-ear-accent-left.step": "CERN-OHL-P-2.0",
+      "cad/bunny-ear-accent-right.step": "CERN-OHL-P-2.0",
+      "cad/bunny-ear-left.step": "CERN-OHL-P-2.0",
+      "cad/bunny-ear-right.step": "CERN-OHL-P-2.0",
+      "cad/display-carrier.brep": "CERN-OHL-P-2.0",
+      "cad/display-carrier.step": "CERN-OHL-P-2.0",
+      "cad/eye-accent-left.step": "CERN-OHL-P-2.0",
+      "cad/eye-accent-right.step": "CERN-OHL-P-2.0",
+      "cad/eye-foot-left.step": "CERN-OHL-P-2.0",
+      "cad/eye-foot-right.step": "CERN-OHL-P-2.0",
+      "cad/eye-left.step": "CERN-OHL-P-2.0",
+      "cad/eye-right.step": "CERN-OHL-P-2.0",
+      "cad/input-window-cover-left.brep": "CERN-OHL-P-2.0",
+      "cad/input-window-cover-left.step": "CERN-OHL-P-2.0",
+      "cad/input-window-cover-right.brep": "CERN-OHL-P-2.0",
+      "cad/input-window-cover-right.step": "CERN-OHL-P-2.0",
+      "cad/pebble-own-parts-assembly.step": "CERN-OHL-P-2.0",
+      "cad/power-follower.brep": "CERN-OHL-P-2.0",
+      "cad/power-follower.step": "CERN-OHL-P-2.0",
+      "cad/power-input.brep": "CERN-OHL-P-2.0",
+      "cad/power-input.step": "CERN-OHL-P-2.0",
+      "cad/purple-body.brep": "CERN-OHL-P-2.0",
+      "cad/purple-body.step": "CERN-OHL-P-2.0",
+      "cad/rear-cover.brep": "CERN-OHL-P-2.0",
+      "cad/rear-cover.step": "CERN-OHL-P-2.0",
+      "cad/rear-screw-cap-left.brep": "CERN-OHL-P-2.0",
+      "cad/rear-screw-cap-left.step": "CERN-OHL-P-2.0",
+      "cad/rear-screw-cap-right.brep": "CERN-OHL-P-2.0",
+      "cad/rear-screw-cap-right.step": "CERN-OHL-P-2.0",
+      "cad/saddle-left.brep": "CERN-OHL-P-2.0",
+      "cad/saddle-left.step": "CERN-OHL-P-2.0",
+      "cad/saddle-right.brep": "CERN-OHL-P-2.0",
+      "cad/saddle-right.step": "CERN-OHL-P-2.0",
+      "cad/tv-antenna-accent-left.step": "CERN-OHL-P-2.0",
+      "cad/tv-antenna-accent-right.step": "CERN-OHL-P-2.0",
+      "cad/tv-antenna-left.step": "CERN-OHL-P-2.0",
+      "cad/tv-antenna-right.step": "CERN-OHL-P-2.0",
+      "cad/white-cradle-500.brep": "CERN-OHL-P-2.0",
+      "cad/white-cradle-500.step": "CERN-OHL-P-2.0",
+      "stl/accessory-blank-cap-left.stl": "CERN-OHL-P-2.0",
+      "stl/accessory-blank-cap-right.stl": "CERN-OHL-P-2.0",
+      "stl/accessory-collar-left.stl": "CERN-OHL-P-2.0",
+      "stl/accessory-collar-right.stl": "CERN-OHL-P-2.0",
+      "stl/accessory-fit-socket-strip.stl": "CERN-OHL-P-2.0",
+      "stl/accessory-fit-test-pin.stl": "CERN-OHL-P-2.0",
+      "stl/battery-hatch-500.stl": "CERN-OHL-P-2.0",
+      "stl/battery-tray-500.stl": "CERN-OHL-P-2.0",
+      "stl/bunny-ear-accent-left.stl": "CERN-OHL-P-2.0",
+      "stl/bunny-ear-accent-right.stl": "CERN-OHL-P-2.0",
+      "stl/bunny-ear-left.stl": "CERN-OHL-P-2.0",
+      "stl/bunny-ear-right.stl": "CERN-OHL-P-2.0",
+      "stl/display-carrier.stl": "CERN-OHL-P-2.0",
+      "stl/eye-accent-left.stl": "CERN-OHL-P-2.0",
+      "stl/eye-accent-right.stl": "CERN-OHL-P-2.0",
+      "stl/eye-foot-left.stl": "CERN-OHL-P-2.0",
+      "stl/eye-foot-right.stl": "CERN-OHL-P-2.0",
+      "stl/eye-left.stl": "CERN-OHL-P-2.0",
+      "stl/eye-right.stl": "CERN-OHL-P-2.0",
+      "stl/input-window-cover-left.stl": "CERN-OHL-P-2.0",
+      "stl/input-window-cover-right.stl": "CERN-OHL-P-2.0",
+      "stl/power-follower.stl": "CERN-OHL-P-2.0",
+      "stl/power-input.stl": "CERN-OHL-P-2.0",
+      "stl/purple-body.stl": "CERN-OHL-P-2.0",
+      "stl/rear-cover.stl": "CERN-OHL-P-2.0",
+      "stl/rear-screw-cap-left.stl": "CERN-OHL-P-2.0",
+      "stl/rear-screw-cap-right.stl": "CERN-OHL-P-2.0",
+      "stl/saddle-left.stl": "CERN-OHL-P-2.0",
+      "stl/saddle-right.stl": "CERN-OHL-P-2.0",
+      "stl/tv-antenna-accent-left.stl": "CERN-OHL-P-2.0",
+      "stl/tv-antenna-accent-right.stl": "CERN-OHL-P-2.0",
+      "stl/tv-antenna-left.stl": "CERN-OHL-P-2.0",
+      "stl/tv-antenna-right.stl": "CERN-OHL-P-2.0",
+      "stl/white-cradle-500.stl": "CERN-OHL-P-2.0",
+      "assets/cradle-detail.png": "MIT",
+      "assets/exploded.png": "MIT",
+      "assets/hero.png": "MIT",
+      "assets/side.png": "MIT",
+      "assets/usb-detail.png": "MIT",
+      "tools/export_meshes.py": "MIT",
+      "README.md": "MIT",
+      "manifest.json": "MIT",
+      "CHANGES.md": "MIT",
+      "LICENSE": "MIT"
+    },
+    "geometry_and_render_bytes_unchanged": true,
+    "correction_date": "2026-10-13"
+  }
+}

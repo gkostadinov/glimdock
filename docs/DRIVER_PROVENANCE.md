@@ -77,6 +77,19 @@ unchanged. Re-review changes that introduce an upstream implementation.
 
 ## Distribution path
 
+### Battery indication added 13 October 2026
+
+The voltage-reading integration uses the V1 schematic's GPIO8 ADC input and
+R5=200k / R11=100k divider (three times the ADC voltage). These wiring facts
+were checked against the [manufacturer's schematic](https://files.waveshare.com/wiki/ESP32-S3-Touch-LCD-2.8/ESP32-S3-Touch-LCD-2.8.pdf)
+and the owner's local battery reference. No reference battery driver, lookup
+table, calibration offset or percentage-rate algorithm was imported.
+`battery_status.h` is an original coarse-band filter, with an EMA and hysteresis;
+`board.cpp` uses Arduino's calibrated millivolt API and a median of nine samples.
+The charger status net in this schematic drives its LED, not an ESP32 input.
+Glimdock therefore makes no charging, full-charge, USB-power or runtime claim.
+The eight-October fingerprints above remain the historical reviewed versions.
+
 The source release can retain the current working driver: keep this provenance,
 the project software license and dependency notices, and exclude the unlicensed
 example source and manufacturer reference CAD. No electrical behavior needs to

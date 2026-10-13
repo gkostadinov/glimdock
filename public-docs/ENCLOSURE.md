@@ -1,33 +1,56 @@
-# Pebble Landscape prototype
+# Pebble landscape — current public prototype
 
-The current enclosure is Pebble Landscape r19, a purple pillowed body over a
-low white base with an 18° backward tilt. Its nominal body is approximately
-88 × 64 × 23.8 mm; the compact USB base is approximately 90 × 48 mm.
-The supported V1 board uses 320 × 240 artwork and rotation 3, with USB to the right.
+The current public snapshot is [Pebble r26 prototype v2](../enclosure/public/pebble-r26-prototype-v2/README.md):
+**r25 fitted body and continuous white cradle**, compatible **r24 internal parts**,
+and the **r26 angled body print trial**. r26 changes print orientation/supports,
+not body CAD. The supported V1 display uses USB-right landscape, rotation 3,
+at 320 × 240. The nominal purple envelope is approximately 88 × 64 × 15.64 mm;
+the white cradle is approximately 95 × 52 × 15.8 mm. Exact bounds and coordinate
+frames are in the package manifest.
 
-The complete factory glass remains exposed, including its wider right-hand
-black chin. A constant 2 mm front border follows the glass corners concentrically;
-the support sits behind the glass. A separate carrier mounts the board through
-its factory metal posts. The rear service panel and underside cable hatch are
-removable. Blank caps, ears, antennas and eyes use interchangeable top sockets.
+The clean opening exposes the board's native USB-C port. The factory glass is
+exposed, with its wider black chin to the right. A carrier attaches to the board's
+factory posts; keyed saddles mount the pod at an 18° backward desk tilt. The rear
+service cover and underside hatch are removable. Optional ears, antennas and
+eyes use the top sockets. Follow the current package's hardware quantities and
+assembly sequence; earlier extension-port/liner instructions do not apply to
+this fitted body.
 
-The right-side USB-C mouth connects to the board through a captured replaceable
-clamp and provisional internal extension. Connector dimensions, assembly
-clearance and power/data through that extension still need physical testing.
-The factory BOOT/RESET buttons require opening the enclosure for access.
+## Editable source and downloads
 
-This is a prototype under physical validation. The purple body alone has been
-sent for a prototype print; complete fitting is not established. The main model
-is USB-powered. A larger future battery base is a separate unbuilt variant.
+The package includes original analytic STEP/BREP parts, an own-parts STEP
+assembly, 34 regenerated watertight meshes, five actual-CAD renders, a portable
+mesh exporter, notices and SHA256SUMS. STEP/BREP support direct CAD editing;
+they do not contain the original parametric construction history. Individual
+STLs retain recorded source frames and are **not a released print recipe**.
 
-The authored CAD is defined by `design.json`, `build.py`, `base_style.py`,
-`landscape_mechanics.py` and `accessories.py` in `enclosure/pebble-landscape/`.
-Its final design parameters take precedence over these rounded dimensions.
-A V1 manufacturer STEP is required under `enclosure/reference/`; obtain it
-separately. Manufacturer geometry, personal fit-reference files, saved slicer
-profiles, G-code and private review logs are excluded from the public source
-package. The authored case source is CERN-OHL-P-2.0 licensed.
+The original CAD and geometry meshes use CERN-OHL-P-2.0. Generic exporter tools,
+documentation and renders use MIT. Preserve the adjacent per-asset notices and
+full license texts. Manufacturer board geometry, private fit references, printer
+profiles, G-code, Orca projects, dispatch records and live telemetry are excluded.
 
-The complete local case-design folder retains the reviewed CAD/STL renders,
-nominal checks, prototype print records and assembly guide. Earlier Serein and
-portrait/round Pebble concepts remain historical work.
+The old `enclosure/pebble-landscape/` r19 parametric design remains historical
+source. It is not the current fitted geometry. Use the v2 prototype package for
+the current direct-edit source, fit notes and generated meshes.
+
+## Validation boundary
+
+CAD checks and mesh regeneration passed within the package's recorded scope.
+The full assembly is physically unverified. The earlier upright body print
+failed; the r26 45° trial was unverified when this snapshot was prepared. The
+continuous cradle is unsliced and unprinted. A body print does not prove complete
+fit, service access, switch travel/return, insert strength, saddle rigidity or
+bed adhesion. Re-slicing needs new support and passage-clearance review; local
+postprocessed trial toolpaths are not encoded in the STLs.
+
+Renders show smooth nominal CAD with a synthetic dashboard, not a product photo,
+a guaranteed print finish or the latest installed firmware. The exploded view
+separates parts for visibility; it does not define their installation paths.
+
+## Battery boundary
+
+This remains a **USB-powered prototype**. Reserved battery space and a BAT_PWR
+mechanical input do not qualify a battery product. The firmware's approximate
+voltage indicator is not a fuel gauge or charging-state detector. Electrical
+compatibility, connector polarity, actual pack envelope and assembly require
+separate verification; follow the selected board and cell documentation.

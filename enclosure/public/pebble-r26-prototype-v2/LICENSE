@@ -1,0 +1,18 @@
+# License scope for the Pebble prototype package
+
+Copyright (c) 2026 Glimdock contributors.
+
+The original enclosure CAD in cad/ (STEP and BREP) and geometry meshes in stl/
+are licensed under CERN Open Hardware Licence Version 2 - Permissive
+(SPDX: CERN-OHL-P-2.0). The unmodified license text is included at
+LICENSES/CERN-OHL-P-2.0.txt. Geometry files have adjacent .license notices.
+
+The generic mesh exporter in tools/, package documentation and metadata,
+and rendered images in assets/ are MIT licensed. The full MIT text is included
+at LICENSES/MIT.txt. The MIT grant does not replace the CAD/mesh license.
+
+Third-party license texts retain their original terms. This scope preserves
+the existing Glimdock LICENSE_POLICY.md. Manufacturer board CAD is excluded;
+hardware shown in renders is reference material, not an additional CAD grant.
+
+Keep the applicable notices and license texts with redistributed files.

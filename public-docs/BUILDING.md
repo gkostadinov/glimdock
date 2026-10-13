@@ -161,8 +161,8 @@ compatibility checks, not the primary runtime validation.
 
 ## Enclosure development
 
-The current design is [Pebble Landscape](../enclosure/pebble-landscape/README.md).
-Its guide describes regeneration, source-bound STEP/STL outputs, removable
+The current fitted geometry is [Pebble prototype v2](../enclosure/public/pebble-r26-prototype-v2/README.md).
+Its guide describes direct-edit STEP/BREP, mesh regeneration, removable
 accessories, service order and fit checks. Manufacturer reference geometry and
 personal slicer projects are separate from authored enclosure licensing.
 A body print or a render does not establish assembled USB, glass or mounting fit.
