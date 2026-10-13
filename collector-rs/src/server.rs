@@ -178,6 +178,24 @@ impl SnapshotStore {
                 return Err(StoreError::Unavailable);
             }
         }
+        let groups = nodes
+            .iter()
+            .map(|node| {
+                Ok((
+                    node["id"]
+                        .as_str()
+                        .ok_or(StoreError::Unavailable)?
+                        .to_string(),
+                    node.get("parent_id")
+                        .map(|p| p.as_str().ok_or(StoreError::Unavailable))
+                        .transpose()?
+                        .unwrap_or("")
+                        .to_string(),
+                    true,
+                ))
+            })
+            .collect::<std::result::Result<Vec<_>, StoreError>>()?;
+        config::validate_node_groups(&groups, true).map_err(|_| StoreError::Unavailable)?;
         if self.demo {
             let seq = ((now - self.began) / 3.).floor() as u64 + 1;
             document["generated_at"] = json!(now);
@@ -254,7 +272,15 @@ impl SnapshotStore {
                 .iter()
                 .find(|n| n["id"] == id)
                 .ok_or(StoreError::UnknownNode)?,
-            None => &nodes[0],
+            None => nodes
+                .iter()
+                .find(|node| {
+                    node.get("parent_id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .is_empty()
+                })
+                .ok_or(StoreError::NoNodes)?,
         };
         let mut snapshot = selected["snapshot"].clone();
         let stamp = snapshot["generated_at"]
@@ -414,7 +440,15 @@ fn descriptor(record: &Value) -> std::result::Result<Value, StoreError> {
     {
         return Err(StoreError::Unavailable);
     }
-    let mut own = json!({"id":id,"type":kind,"platform":platform,"name":name,"address":address});
+    let parent = record
+        .get("parent_id")
+        .map(|p| p.as_str().ok_or(StoreError::Unavailable))
+        .transpose()?
+        .unwrap_or("");
+    if !parent.is_empty() && !valid_node_id(parent) {
+        return Err(StoreError::Unavailable);
+    }
+    let mut own = json!({"id":id,"parent_id":parent,"type":kind,"platform":platform,"name":name,"address":address});
     if record["origin"] == "agent" {
         own["origin"] = json!("agent");
         for key in ["last_seen", "sample_at"] {
@@ -744,6 +778,7 @@ async fn handler(State(state): State<HttpState>, request: Request) -> Response {
             "/api/v1/config",
             "/api/v1/snapshot",
             "/api/v1/snapshots",
+            "/api/v1/agent-operations",
             "/api/v1/nodes",
             "/healthz",
         ]
@@ -895,6 +930,26 @@ async fn handler(State(state): State<HttpState>, request: Request) -> Response {
         {
             Ok((status, result)) => reply(status, result, head, None),
             Err(_) => error(503, "configuration service unavailable", head),
+        }
+    } else if path == "/api/v1/agent-operations" {
+        if !["GET", "HEAD"].contains(&method) {
+            return error(405, "read-only operations interface", head);
+        }
+        if !query.is_empty() {
+            return error(400, "operations query is unsupported", head);
+        }
+        if !(authorized(&request, Some(&state.display_token))
+            || (local_console && !request.headers().contains_key(header::AUTHORIZATION)))
+        {
+            return error(401, "unauthorized", head);
+        }
+        match crate::operations::read_snapshot(&state.store.path) {
+            Ok(document) => reply(200, document, head, None),
+            Err(_) => error(
+                503,
+                "agent operations unavailable; configure a source",
+                head,
+            ),
         }
     } else if ["GET", "HEAD"].contains(&method) && path == "/healthz" && query.is_empty() {
         let ok = state.store.fresh(crate::epoch());

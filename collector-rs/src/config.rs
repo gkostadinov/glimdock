@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     os::unix::fs::{OpenOptionsExt, PermissionsExt},
@@ -25,6 +25,8 @@ pub const COLLECTOR_UNIT: &str = "homelab-monitor-collector.service";
 #[serde(default, deny_unknown_fields)]
 pub struct NodeConfig {
     pub id: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub parent_id: String,
     #[serde(default = "enabled_default")]
     pub enabled: bool,
     pub name: String,
@@ -45,6 +47,7 @@ impl Default for NodeConfig {
     fn default() -> Self {
         Self {
             id: String::new(),
+            parent_id: String::new(),
             enabled: true,
             name: String::new(),
             node_type: "proxmox".into(),
@@ -130,6 +133,49 @@ fn node_value(node: &NodeConfig, remote: bool) -> Value {
     }
     value
 }
+/// A display has four fleet cards and at most eight total nodes. Children
+/// reference configured roots; paused parents retain identity but cannot host
+/// enabled children. Telemetry freshness never determines this relationship.
+pub fn validate_node_groups(
+    nodes: &[(String, String, bool)],
+    require_enabled_parent: bool,
+) -> Result<()> {
+    let mut identities = HashMap::new();
+    for (id, parent, enabled) in nodes {
+        if !crate::server::valid_node_id(id)
+            || (!parent.is_empty() && !crate::server::valid_node_id(parent))
+            || identities
+                .insert(id.as_str(), (parent.as_str(), *enabled))
+                .is_some()
+        {
+            bail!("Invalid or duplicate grouped node identity");
+        }
+    }
+    if nodes.iter().filter(|(_, _, enabled)| *enabled).count() > crate::MAX_NODES
+        || nodes
+            .iter()
+            .filter(|(_, parent, enabled)| *enabled && parent.is_empty())
+            .count()
+            > crate::MAX_ROOT_NODES
+    {
+        bail!("At most four enabled roots and eight total enabled nodes are supported");
+    }
+    for (id, parent, enabled) in nodes {
+        if parent.is_empty() {
+            continue;
+        }
+        let (ancestor, parent_enabled) = identities
+            .get(parent.as_str())
+            .context("Node parent does not exist")?;
+        if id == parent || !ancestor.is_empty() {
+            bail!("Node parent must be a distinct top-level node");
+        }
+        if require_enabled_parent && *enabled && !parent_enabled {
+            bail!("Disable children before disabling their parent");
+        }
+    }
+    Ok(())
+}
 fn enabled_default() -> bool {
     true
 }
@@ -157,6 +203,7 @@ pub struct Config {
     pub printers: Vec<NodeConfig>,
     pub remote_collectors: Vec<NodeConfig>,
     pub push_agents: Vec<crate::push::AgentConfig>,
+    pub agent_operations: Option<crate::operations::OperationsConfig>,
     #[serde(skip)]
     pub source_path: Option<PathBuf>,
     pub expected_running_guests: Vec<u64>,
@@ -207,6 +254,7 @@ impl Default for Config {
             printers: vec![],
             remote_collectors: vec![],
             push_agents: vec![],
+            agent_operations: None,
             source_path: None,
             expected_running_guests: vec![],
             qga_guest_ids: vec![],
@@ -311,6 +359,9 @@ impl Config {
         Ok(config)
     }
     pub fn validate(&mut self) -> Result<()> {
+        if let Some(config) = &self.agent_operations {
+            config.validate()?;
+        }
         if !self.stable_local_id.is_empty() && !crate::server::valid_node_id(&self.stable_local_id)
         {
             bail!("Invalid local node identity");
@@ -333,7 +384,7 @@ impl Config {
             bail!("At most 16 configured feeds are supported");
         }
         if self.enabled_node_count() > crate::MAX_NODES {
-            bail!("At most four enabled nodes are supported");
+            bail!("At most eight enabled nodes are supported");
         }
         for (nodes, remote) in [
             (&mut self.printers, false),
@@ -365,6 +416,7 @@ impl Config {
                 bail!("Duplicate agent identity");
             }
         }
+        validate_node_groups(&self.node_groups(), true)?;
         for period in [
             self.interval_s,
             self.sensor_interval_s,
@@ -429,6 +481,31 @@ impl Config {
             + self.printers.iter().filter(|n| n.enabled).count()
             + self.remote_collectors.iter().filter(|n| n.enabled).count()
             + self.push_agents.iter().filter(|n| n.enabled).count()
+    }
+    pub fn enabled_root_node_count(&self) -> usize {
+        self.node_groups()
+            .iter()
+            .filter(|(_, parent, enabled)| *enabled && parent.is_empty())
+            .count()
+    }
+    pub fn node_groups(&self) -> Vec<(String, String, bool)> {
+        let mut nodes = vec![(self.local_node_id(), String::new(), self.enable_local)];
+        for (items, prefix) in [
+            (&self.printers, "klipper"),
+            (&self.remote_collectors, "remote"),
+        ] {
+            nodes.extend(
+                items
+                    .iter()
+                    .map(|n| (format!("{prefix}:{}", n.id), n.parent_id.clone(), n.enabled)),
+            );
+        }
+        nodes.extend(
+            self.push_agents
+                .iter()
+                .map(|n| (n.id.clone(), n.parent_id.clone(), n.enabled)),
+        );
+        nodes
     }
     pub fn local_platform(&self) -> &'static str {
         if self.local_type == "proxmox" {
@@ -650,18 +727,18 @@ impl ConfigManager {
         };
         let mut nodes = Vec::new();
         if config.enable_local {
-            nodes.push(json!({"id":identity,"type":config.local_type,"platform":config.local_platform(),"origin":"host","enabled":true,"name":name,"url":format!("http://{authority}:8765/api/v1/snapshot"),"poll_interval_s":config.interval_s,"timeout_s":null,"ttl_s":15,"has_secret":false}));
+            nodes.push(json!({"id":identity,"parent_id":"","type":config.local_type,"platform":config.local_platform(),"origin":"host","enabled":true,"name":name,"url":format!("http://{authority}:8765/api/v1/snapshot"),"poll_interval_s":config.interval_s,"timeout_s":null,"ttl_s":15,"has_secret":false}));
         }
         for (items, prefix) in [
             (&config.printers, "klipper"),
             (&config.remote_collectors, "remote"),
         ] {
             for item in items {
-                nodes.push(json!({"id":format!("{prefix}:{}",item.id),"type":if prefix=="remote"{item.node_type.as_str()}else{"klipper"},"platform":item.platform,"origin":"feed","enabled":item.enabled,"name":item.name,"url":item.url,"poll_interval_s":item.poll_interval_s,"timeout_s":item.timeout_s,"ttl_s":item.ttl_s,"has_secret":!(if prefix=="remote"{&item.token_file}else{&item.api_key_file}).is_empty()}));
+                nodes.push(json!({"id":format!("{prefix}:{}",item.id),"parent_id":item.parent_id,"type":if prefix=="remote"{item.node_type.as_str()}else{"klipper"},"platform":item.platform,"origin":"feed","enabled":item.enabled,"name":item.name,"url":item.url,"poll_interval_s":item.poll_interval_s,"timeout_s":item.timeout_s,"ttl_s":item.ttl_s,"has_secret":!(if prefix=="remote"{&item.token_file}else{&item.api_key_file}).is_empty()}));
             }
         }
         nodes.extend(config.push_agents.iter().map(crate::push::projection));
-        json!({"schema":1,"version":version,"max_nodes":4,"nodes":nodes,"local_node":{"id":identity,"type":config.local_type,"platform":config.local_platform(),"name":name,"address":ip,"origin":"host","enabled":config.enable_local}})
+        json!({"schema":1,"version":version,"max_nodes":crate::MAX_NODES,"max_root_nodes":crate::MAX_ROOT_NODES,"nodes":nodes,"local_node":{"id":identity,"parent_id":"","type":config.local_type,"platform":config.local_platform(),"name":name,"address":ip,"origin":"host","enabled":config.enable_local}})
     }
     pub fn get(&self) -> std::result::Result<Value, ConfigError> {
         let (_, c, v) = self.load()?;
@@ -740,6 +817,7 @@ impl ConfigManager {
                     .iter()
                     .map(|n| n.token_file.clone()),
             )
+            .chain(config.agent_operations.iter().map(|n| n.token_file.clone()))
             .filter(|s| !s.is_empty())
             .collect();
         let secret_dir = parent.join("node-secrets");
@@ -779,6 +857,7 @@ impl ConfigManager {
                     "id",
                     "type",
                     "platform",
+                    "parent_id",
                     "name",
                     "url",
                     "poll_interval_s",
@@ -834,6 +913,12 @@ impl ConfigManager {
                 || (origin == Some("host") && matches!(kind, "proxmox" | "server"))
                 || (raw_id == local_id && matches!(kind, "proxmox" | "server"))
             {
+                if node
+                    .get("parent_id")
+                    .is_some_and(|p| p.as_str() != Some(""))
+                {
+                    return Err(bad());
+                }
                 let local_type = if matches!(kind, "local-server" | "server") {
                     "server"
                 } else {
@@ -939,7 +1024,7 @@ impl ConfigManager {
                         updated["platform"] = json!("");
                     }
                 }
-                for k in ["url", "poll_interval_s", "timeout_s", "ttl_s"] {
+                for k in ["parent_id", "url", "poll_interval_s", "timeout_s", "ttl_s"] {
                     if let Some(v) = node.get(k) {
                         updated[k] = v.clone();
                     }
@@ -970,7 +1055,7 @@ impl ConfigManager {
         let validated = Config::from_value(doc.clone()).map_err(|_| {
             ConfigError::new(
                 400,
-                "Invalid node configuration, URL, polling, or four-node capacity",
+                "Invalid node configuration, URL, polling, or node grouping or capacity",
             )
         })?;
         // Normalize only edited inventories; preserve unrelated private options.
@@ -1019,6 +1104,12 @@ impl ConfigManager {
             .chain(
                 validated
                     .remote_collectors
+                    .iter()
+                    .map(|n| n.token_file.clone()),
+            )
+            .chain(
+                validated
+                    .agent_operations
                     .iter()
                     .map(|n| n.token_file.clone()),
             )

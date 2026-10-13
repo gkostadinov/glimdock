@@ -376,10 +376,18 @@ pub struct Collector {
     local: Option<LocalCollector>,
     printers: Vec<Source>,
     remotes: Vec<Source>,
+    operations: Option<crate::operations::OperationsSource>,
     sequence: u64,
 }
 impl Collector {
     pub fn new(config: Config) -> Result<Self> {
+        let operations = config
+            .agent_operations
+            .as_ref()
+            .filter(|c| c.enabled)
+            .cloned()
+            .map(crate::operations::OperationsSource::new)
+            .transpose()?;
         let local = if config.enable_local {
             Some(LocalCollector::new(&config)?)
         } else {
@@ -404,6 +412,7 @@ impl Collector {
             local,
             printers,
             remotes,
+            operations,
             sequence: 0,
         })
     }
@@ -425,7 +434,7 @@ impl Collector {
                 self.sequence,
                 now,
             ));
-            nodes.push(json!({"id":format!("klipper:{}",source.config.id),"type":"klipper","name":source.config.name,"address":source_address(&source.config.url),"snapshot":snapshot}));
+            nodes.push(json!({"id":format!("klipper:{}",source.config.id),"parent_id":source.config.parent_id,"type":"klipper","name":source.config.name,"address":source_address(&source.config.url),"snapshot":snapshot}));
         }
         for source in &mut self.remotes {
             source.advance(now).await;
@@ -445,7 +454,7 @@ impl Collector {
             } else {
                 &source.config.platform
             };
-            nodes.push(json!({"id":format!("remote:{}",source.config.id),"type":source.config.node_type,"platform":platform,"name":source.config.name,"address":source_address(&source.config.url),"snapshot":snapshot}));
+            nodes.push(json!({"id":format!("remote:{}",source.config.id),"parent_id":source.config.parent_id,"type":source.config.node_type,"platform":platform,"name":source.config.name,"address":source_address(&source.config.url),"snapshot":snapshot}));
         }
         for agent in self.config.push_agents.iter().filter(|a| a.enabled) {
             nodes.push(crate::push::node_snapshot(
@@ -584,6 +593,17 @@ pub async fn run_controlled(
             }
         }
         let sample = collector.sample().await?;
+        let operations_path = crate::operations::snapshot_path(output);
+        let operations = if let Some(source) = collector.operations.as_mut() {
+            source.advance().await
+        } else {
+            None
+        };
+        if let Some(document) = operations {
+            config::atomic_write(&operations_path, &serde_json::to_vec(document)?, 0o640)?;
+        } else if operations_path.exists() {
+            fs::remove_file(&operations_path)?;
+        }
         config::atomic_write(output, &serde_json::to_vec(&sample)?, 0o640)?;
         if let Some(ready) = ready.take() {
             let _ = ready.send(());
@@ -596,6 +616,11 @@ pub async fn run_controlled(
                 &serde_json::to_vec(&collector.sample().await?)?,
                 0o640,
             )?;
+            if let Some(source) = collector.operations.as_mut() {
+                if let Some(document) = source.advance().await {
+                    config::atomic_write(&operations_path, &serde_json::to_vec(document)?, 0o640)?;
+                }
+            }
             return Ok(());
         }
     }

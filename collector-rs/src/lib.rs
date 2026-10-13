@@ -4,6 +4,7 @@ pub mod faults;
 pub mod gpus;
 pub mod guests;
 pub mod hub;
+pub mod operations;
 pub mod printers;
 pub mod probes;
 pub mod procfs;
@@ -17,8 +18,9 @@ pub mod storage;
 pub mod truenas;
 
 pub const MAX_PAYLOAD: usize = 48 * 1024;
-pub const MAX_AGGREGATE: usize = 256 * 1024;
-pub const MAX_NODES: usize = 4;
+pub const MAX_AGGREGATE: usize = 512 * 1024;
+pub const MAX_NODES: usize = 8;
+pub const MAX_ROOT_NODES: usize = 4;
 
 pub fn epoch() -> f64 {
     chrono::Utc::now().timestamp_millis() as f64 / 1000.0

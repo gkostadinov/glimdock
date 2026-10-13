@@ -24,6 +24,8 @@ const MAX_INBOX: usize = MAX_PAYLOAD + 4096;
 #[serde(default, deny_unknown_fields)]
 pub struct AgentConfig {
     pub id: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub parent_id: String,
     pub name: String,
     pub platform: String,
     #[serde(rename = "type")]
@@ -41,6 +43,7 @@ impl Default for AgentConfig {
     fn default() -> Self {
         Self {
             id: String::new(),
+            parent_id: String::new(),
             name: String::new(),
             platform: String::new(),
             kind: "server".into(),
@@ -109,7 +112,7 @@ fn random_token() -> Result<String> {
     Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
 pub fn projection(agent: &AgentConfig) -> Value {
-    json!({"id":agent.id,"type":agent.kind,"platform":agent.platform,"origin":"agent","name":agent.name,"enabled":agent.enabled,"registered":!agent.agent_id.is_empty(),"agent_id":if agent.agent_id.is_empty(){Value::Null}else{json!(agent.agent_id)},"revoked":agent.revoked,"pairing_pending":!agent.pairing_hash.is_empty() && agent.agent_id.is_empty() && agent.pairing_expires_at>crate::epoch(),"has_secret":!agent.token_hash.is_empty(),"url":"","poll_interval_s":agent.interval_s,"timeout_s":Value::Null,"ttl_s":agent.ttl_s})
+    json!({"id":agent.id,"parent_id":agent.parent_id,"type":agent.kind,"platform":agent.platform,"origin":"agent","name":agent.name,"enabled":agent.enabled,"registered":!agent.agent_id.is_empty(),"agent_id":if agent.agent_id.is_empty(){Value::Null}else{json!(agent.agent_id)},"revoked":agent.revoked,"pairing_pending":!agent.pairing_hash.is_empty() && agent.agent_id.is_empty() && agent.pairing_expires_at>crate::epoch(),"has_secret":!agent.token_hash.is_empty(),"url":"","poll_interval_s":agent.interval_s,"timeout_s":Value::Null,"ttl_s":agent.ttl_s})
 }
 fn err(status: u16, message: &'static str) -> ConfigError {
     ConfigError::new(status, message)
@@ -154,7 +157,7 @@ fn save(
 ) -> std::result::Result<Value, ConfigError> {
     doc["push_agents"] = serde_json::to_value(agents).map_err(|_| bad())?;
     let cfg = Config::from_value(doc.clone())
-        .map_err(|_| err(400, "Invalid agent settings or four-node capacity"))?;
+        .map_err(|_| err(400, "Invalid agent settings or node grouping or capacity"))?;
     let mut bytes = serde_json::to_vec_pretty(&doc).map_err(|_| bad())?;
     bytes.push(b'\n');
     config::atomic_write(&manager.path, &bytes, 0o600)
@@ -249,6 +252,7 @@ pub fn manage(manager: &ConfigManager, request: &Value) -> std::result::Result<V
             "id",
             "name",
             "platform",
+            "parent_id",
             "kind",
             "type",
             "origin",
@@ -324,9 +328,13 @@ pub fn manage(manager: &ConfigManager, request: &Value) -> std::result::Result<V
         .unwrap_or_else(|| AgentConfig {
             id: id.clone(),
             platform: remote.map(|r| r.platform.clone()).unwrap_or_default(),
+            parent_id: remote.map(|r| r.parent_id.clone()).unwrap_or_default(),
             ..Default::default()
         });
     a.name = name;
+    if let Some(v) = node.get("parent_id") {
+        a.parent_id = v.as_str().ok_or_else(bad)?.to_string();
+    }
     if action == "upsert"
         && !a.agent_id.is_empty()
         && node
@@ -699,6 +707,9 @@ pub fn node_snapshot(
     } else {
         runtime::empty_snapshot(&a.name, "", sequence, now)
     };
+    snapshot.as_object_mut().unwrap().remove("parent_id");
+    snapshot["node"] =
+        json!({"id":a.id,"parent_id":a.parent_id,"type":a.kind,"platform":a.platform});
     snapshot["host"]["name"] = json!(a.name);
     snapshot["sequence"] = json!(sequence);
     snapshot["generated_at"] = json!(now);
@@ -734,5 +745,5 @@ pub fn node_snapshot(
             json!([{"id":format!("agent/{}/offline",a.id),"severity":"warning","message":reason}]);
     }
     let address = snapshot["host"]["ip"].as_str().unwrap_or("").to_string();
-    json!({"id":a.id,"type":a.kind,"platform":a.platform,"origin":"agent","name":a.name,"address":address,"last_seen":last_seen,"sample_at":stamp,"snapshot":runtime::bounded_snapshot(snapshot)})
+    json!({"id":a.id,"parent_id":a.parent_id,"type":a.kind,"platform":a.platform,"origin":"agent","name":a.name,"address":address,"last_seen":last_seen,"sample_at":stamp,"snapshot":runtime::bounded_snapshot(snapshot)})
 }
