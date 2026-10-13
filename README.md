@@ -1,6 +1,6 @@
 # Glimdock
 
-Glimdock brings servers, routers, appliances and printers to one small touchscreen. A **host-agnostic Rust collector** owns the node registry, accepts device readings and serves the management web interface. The display pairs with that collector once; registered nodes then appear automatically in its **All nodes** bento overview.
+Glimdock brings servers, routers, appliances and printers to one small touchscreen. A **host-agnostic Rust collector** owns the node registry, accepts device readings and serves the management web interface. The display pairs with that collector once; registered nodes then appear automatically in its **All systems** bento overview.
 
 Linux, macOS and Windows machines use native Rust agents that push telemetry to the collector. Agents pair once, receive a stable node identity and need no incoming network connection. Routers and other appliances can expose read-only SNMP or a JSON API through the same Rust device agent. Proxmox adds guest, storage and GPU features to a node; Klipper adds print job and temperature views. Neither integration is required to run the collector.
 
@@ -11,7 +11,7 @@ SNMP / JSON adapters ────────────push──┤   Moonrak
                    Rust collector: node registry + web console
                            /                         \
               Glimdock ESP32-S3                Desktop browser
-              All nodes + details       Overview · Nodes · Display & firmware
+              All systems + details       Overview · Nodes · Display & firmware
 ```
 
 ## Start with the collector
@@ -38,7 +38,9 @@ The collector's built-in web console has three views:
 
 The browser firmware is compiled from the production UI, fonts, parsers and touch behavior into WebAssembly. It shares the display's layout and interactions; browser transport replaces the board peripherals. The larger web overview is a separate interface for managing the fleet.
 
-The physical display starts on **All nodes**, with up to four summary cards. Tap a card to open its dashboard. Ordinary devices have Overview, Storage, Sensors and Health; Proxmox adds guest views; Klipper has Overview, Job, Temps and Health. Unavailable or expired measurements remain unknown. Up to sixteen remote nodes can be configured, with four active nodes including the optional collector host.
+White/dark themes, a clock view, short notification banners and saved speaker volume make the desk display usable between checks. An optional supported LiPo uses approximate voltage/bands and one warning per confirmed low-voltage episode; it does not report a charge percentage. [Firmware settings](firmware/README.md) document the evidence and limits.
+
+The physical display starts on **All systems**, with up to four summary cards. Tap a card to open its dashboard. Ordinary devices have Overview, Storage, Sensors and Health; Proxmox adds guest views; Klipper has Overview, Job, Temps and Health. Unavailable or expired measurements remain unknown. Up to sixteen remote nodes can be configured, with four active top-level nodes including the optional collector host and eight active nodes in total. Managed switches and other appliances can be grouped beneath a parent node with `parent_id`; each keeps its own readings and freshness.
 
 ## Browser firmware updates
 
@@ -48,11 +50,18 @@ The public update verifies the board and image hashes, preserves saved NVS pairi
 
 ## Hardware and enclosure
 
-The supported board has an ST7789 display, CST328 touch, 16 MiB flash and 8 MiB PSRAM. The current **[Pebble Landscape r19](enclosure/pebble-landscape/README.md)** concept uses a purple pillowed body, white USB base and an 18° backward tilt, with USB to the right. Its full factory glass stays exposed, with the wider black chin to the right and a constant 2 mm front border. Firmware orientation is rotation 3 at 320 × 240. Optional ears, antennas and eyes are removable accessories. The USB-powered concept is the current direction; a battery variant remains future work.
+The supported board has an ST7789 display, CST328 touch, 16 MiB flash and 8 MiB PSRAM. The current **[Pebble public prototype](enclosure/public/pebble-r26-prototype-v2/README.md)** combines the r25 fitted purple body and continuous white cradle with compatible r24 internal parts. The r26 print trial changes supports and orientation; body CAD is unchanged. USB is to the right, rotation 3, at 320 × 240. The fitted body uses the native board USB opening.
 
-The case is a prototype. The body print has started, while assembly, clearance and the proposed internal USB-C extension still need physical fit verification. Older enclosure variants and frozen releases remain available as historical designs. See [firmware/README.md](firmware/README.md) for board setup and other supported orientations.
+The public package includes editable analytic STEP/BREP, regenerated meshes, actual CAD renders, a portable exporter and per-asset notices. Complete assembly and physical print validation remain unfinished; the cradle is unsliced/unprinted. This is a USB-powered prototype. See [the current enclosure guide](public-docs/ENCLOSURE.md) for source and fit boundaries. The older r19 parametric model is retained as historical source.
 
 ## Build and contribute
+
+The [agent operations design and API](public-docs/AGENT-OPERATIONS.md) provides a
+playable four-tab workspace and a framework-neutral, read-only telemetry
+contract. [Integration examples](public-docs/AGENT-INTEGRATION.md) and
+[agent-ready implementation prompts](public-docs/AGENT-PROMPTS.md) cover source
+adapters, the Rust collector, firmware and release review. It can read shared coordination metadata or another system's JSON
+snapshot. The Rust collector and ESP32 consume it in a native four-tab workspace. Use the Nodes / Agents control on the overview to switch workspaces. The original logo returns to the Nodes home screen.
 
 The Rust workspace contains `collector-rs/` and `device-agent-rs/`. Build both executables with:
 
@@ -73,7 +82,7 @@ The executables are `target/release/glimdock-collector` and `target/release/glim
 | `deploy/` | Linux service installation and compatibility wrappers |
 | `integrations/truenas/` | Optional restricted NAS compatibility helper |
 | `tools/native-preview/`, `tools/web-emulator/` | Shared firmware rendering and behavioral verification |
-| `enclosure/pebble-landscape/` | Current case concept and assembly documents |
+| `enclosure/public/pebble-r26-prototype-v2/` | Current editable prototype CAD, meshes and assembly notes |
 | `commercial/site/` | Product website |
 | `legacy/python/` | Archived Python collector and former design preview |
 

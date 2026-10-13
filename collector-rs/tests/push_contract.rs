@@ -3,7 +3,7 @@ use glimdock_collector::{
     config::{self, Config, ConfigManager},
     push, runtime,
     server::{self, ConfigurationService, HttpState, SnapshotStore},
-    MAX_NODES, MAX_PAYLOAD,
+    MAX_PAYLOAD, MAX_ROOT_NODES,
 };
 use serde_json::{json, Value};
 use std::{fs, os::unix::fs::PermissionsExt};
@@ -336,7 +336,7 @@ fn timestamps_platform_capacity_and_schema_are_checked() {
         push::ingest(&m, KEY, &invalid, now).unwrap_err().status,
         400
     );
-    for i in 1..MAX_NODES {
+    for i in 1..MAX_ROOT_NODES {
         mutate(&m, "pair-agent", json!({"name":format!("Other {i}")}));
     }
     assert_eq!(m.mutate(&json!({"action":"pair-agent","version":m.get().unwrap()["version"],"node":{"name":"Fifth"}})).unwrap_err().status,400);

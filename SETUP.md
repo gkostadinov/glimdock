@@ -52,9 +52,19 @@ HTTPS certificates are verified. With a private CA, add `--collector-ca-cert /AB
 | Klipper printer | **Add a polling feed** using its Moonraker origin, normally port 7125, and API key when required |
 | Collector's own host | Already available in a fresh configuration; edit, pause, remove or restore **Hub host** |
 
+To group a managed switch under a router, set optional `parent_id` to the
+router's stable node ID in a configuration API `pair-agent` or `upsert` request
+(for example `"parent_id": "agent:Router"`). Feed configurations accept the same
+field. An omitted parent remains unchanged when editing; an empty string returns
+the node to the top-level fleet. The parent must exist, be a top-level node and
+be enabled before an enabled child. Disable children before pausing their parent;
+remove children before removing it. Only one level of grouping is supported.
+An offline router does not suppress independently fresh switch readings.
+[Registry contract](collector-rs/docs/TELEMETRY.md) describes validation and limits.
+
 Devices are enrolled explicitly; the collector does not scan the network or discover credentials. After pairing, enabled nodes appear automatically in the web overview, browser firmware and physical display. SNMP OIDs and JSON field mappings remain in the adapter configuration; secrets for the source device remain on its adapter host.
 
-You can keep sixteen remote nodes configured and four nodes active at once, counting the optional collector host. **Pause** retains an agent's enrollment and hides it from active monitoring. **Resume** restores it. **Revoke access** immediately rejects its publisher credential and clears its current readings, leaving a disabled node that can be paired again. **Remove node** revokes access and removes the registry entry. The agent process may continue running until stopped on its machine.
+You can keep sixteen remote nodes configured, with four active top-level nodes (counting the optional collector host) and eight active nodes in total. **Pause** retains an agent's enrollment and hides it from active monitoring. **Resume** restores it. **Revoke access** immediately rejects its publisher credential and clears its current readings, leaving a disabled node that can be paired again. **Remove node** revokes access and removes the registry entry. The agent process may continue running until stopped on its machine.
 
 An agent row distinguishes **Awaiting agent**, **Paused**, **Revoked** and live health, and shows the last receipt time. Measurement age is independent of receipt time; delayed readings stay stale. Configure expiry to cover at least three sending intervals. Unavailable or expired values are cleared rather than presented as current measurements.
 
@@ -89,7 +99,7 @@ Do not add a node query; Glimdock selects registered nodes itself. Pair the opti
 
 For first-boot or HTTPS CA setup, join the password-protected **Homelab-Setup** Wi-Fi network using the password displayed on screen, then open `http://192.168.4.1/`. **Advanced browser setup / HTTPS CA** accepts the issuing CA certificate. TLS verification stays enabled.
 
-Glimdock starts on **All nodes**, a bento overview of every active node. Tap a card for its detailed dashboard, tap the logo to return, or use the header picker. Readings that the platform does not expose remain `--`; stale and offline feeds clear their current measurements. The web's firmware canvas uses the same production LVGL screens, parsers and touch behavior, with browser transport replacing the board hardware.
+Glimdock starts on **All systems**, a bento overview of every active node. Tap a card for its detailed dashboard, tap the logo to return, or use the header picker. Readings that the platform does not expose remain `--`; stale and offline feeds clear their current measurements. The web's firmware canvas uses the same production LVGL screens, parsers and touch behavior, with browser transport replacing the board hardware.
 
 A private build with a complete valid pairing saves it after its first successful authenticated snapshot when no pairing is already saved. Public firmware contains blank build defaults and reconnects using saved NVS. Ordinary browser updates preserve this state; a full flash erase clears it. [Firmware setup](firmware/README.md) covers source builds, other orientations and recovery.
 

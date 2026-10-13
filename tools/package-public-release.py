@@ -24,6 +24,8 @@ FILES = (
     'tools/cargo-notices.py','tools/test-pairing-policy.py','tools/configure_truenas_ssh.py',
     'integrations/truenas/probe.py','integrations/truenas/README.md',
     'examples/README.md','examples/collector.json','examples/nodes/proxmox.json',
+    'commercial/site/package.json','commercial/site/package-lock.json','commercial/site/.gitignore',
+    'commercial/site/README.md','commercial/site/drizzle.config.ts',
     'examples/agents/host.json','examples/agents/snmp.json','examples/agents/snmp-credentials.json','examples/agents/json.json',
     'examples/snapshots/host.json','examples/snapshots/all-nodes.json','examples/snapshots/firmware-inventory.json',
     'enclosure/README.md','enclosure/requirements.txt',
@@ -37,7 +39,7 @@ TREES = {
     'device-agent-rs/src':{'.rs'}, 'device-agent-rs/tests':{'.rs'},
     'deploy/agents':{'.service','.plist','.ps1','.sh','.md'},
     'examples/agents':{'.json'},
-    'firmware/src':{'.h','.cpp'}, 'public-docs':{'.md'},
+    'firmware/src':{'.h','.cpp','.inc'}, 'public-docs':{'.md'},
     'collector-web/src':{'.js'}, 'collector-web/tests':{'.js'},
     'collector-web/assets':{'.js','.css','.txt','.svg','.woff2'},
     'collector-web/emulator':{'.js','.json','.wasm','.txt'},
@@ -45,13 +47,24 @@ TREES = {
     'branding':{'.svg','.txt','.md','.py','.woff2'}, 'LICENSES':{'.txt','.json','.md'},
     'tools/native-preview':{'.py','.cpp','.h','.md','.txt'},
     'tools/web-emulator':{'.py','.cpp','.h','.md','.mjs','.txt'},
+    'contracts/agent-operations':{'.json'},
+    'examples/agent-operations':{'.json','.py'},
+    'tools/agent-operations':{'.py','.txt'},
+    'design/agent-operations':{'.html','.js','.css','.md'},
+    'commercial/site/public':{'.html','.css','.js','.json','.svg','.woff2','.webp','.png','.txt','.xml','.md','.wasm','.py'},
+    'commercial/site/scripts':{'.mjs','.py'},
+    'commercial/site/tests':{'.mjs'},
+    'commercial/site/worker':{'.js'},
+    'commercial/site/db':{'.ts'},
+    'commercial/site/drizzle':{'.sql','.json'},
+    'enclosure/public/pebble-r26-prototype-v2':{'','.py','.md','.json','.txt','.license','.step','.brep','.stl','.png'},
 }
 IPV4 = re.compile(r'(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])')
 PERSONAL = re.compile(r'/(?:Users|home)/[^\s\"\'`<>]+')
-BINARY = {'.woff2','.wasm','.bin','.gz'}
+BINARY = {'.woff2','.wasm','.bin','.gz','.png','.webp','.stl'}
 # Emscripten's browser libc deliberately exposes this synthetic home directory.
 VIRTUAL_PATHS = {'/home/web_user'}
-ASSET_TREES = ('collector-web/assets/', 'collector-web/emulator/', 'collector-web/firmware/')
+ASSET_TREES = ('collector-web/assets/', 'collector-web/emulator/', 'collector-web/firmware/', 'commercial/site/public/', 'enclosure/public/pebble-r26-prototype-v2/')
 def private_address(value):
     try: address=ipaddress.ip_address(value)
     except ValueError: return False
@@ -65,6 +78,11 @@ def private_values():
         p=ROOT/'firmware/include'/name
         if p.exists():
             values.extend(ast.literal_eval(m.group(1)).encode() for m in pattern.finditer(p.read_text()) if ast.literal_eval(m.group(1)))
+    for pattern in ('*.key','*.token'):
+        for p in (ROOT/'private').glob(pattern):
+            if p.is_file() and not p.is_symlink() and p.stat().st_size<=4096:
+                value=p.read_bytes().strip()
+                if len(value)>=24:values.append(value)
     return values
 
 def candidate():
@@ -105,7 +123,7 @@ def candidate():
     sources['firmware/include/config.h']=sources['firmware/include/config.example.h']
     # Public summaries replace private prototype records and their local links.
     sources['docs/validation.md']=sources['public-docs/VALIDATION.md']
-    sources['enclosure/pebble-landscape/README.md']=sources['public-docs/ENCLOSURE.md']
+    sources['enclosure/pebble-landscape/README.md']=b'# Historical r19 enclosure source\n\nThis folder preserves the earlier parametric model. Current fitted CAD and validation caveats are in [the Pebble public prototype](../public/pebble-r26-prototype-v2/README.md) and [the enclosure guide](../../public-docs/ENCLOSURE.md). Do not treat this historical model as the current assembled product.\n'
     sources['enclosure/reference/README.md']=b'''# Manufacturer fitting reference\n\nThe current Pebble Landscape CAD expects the V1 manufacturer STEP at\n`esp32-s3-touch-lcd-2_8.stp` here. Obtain it from the official Waveshare\nresources; manufacturer geometry, personal fit files and Orca projects are\nnot redistributed. The authored design parameters are in\n`enclosure/pebble-landscape/design.json`. Nominal CAD checks do not establish\nphysical fit. The current main design is USB-only.\n'''
     literals=private_values()
     for name,data in sources.items():

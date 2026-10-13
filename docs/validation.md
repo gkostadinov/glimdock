@@ -19,7 +19,7 @@ the node identity. OS, SNMP and mapped JSON collectors use the same push
 transport; device-specific readings remain labeled by their source.
 
 The shared firmware renderer has passed a full 320 × 240 native/WebAssembly
-pixel comparison. The All nodes view and selected-node navigation are exercised
+pixel comparison. The All systems view and selected-node navigation are exercised
 through real LVGL input. The website runs this renderer with explicitly authored
 example Mac, Windows, router and printer readings.
 

@@ -30,9 +30,26 @@ capability changes. A disabled/removed host retains restoration metadata.
 A registered feed receives a stable ID when omitted. Later name changes keep it.
 Registration is explicit: the collector does not scan the network or obtain
 credentials automatically. Enabled nodes appear automatically on connected
-displays. Up to sixteen feeds can remain configured, with four active nodes
-including the optional host. Paused feeds keep settings and credentials and
-are not polled. The default node follows inventory order, with no preferred OS.
+displays. Up to sixteen feeds can remain configured, with four active top-level nodes
+(including the optional host) and eight active nodes in total. Paused feeds keep settings and credentials and
+are not polled. The default node is the first top-level node in inventory order, with no preferred OS.
+
+Optional `parent_id` groups a feed or push agent under an existing top-level
+node, for example a managed switch under `agent:Router`. Empty or omitted
+`parent_id` keeps the existing flat registry. Parents must be distinct configured
+roots; nesting, cycles and unknown IDs are rejected. Enable a parent before its
+children, and disable or delete children before disabling their parent. Delete
+children before removing the parent entirely. An offline parent does not hide
+a child or change its independently measured freshness. Paused nodes retain their
+identity and parent metadata.
+
+The management projection returns `max_nodes: 8`, `max_root_nodes: 4`, and
+`parent_id` on each descriptor. Rename/update requests preserve an omitted parent;
+send `parent_id: ""` to make a child a top-level node, within the four-root limit.
+Feed-to-agent migration keeps the same parent and stable ID. Publisher enrollment
+and telemetry cannot assign or change parentage. All selected snapshots and node
+registry endpoints return the owner's authoritative relationship. Selected
+snapshots retain the 48 KiB bound; the eight-node aggregate is bounded to 512 KiB.
 
 Windows is supported as a monitored device through `glimdock-agent`.
 The central configuration service uses Unix sockets; a Windows hub is not

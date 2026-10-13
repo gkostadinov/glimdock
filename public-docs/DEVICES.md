@@ -129,8 +129,12 @@ readings. Old samples are not accumulated in an unbounded offline queue. Check
 source health as well as the receipt age: an adapter can successfully reach the
 collector while its router/API is unavailable.
 
-Four active nodes include the optional collector host; up to sixteen remote
-nodes can stay configured. The desk display starts on All nodes and opens a
+Four active top-level nodes include the optional collector host. Up to eight
+nodes including children can be active, and sixteen remote nodes can remain
+configured. A child uses `parent_id` to reference an enabled top-level node;
+only one level of grouping is supported. The parent exposes a Subnodes list in
+the style of Guests; children retain their own freshness and detailed dashboards.
+The desk display starts on All systems and opens a
 node's Overview, Storage, Sensors and Health on selection. Proxmox guest views
 and Klipper job/temperature views remain available. Enrollment and revocation
 are managed from the web console; the firmware can rename, pause, resume and

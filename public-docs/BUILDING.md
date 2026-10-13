@@ -147,7 +147,7 @@ python3 tools/native-preview/render.py --snapshot examples/snapshots/all-nodes.j
 Use PlatformIO-installed LVGL 9.3.0 sources or supply the native renderer's
 `--lvgl-source` path. It saves White/Dark PNGs, memory reports, input/provenance
 and a gallery. The continuous pointer suite checks real LVGL press/move/release
-behavior, including scrolling, keyboards, node management and All nodes cards.
+behavior, including scrolling, keyboards, node management and All systems cards.
 The browser tests exercise the compiled firmware and transport; web tests cover
 data handling, authentication/enrollment/node-management transitions and the
 verified USB flash plan.
