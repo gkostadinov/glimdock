@@ -1,6 +1,7 @@
 /* Production main.cpp and LVGL run unchanged; only board/network transport differ. */
 #include "model.h"
 #include "operations_parse.h"
+#include "private_chat_network.h"
 #include "board.h"
 #include <lvgl.h>
 #include <ArduinoJson.h>
@@ -47,6 +48,13 @@ EM_JS(void, webRequest, (const char *kind, const char *payload), {
 });
 
 void requestOperationsTransport(){webRequest("operations","");}
+extern "C" void homelabPrivateChatRequest(int kind,const char*session,const char*cursor,int64_t after,int64_t order,int64_t offset,uint32_t generation){
+ JsonDocument doc;doc["kind"]=kind;doc["session"]=session;doc["cursor"]=cursor;doc["after"]=double(after);doc["order"]=double(order);doc["offset"]=double(offset);doc["generation"]=generation;std::string payload;serializeJson(doc,payload);webRequest("private",payload.c_str());
+}
+extern "C" EMSCRIPTEN_KEEPALIVE int glimdock_private_chat(const char*json,uint32_t generation){bool accepted=ingestPrivateChat(json,generation);if(accepted&&!homelabPreviewBusy())homelabPreviewPoll();return accepted;}
+extern "C" EMSCRIPTEN_KEEPALIVE void glimdock_private_error(uint32_t generation){privateChatRuntimeError("Sample conversation page unavailable.",generation);}
+extern "C" EMSCRIPTEN_KEEPALIVE uint32_t glimdock_private_generation(){return privateChatGeneration();}
+
 
 extern "C" EMSCRIPTEN_KEEPALIVE int glimdock_operations(const char*json){
  if(!json||strlen(json)>49152)return 0;JsonDocument document;if(deserializeJson(document,json))return 0;static ops::Snapshot next;if(!ops_json::parse(document,next))return 0;auto&old=opsTransportSnapshot();next.received=old.valid&&old.sequence==next.sequence&&old.generated==next.generated?old.received:millis();old=next;auto&state=opsTransportState();state.connected=true;state.revision++;state.message[0]=0;if(!homelabPreviewBusy())homelabPreviewPoll();return 1;

@@ -33,6 +33,7 @@ class String {
  public:
   String() = default;
   String(const char *value) : text_(value ? value : "") {}
+  String(char value) : text_(1,value) {}
   String(const std::string &value) : text_(value) {}
   String(double value, unsigned char digits = 2) {
     std::ostringstream out; out << std::fixed << std::setprecision(digits) << value; text_ = out.str();
@@ -42,6 +43,10 @@ class String {
   String(T value) : text_(std::to_string(value)) {}
   const char *c_str() const { return text_.c_str(); }
   size_t length() const { return text_.size(); }
+  int indexOf(char value,size_t from=0) const {auto at=text_.find(value,from);return at==std::string::npos?-1:int(at);}
+  bool startsWith(const char*value) const {return text_.rfind(value?value:"",0)==0;}
+  String substring(size_t start,size_t end=std::string::npos) const {start=std::min(start,text_.size());return String(text_.substr(start,end==std::string::npos?end:end-start));}
+  void trim(){auto first=text_.find_first_not_of(" \t\r\n"),last=text_.find_last_not_of(" \t\r\n");text_=first==std::string::npos?"":text_.substr(first,last-first+1);}
   bool isEmpty() const { return text_.empty(); }
   void reserve(size_t n) { text_.reserve(n); }
   char operator[](size_t i) const { return text_[i]; }

@@ -13,6 +13,7 @@
 #include "audio.h"
 #include "notification_policy.h"
 #include "operations_model.h"
+#include "private_chat_network.h"
 bool consumeWakeTouch=false;
 namespace {
 // The panel geometry is shared with the display/touch driver and native preview.
@@ -34,6 +35,10 @@ ops::Snapshot*operations=nullptr;ops::Network operationsNet;
 bool agentsWorkspace=false;uint8_t savedNodesPage=19,savedAgentsPage=22;
 lv_obj_t*workspaceHighlight=nullptr;int workspaceStep=60;
 constexpr uint8_t OPS_OVERVIEW=22,OPS_AGENTS=23,OPS_TASKS=24,OPS_EVENTS=25,OPS_AGENT=26,OPS_TASK=27,OPS_EVENT=28,OPS_OPERATIONS=29,OPS_SOURCES=30,OPS_SYSTEMS=31;
+constexpr uint8_t PRIVATE_SESSIONS=32,PRIVATE_MESSAGES=33;
+bool privatePage(uint8_t p){return p==PRIVATE_SESSIONS||p==PRIVATE_MESSAGES;}
+bool privateNewRequest=false;privatechat::Model*privateChat=nullptr;privatechat::State privateState;
+void privateOpen(lv_event_t*);void privateRender();void privateBack();void privateResetUi();void privateWipeLabels(lv_obj_t*);void privateHeader();
 bool operationsPage(uint8_t p){return p>=OPS_OVERVIEW&&p<=OPS_SYSTEMS;}
 void toggleWorkspace(lv_event_t*);void workspaceSwitchControl();void operationsRender();void operationsHeader();
 int operationsTab();void operationsBack();bool operationsAll();void operationsHome();void operationsClockGo();String operationsClockSummary();void operationsClockExtras(int);
@@ -55,8 +60,8 @@ uint8_t notificationKind=0;
 uint8_t page=ALL_NODES_PAGE,detailOrigin=0,brightness=80,clockZone=0;int selectedGuestId=0;char selectedDiskName[48]{};bool autoRotate=false,idleDim=false,dimmed=false,manualDemo=false,uiReady=false,lightTheme=true;
 bool fleetContext=true;
 bool utilityPage(uint8_t p){return p==7||p==8||(p>=13&&p<=18);}
-bool fleetPage(){return page==ALL_NODES_PAGE||page==CLOCK_PAGE||(agentsWorkspace&&(page==OPS_SYSTEMS||(page==OPS_OVERVIEW&&operationsAll())))||(utilityPage(page)&&fleetContext);}
-void setViewPage(uint8_t p){fleetContext=p==ALL_NODES_PAGE||p==CLOCK_PAGE||(agentsWorkspace&&(p==OPS_SYSTEMS||(p==OPS_OVERVIEW&&operationsAll())))||(utilityPage(p)&&fleetPage());page=p;}
+bool fleetPage(){return privatePage(page)||page==ALL_NODES_PAGE||page==CLOCK_PAGE||(agentsWorkspace&&(page==OPS_SYSTEMS||(page==OPS_OVERVIEW&&operationsAll())))||(utilityPage(page)&&fleetContext);}
+void setViewPage(uint8_t p){if(privatePage(page)&&!privatePage(p)){setPrivateChatActive(false);privateResetUi();}else if(privatePage(p)&&!privatePage(page))setPrivateChatActive(true);fleetContext=privatePage(p)||p==ALL_NODES_PAGE||p==CLOCK_PAGE||(agentsWorkspace&&(p==OPS_SYSTEMS||(p==OPS_OVERVIEW&&operationsAll())))||(utilityPage(p)&&fleetPage());page=p;}
 char selectedGpuId[64]{},gpuLinkIds[MAX_GPUS][64]{},nodeLinkIds[MAX_NODES][64]{},trackedNodeId[64]{};uint8_t pickerOrigin=0;uint8_t gpuReturnPage=11,gpuListOrigin=5;
 uint32_t lastTouch=0,lastRender=0,lastPoll=0,lastRotate=0,lastNetRevision=0;uint64_t lastSequence=0;
 float cpuHistory[32]{},ramHistory[32]{};uint8_t historyCount=0;
@@ -117,7 +122,7 @@ lv_obj_t *label(lv_obj_t *parent,const String &text,int x,int y,int w,uint32_t f
   auto*l=lv_label_create(parent);
   // The collector uses middle dots in NAS names; Montserrat supports bullets.
   // Allocate a normalized copy only for labels containing the missing glyph.
-  if(strstr(text.c_str(),"\xC2\xB7")){String compatible=text;compatible.replace("\xC2\xB7","•");lv_label_set_text(l,compatible.c_str());}
+  if(strstr(text.c_str(),"\xC2\xB7")){String compatible=text;compatible.replace("\xC2\xB7","•");lv_label_set_text(l,compatible.c_str());privatechat::wipe(const_cast<char*>(compatible.c_str()),compatible.length());}
   else lv_label_set_text(l,text.c_str());
   lv_obj_set_pos(l,x,y);lv_obj_set_width(l,w);lv_obj_set_height(l,lv_font_get_line_height(font));lv_label_set_long_mode(l,LV_LABEL_LONG_DOT);lv_obj_set_style_text_color(l,color(fg),0);lv_obj_set_style_text_font(l,font,0);return l;
 }
@@ -141,11 +146,11 @@ void go(lv_event_t *e){uint8_t selected=uintptr_t(lv_event_get_user_data(e));ope
 void chooseNode(lv_event_t*){if(agentsWorkspace){openPage(OPS_SYSTEMS);return;}if(page==13)return;pickerOrigin=page;openPage(13);}
 void allNodesGo(lv_event_t*){agentsWorkspace=false;savedNodesPage=ALL_NODES_PAGE;Preferences p;if(p.begin("display",false)){p.putBool("agentsMode",false);p.end();}openPage(ALL_NODES_PAGE);}
 void clockGo(lv_event_t*){if(agentsWorkspace)operationsClockGo();else openPage(CLOCK_PAGE);}
-void feedStatusGo(lv_event_t*e){if(agentsWorkspace){openPage(OPS_SOURCES);return;}if(fleetPage())openPage(7);else go(e);}
+void feedStatusGo(lv_event_t*e){if(privatePage(page)){openPage(7);return;}if(agentsWorkspace){openPage(OPS_SOURCES);return;}if(fleetPage())openPage(7);else go(e);}
 void nodeGo(lv_event_t*e){size_t index=uintptr_t(lv_event_get_user_data(e));if(index>=MAX_NODES||!nodeLinkIds[index][0])return;if(manualDemo){int selected=nodeIndexForId(*snapshot,nodeLinkIds[index]);if(selected>=0){snapshot->node=snapshot->nodes[selected];makeDemo(*snapshot);resetNodeView();render();}return;}if(requestNodeSelection(nodeLinkIds[index])){readSnapshot(*snapshot,net);resetNodeView();render();}}
 
 void guestGo(lv_event_t*e){int index=uintptr_t(lv_event_get_user_data(e));if(index<snapshot->nGuests){selectedGuestId=snapshot->guests[index].id;openPage(4);}}
-void back(lv_event_t*){if(operationsPage(page)){operationsBack();return;}if(page==18){finishField(true);return;}openPage(page==14||page==15?7:page==16?15:page==17?16:page==13?pickerOrigin:page==4?1:page==9?2:page==11?gpuListOrigin:page==12?gpuReturnPage:detailOrigin);}
+void back(lv_event_t*){if(privatePage(page)){privateBack();return;}if(operationsPage(page)){operationsBack();return;}if(page==18){finishField(true);return;}openPage(page==14||page==15?7:page==16?15:page==17?16:page==13?pickerOrigin:page==4?1:page==9?2:page==11?gpuListOrigin:page==12?gpuReturnPage:detailOrigin);}
 void diskGo(lv_event_t*e){int index=uintptr_t(lv_event_get_user_data(e));if(index<snapshot->nDisks){strlcpy(selectedDiskName,snapshot->disks[index].name,sizeof(selectedDiskName));openPage(9);}}
 void gpuGo(lv_event_t*e){size_t index=uintptr_t(lv_event_get_user_data(e));if(index<MAX_GPUS&&gpuLinkIds[index][0]){strlcpy(selectedGpuId,gpuLinkIds[index],sizeof(selectedGpuId));gpuReturnPage=page==4?4:11;openPage(12);}}
 void gpuIdentities(){for(size_t i=0;i<MAX_GPUS;i++)strlcpy(gpuLinkIds[i],i<snapshot->nGpus?snapshot->gpus[i].id:"",sizeof(gpuLinkIds[i]));}
@@ -249,11 +254,11 @@ void header(){
   if(feedStatusColor!=previousStatusColor)lv_obj_invalidate(headerTitle);
   feedStatus=demo()?"DEMO":fleetPage()?(offline?"OFFLINE":!snapshot->valid?net.setup?"SETUP":"LOADING":headerStale?"STALE":"LIVE"):net.loading?(net.wifi?"LOADING":"OFFLINE"):snapshot->valid?(!strcmp(snapshot->node.status,"offline")?"OFFLINE":headerStale?"STALE":"LIVE"):net.setup?"SETUP":"OFFLINE";
   if(feedStatusLabel){lv_label_set_text(feedStatusLabel,feedStatus);lv_obj_set_style_text_color(feedStatusLabel,color(feedStatusColor),0);}
-  if(agentsWorkspace)operationsHeader();
+  if(agentsWorkspace)operationsHeader();if(privatePage(page))privateHeader();
 
   lv_obj_set_style_bg_color(tabBar,color(CARD),0);lv_obj_set_style_border_color(tabBar,color(EDGE),0);
   int active=page<4?page:page==4?1:page==9?2:page==12&&gpuReturnPage==4?1:page==5||page==6||page==10||page==11||page==12?detailOrigin:-1;
-  const char*const printerTitles[]={"Overview","Job","Temps","Health"};const char*const deviceTitles[]={"Overview","Storage","Sensors","Health"};const char*const parentTitles[]={"Overview","Subnodes","Storage","Sensors"};const char*const allTitles[]={"All systems","Clock","Pick system","Settings"};if(deviceNode())active=page==9?1:pageTab(page)>=0?pageTab(page):pageTab(detailOrigin);if(fleetPage())active=page==CLOCK_PAGE?1:(page==13||page==OPS_SYSTEMS)?2:utilityPage(page)?3:0;
+  const char*const printerTitles[]={"Overview","Job","Temps","Health"};const char*const deviceTitles[]={"Overview","Storage","Sensors","Health"};const char*const parentTitles[]={"Overview","Subnodes","Storage","Sensors"};const char*const allTitles[]={"All systems","Clock","Pick system","Settings"};if(deviceNode())active=page==9?1:pageTab(page)>=0?pageTab(page):pageTab(detailOrigin);if(fleetPage())active=page==CLOCK_PAGE?1:(page==13||page==OPS_SYSTEMS)?2:(utilityPage(page)||privatePage(page))?3:0;
   const char*const operationsTitles[]={"Overview","Agents","Tasks","Events"};if(agentsWorkspace&&!fleetPage())active=operationsTab();
   for(int i=0;i<4;i++){lv_label_set_text(lv_obj_get_child(tabs[i],1),fleetPage()?allTitles[i]:agentsWorkspace?operationsTitles[i]:printerNode()?printerTitles[i]:deviceNode()?(hasSubnodes()?parentTitles[i]:deviceTitles[i]):titles[i]);lv_obj_set_style_text_font(lv_obj_get_child(tabs[i],1),fleetPage()&&PORTRAIT?&lv_font_montserrat_8:&lv_font_montserrat_10,0);lv_obj_set_style_bg_color(tabs[i],color(i==active?(lightTheme?BG:DARK_SELECTED):CARD),0);for(int j=0;j<2;j++)lv_obj_set_style_text_color(lv_obj_get_child(tabs[i],j),color(i==active?CYAN:MUTED),0);auto*rule=lv_obj_get_child(tabs[i],2);lv_obj_set_style_bg_color(rule,color(CYAN),0);if(i==active)lv_obj_remove_flag(rule,LV_OBJ_FLAG_HIDDEN);else lv_obj_add_flag(rule,LV_OBJ_FLAG_HIDDEN);}
 }
@@ -557,7 +562,7 @@ void nodeForm(){
 }
 void deleteScreen(){heading("Remove node?","",true);auto*s=scroll(28);int y=note(s,0,editingNode.name,INK);y=note(s,y,String(deleteNodeId));y=note(s,y,"Remove this node from desk monitoring? You can add it again from Settings.");if(formMessage.length())y=note(s,y,formMessage,RED);if(nodeConfigUi.message[0])y=note(s,y,nodeConfigUi.message,AMBER);smallButton(s,nodeConfigUi.busy?"Removing...":"Remove this node",0,y,LIST_W,RED,deleteConfirmed);y+=48;smallButton(s,"Keep node",0,y,LIST_W,CYAN,cancelDelete);}
 void settings(){
-  auto*s=scroll();int y=0;section(s,y,"DISPLAY SETTINGS");y+=20;
+  auto*s=scroll();int y=0;section(s,y,"DISPLAY SETTINGS");y+=20;smallButton(s,"Private conversations",0,y,LIST_W,LAVENDER,privateOpen);y+=48;
   smallButton(s,soundEnabled?"Notification sounds: ON":"Notification sounds: OFF",0,y,LIST_W,MINT,soundChanged);y+=46;
   auto*volumeCard=box(s,0,y,LIST_W,68);label(volumeCard,"Sound volume",10,10,LIST_W-68,INK,&lv_font_montserrat_14);auto*volumeLabel=label(volumeCard,String(soundVolume)+"%",LIST_W-57,12,47,MUTED,&lv_font_montserrat_12);lv_obj_set_style_text_align(volumeLabel,LV_TEXT_ALIGN_RIGHT,0);
   auto*volumeSlider=lv_slider_create(volumeCard);lv_obj_add_flag(volumeSlider,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_set_pos(volumeSlider,14,43);lv_obj_set_size(volumeSlider,LIST_W-30,8);lv_obj_set_ext_click_area(volumeSlider,16);lv_slider_set_range(volumeSlider,0,100);lv_slider_set_value(volumeSlider,soundVolume,LV_ANIM_OFF);lv_obj_set_style_bg_color(volumeSlider,color(EDGE),LV_PART_MAIN);lv_obj_set_style_bg_color(volumeSlider,color(CYAN),LV_PART_INDICATOR);lv_obj_set_style_bg_color(volumeSlider,color(CYAN),LV_PART_KNOB);for(auto part:{LV_PART_MAIN,LV_PART_INDICATOR,LV_PART_KNOB})lv_obj_set_style_border_width(volumeSlider,0,part);lv_obj_add_event_cb(volumeSlider,volumeChanged,LV_EVENT_VALUE_CHANGED,volumeLabel);lv_obj_add_event_cb(volumeSlider,volumeChanged,LV_EVENT_RELEASED,volumeLabel);y+=76;
@@ -572,6 +577,7 @@ void settings(){
   row(s,y,"Feed status",feedStatus,feedStatusColor);feedStatusLabel=lv_obj_get_child(lv_obj_get_child(s,lv_obj_get_child_count(s)-1),1);y+=44;row(s,y,"Display IP",net.ip[0]?String(net.ip):String("Not connected"));y+=44;row(s,y,"Network",net.message);y+=44;section(s,y,"Glimdock • open desk monitor",LAVENDER);y+=20;note(s,y,"Waveshare ESP32-S3 Touch LCD 2.8 V1 / schema 1");
 }
 #include "operations_ui.inc"
+#include "private_chat_ui.inc"
 void setupScreen(){
   auto*s=scroll();label(s,"SET UP GLIMDOCK",4,2,LIST_W-4,LAVENDER,&lv_font_montserrat_14);int y=note(s,25,net.setup?String("Join the Wi-Fi network below"):net.message[0]?String(net.message):String("Starting configuration network..."));smallButton(s,"Configure on this display",0,y,LIST_W,CYAN,openConnection);y+=48;
   row(s,y,"Wi-Fi network",glimdock::SETUP_SSID,CYAN);y+=44;row(s,y,"Setup password",net.apPassword[0]?String(net.apPassword):String("Preparing..."),INK);y+=44;row(s,y,"Open browser","192.168.4.1",MINT);y+=44;
@@ -588,12 +594,13 @@ void noData(){
   smallButton(c,"Wi-Fi & collector setup",12,y,textW,CYAN,openConnection);y+=48;label(c,"No live readings received yet",12,y,textW,MUTED,&lv_font_montserrat_10);lv_obj_set_height(c,y+lv_font_get_line_height(&lv_font_montserrat_10)+12);
 }
 void render(){
-  if(!uiReady)return;applyAppearance();struct tm appearanceTime{};appearanceClockSynced=themeMode==THEME_AUTO&&displayClockTm(time(nullptr),clockZone,appearanceTime);readManagement();if(keyboard){lv_obj_delete(keyboard);keyboard=nullptr;fieldArea=nullptr;}if(page==18)lv_obj_add_flag(tabBar,LV_OBJ_FLAG_HIDDEN);else lv_obj_remove_flag(tabBar,LV_OBJ_FLAG_HIDDEN);int oldScroll=scrollArea?lv_obj_get_scroll_y(scrollArea):0;static uint8_t previousPage=255;feedStatusLabel=nullptr;deviceBatteryLabel=nullptr;lv_obj_clean(content);workspaceHighlight=nullptr;scrollArea=nullptr;header();
-  if(operationsPage(page))operationsRender();else if(page==18)fieldEditor();else if(page==17)deleteScreen();else if(page==16)nodeForm();else if(page==15)nodeManager();else if(page==14)connectionForm();else if(page==13)nodePicker();else if(page==8)setupScreen();else if(page==7)settings();else if(page==ALL_NODES_PAGE)nodesOverview();else if(page==CLOCK_PAGE)clockOverview();else if(page==SUBNODES_PAGE)subnodesList();else if(!snapshot->valid)noData();else if(printerNode()){switch(page){case 1:printerJob();break;case 2:printerTemps();break;case 3:case 6:printerHealth();break;default:printerOverview();break;}}else switch(page){case 0:overview();break;case 1:guests();break;case 2:storage();break;case 3:sensors();break;case 4:guestDetail();break;case 5:powerDetail();break;case 6:alerts();break;case 9:diskDetail();break;case 10:memoryDetail();break;case 11:gpuList();break;case 12:gpuDetail();break;}
-  if(scrollArea&&previousPage==page)lv_obj_scroll_to_y(scrollArea,oldScroll,LV_ANIM_OFF);previousPage=page;lastRender=millis();styleNotification();
+  if(!uiReady)return;applyAppearance();struct tm appearanceTime{};appearanceClockSynced=themeMode==THEME_AUTO&&displayClockTm(time(nullptr),clockZone,appearanceTime);readManagement();if(keyboard){lv_obj_delete(keyboard);keyboard=nullptr;fieldArea=nullptr;}if(page==18)lv_obj_add_flag(tabBar,LV_OBJ_FLAG_HIDDEN);else lv_obj_remove_flag(tabBar,LV_OBJ_FLAG_HIDDEN);int oldScroll=privateNewRequest?0:scrollArea?lv_obj_get_scroll_y(scrollArea):0;static uint8_t previousPage=255;feedStatusLabel=nullptr;deviceBatteryLabel=nullptr;privateWipeLabels(content);lv_obj_clean(content);workspaceHighlight=nullptr;scrollArea=nullptr;header();
+  if(privatePage(page))privateRender();else if(operationsPage(page))operationsRender();else if(page==18)fieldEditor();else if(page==17)deleteScreen();else if(page==16)nodeForm();else if(page==15)nodeManager();else if(page==14)connectionForm();else if(page==13)nodePicker();else if(page==8)setupScreen();else if(page==7)settings();else if(page==ALL_NODES_PAGE)nodesOverview();else if(page==CLOCK_PAGE)clockOverview();else if(page==SUBNODES_PAGE)subnodesList();else if(!snapshot->valid)noData();else if(printerNode()){switch(page){case 1:printerJob();break;case 2:printerTemps();break;case 3:case 6:printerHealth();break;default:printerOverview();break;}}else switch(page){case 0:overview();break;case 1:guests();break;case 2:storage();break;case 3:sensors();break;case 4:guestDetail();break;case 5:powerDetail();break;case 6:alerts();break;case 9:diskDetail();break;case 10:memoryDetail();break;case 11:gpuList();break;case 12:gpuDetail();break;}
+  if(scrollArea&&previousPage==page)lv_obj_scroll_to_y(scrollArea,oldScroll,LV_ANIM_OFF);previousPage=page;privateNewRequest=false;lastRender=millis();styleNotification();
 }
 void buildUI(){
   lv_obj_t*screen=lv_screen_active();lv_obj_set_style_bg_color(screen,color(BG),0);lv_obj_set_style_pad_all(screen,0,0);lv_obj_remove_flag(screen,LV_OBJ_FLAG_SCROLLABLE);
+  privateChat=(privatechat::Model*)heap_caps_malloc(sizeof(privatechat::Model),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);if(privateChat)new(privateChat)privatechat::Model{};
   operations=(ops::Snapshot*)heap_caps_malloc(sizeof(ops::Snapshot),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);if(operations)new(operations)ops::Snapshot{};
   int homeH=PORTRAIT?26:HEADER_H;auto*home=box(screen,0,0,104,homeH,BG,0);lv_obj_set_style_bg_opa(home,LV_OPA_TRANSP,0);headerMark=brandMark(home,4,PORTRAIT?4:8);headerTitle=brandWordmark(home,27,PORTRAIT?0:4);clickable(home,allNodesGo);
   // The wordmark's existing dot carries status; its hit area draws nothing.
@@ -634,7 +641,7 @@ void processBatteryNotice(uint32_t now){
 }
 void updateUi(){
   if(!snapshot)return;uint32_t now=millis();
-  if(now-lastPoll>=500){lastPoll=now;if(operations)readOperations(*operations,operationsNet);if(manualDemo)makeDemo(*snapshot);else readSnapshot(*snapshot,net);
+  if(now-lastPoll>=500){lastPoll=now;if(privatePage(page)&&privateChat)readPrivateChat(*privateChat,privateState);if(operations)readOperations(*operations,operationsNet);if(manualDemo)makeDemo(*snapshot);else readSnapshot(*snapshot,net);
     if(strcmp(trackedNodeId,snapshot->node.id)||(net.loading&&!snapshot->valid&&lastSequence))resetNodeView(true);
     if(!net.configured&&!manualDemo&&page!=7&&(page<13||page==ALL_NODES_PAGE))page=8;
     else if(net.configured&&!net.setup&&page==8&&!manualDemo)page=ALL_NODES_PAGE;
@@ -653,23 +660,24 @@ void noteTouch(bool pressed){if(!uiReady)return;if(pressed){lastTouch=millis();l
 #ifndef HOMELAB_NATIVE_PREVIEW
 void setup(){
   boardHoldPower();
-  Serial.begin(115200);boardInit();boardLvglInit();Preferences p;p.begin("display",true);brightness=constrain(p.getUChar("brightness",80),10,100);autoRotate=p.getBool("rotate",false);idleDim=p.getBool("dim",false);soundEnabled=p.getBool("sound",true);soundVolume=clampSoundVolume(p.getUChar("volume",DEFAULT_SOUND_VOLUME));loadAppearance(p);agentsWorkspace=p.getBool("agentsMode",false);if(agentsWorkspace)page=OPS_OVERVIEW;p.end();boardAudioVolume(soundVolume);boardAudioInit(soundEnabled);
+  size_t privateRx=Serial.setRxBufferSize(privatechat::MAX_CONFIG_JSON+64);Serial.begin(115200);if(!privateRx)Serial.println("Private reader USB receive buffer unavailable.");boardInit();boardLvglInit();Preferences p;p.begin("display",true);brightness=constrain(p.getUChar("brightness",80),10,100);autoRotate=p.getBool("rotate",false);idleDim=p.getBool("dim",false);soundEnabled=p.getBool("sound",true);soundVolume=clampSoundVolume(p.getUChar("volume",DEFAULT_SOUND_VOLUME));loadAppearance(p);agentsWorkspace=p.getBool("agentsMode",false);if(agentsWorkspace)page=OPS_OVERVIEW;p.end();boardAudioVolume(soundVolume);boardAudioInit(soundEnabled);
   Serial.printf("Glimdock boot: reset=%d; power latch=on; gyro/RTC=off; notification audio=%s\n",int(esp_reset_reason()),boardAudioReady()?"ready":"unavailable");
   snapshot=(Snapshot*)heap_caps_malloc(sizeof(Snapshot),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
   if(!snapshot){auto*l=lv_label_create(lv_screen_active());lv_label_set_text(l,"PSRAM unavailable\nCheck V1 board configuration");lv_obj_center(l);boardBacklight(80);return;}new(snapshot)Snapshot{};
-  for(int i=0;i<32;i++){cpuHistory[i]=NAN;ramHistory[i]=NAN;}startNetwork();lastTouch=lastRotate=millis();buildUI();boardBacklight(brightness);
+  for(int i=0;i<32;i++){cpuHistory[i]=NAN;ramHistory[i]=NAN;}initPrivateChat();startNetwork();lastTouch=lastRotate=millis();buildUI();boardBacklight(brightness);
 }
 void loop(){
+  privateChatProvisionTick();int privateView=consumePrivateChatViewRequest();if(privateView==1&&uiReady)privateOpen(nullptr);else if(privateView==2&&uiReady&&privatePage(page))openPage(7);else if(privateView==3&&uiReady&&page==PRIVATE_SESSIONS)privateSelectIndex(0);
   if(!snapshot){lv_timer_handler();delay(10);return;}updateUi();
   lv_timer_handler();delay(5);
 }
 
 #else
-void homelabPreviewInit(Snapshot* data,NetworkState* state){snapshot=data;net=*state;strlcpy(trackedNodeId,data->node.id,sizeof(trackedNodeId));brightness=80;lastTouch=millis();lastRotate=millis();for(int i=0;i<32;i++){cpuHistory[i]=data->demo?16+i%8:NAN;ramHistory[i]=data->demo?55+i%4:NAN;}cpuHistory[31]=data->cpu;ramHistory[31]=memoryPct(data->memUsed,data->memTotal);buildUI();}
-void homelabPreviewShow(uint8_t selected){if(operations)readOperations(*operations,operationsNet);agentsWorkspace=operationsPage(selected);if(selected==14){openConnection(nullptr);return;}if(selected==15){openNodeSettings(nullptr);return;}if(selected==16||selected==17){readManagement();if(selected==16&&!nodeConfigUi.count){addNode(nullptr);return;}ConfigNode n=nodeConfigUi.count>1?nodeConfigUi.nodes[1]:nodeConfigUi.count?nodeConfigUi.nodes[0]:ConfigNode{};beginNode(n,nodeConfigUi.count>0);if(selected==17){strlcpy(deleteNodeId,n.id,sizeof(deleteNodeId));page=17;render();}return;}if(selected==18){openConnection(nullptr);fieldOrigin=14;fieldIndex=4;fieldOriginal=wifiDraft[fieldIndex];page=18;render();return;}if(selected==11)gpuListOrigin=5;if(selected==4&&snapshot->nGuests)selectedGuestId=snapshot->guests[0].id;if(selected==9&&snapshot->nDisks)strlcpy(selectedDiskName,snapshot->disks[0].name,sizeof(selectedDiskName));if(selected==12&&snapshot->nGpus){strlcpy(selectedGpuId,snapshot->gpus[0].id,sizeof(selectedGpuId));gpuReturnPage=11;}detailOrigin=selected==4?1:selected==9?2:0;setViewPage(selected);render();}
+void homelabPreviewInit(Snapshot* data,NetworkState* state){initPrivateChat();snapshot=data;net=*state;strlcpy(trackedNodeId,data->node.id,sizeof(trackedNodeId));brightness=80;lastTouch=millis();lastRotate=millis();for(int i=0;i<32;i++){cpuHistory[i]=data->demo?16+i%8:NAN;ramHistory[i]=data->demo?55+i%4:NAN;}cpuHistory[31]=data->cpu;ramHistory[31]=memoryPct(data->memUsed,data->memTotal);buildUI();}
+void homelabPreviewShow(uint8_t selected){if(operations)readOperations(*operations,operationsNet);agentsWorkspace=operationsPage(selected)||privatePage(selected);if(selected==PRIVATE_SESSIONS){privateOpen(nullptr);return;}if(selected==14){openConnection(nullptr);return;}if(selected==15){openNodeSettings(nullptr);return;}if(selected==16||selected==17){readManagement();if(selected==16&&!nodeConfigUi.count){addNode(nullptr);return;}ConfigNode n=nodeConfigUi.count>1?nodeConfigUi.nodes[1]:nodeConfigUi.count?nodeConfigUi.nodes[0]:ConfigNode{};beginNode(n,nodeConfigUi.count>0);if(selected==17){strlcpy(deleteNodeId,n.id,sizeof(deleteNodeId));page=17;render();}return;}if(selected==18){openConnection(nullptr);fieldOrigin=14;fieldIndex=4;fieldOriginal=wifiDraft[fieldIndex];page=18;render();return;}if(selected==11)gpuListOrigin=5;if(selected==4&&snapshot->nGuests)selectedGuestId=snapshot->guests[0].id;if(selected==9&&snapshot->nDisks)strlcpy(selectedDiskName,snapshot->disks[0].name,sizeof(selectedDiskName));if(selected==12&&snapshot->nGpus){strlcpy(selectedGpuId,snapshot->gpus[0].id,sizeof(selectedGpuId));gpuReturnPage=11;}detailOrigin=selected==4?1:selected==9?2:0;setViewPage(selected);render();}
 void homelabPreviewGuest(int id){selectedGuestId=id;detailOrigin=1;page=4;render();}
 void homelabPreviewRefresh(){render();}
-void homelabPreviewPoll(){readSnapshot(*snapshot,net);if(operations)readOperations(*operations,operationsNet);if(strcmp(trackedNodeId,snapshot->node.id)||(net.loading&&!snapshot->valid&&lastSequence)){resetNodeView(true);}render();}
+void homelabPreviewPoll(){if(privatePage(page)&&privateChat)readPrivateChat(*privateChat,privateState);readSnapshot(*snapshot,net);if(operations)readOperations(*operations,operationsNet);if(strcmp(trackedNodeId,snapshot->node.id)||(net.loading&&!snapshot->valid&&lastSequence)){resetNodeView(true);}render();}
 void homelabPreviewTick(){updateUi();}
 bool homelabPreviewNotificationVisible(){return notification!=nullptr;}
 void homelabPreviewNotification(const char*title,const char*message,uint8_t kind){showNotification(title,message,kind);}
