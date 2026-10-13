@@ -1,5 +1,5 @@
 // ST7789 register sequence and CST328 protocol adapted from the user's BabyStory
-// Waveshare V1 example. Sleep/audio code is deliberately independent of this app.
+// Waveshare V1 example. Notification audio uses a separate bounded I2S task.
 #include "board.h"
 #include "config.h"
 #include "touch_state.h"
@@ -8,9 +8,13 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <esp_heap_caps.h>
+#include <algorithm>
 extern "C" void *homelab_lvgl_pool(size_t bytes){static void *pool=nullptr;if(!pool)pool=heap_caps_malloc(bytes,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);if(!pool){Serial.println("512 KiB PSRAM pool unavailable; check board memory configuration");abort();}return pool;}
 namespace {
 constexpr int CS=42,DC=41,RST=39,BL=5,INT_PIN=4,TOUCH_RST=2;
+// V1 schematic R5=200k / R11=100k: cell voltage = ADC voltage * 3.
+constexpr int BATTERY_ADC=8;
+BatteryMonitor batteryMonitor;
 SPIClass lcd(FSPI);
 volatile bool touchIRQ=false;
 TouchState touchState;
@@ -59,6 +63,15 @@ void touch(lv_indev_t *input,lv_indev_data_t *data){
 }
 }
 void boardBacklight(uint8_t percent){percent=min(uint8_t(100),percent);ledcWrite(5,(uint32_t(percent)*1023)/100);}
+BoardBatteryStatus boardBattery(){
+  static BoardBatteryStatus cached;static bool sampled=false;static uint32_t lastSample=0;
+  uint32_t now=millis();if(sampled&&uint32_t(now-lastSample)<2000)return cached;
+  uint16_t readings[9];for(auto&reading:readings)reading=analogReadMilliVolts(BATTERY_ADC);
+  std::sort(readings,readings+9);cached=batteryMonitor.update(readings[4]*0.003f);
+  bool first=!sampled;sampled=true;lastSample=now;
+  if(first)Serial.printf("Device battery: ADC GPIO8; %.2f V; voltage-only band %s; charging unknown\n",cached.volts,batteryLevelName(cached.level));
+  return cached;
+}
 void boardHoldPower(){
   // Assert the V1 latch before USB, display or radio startup. Never pulse it low.
   digitalWrite(7,HIGH);pinMode(7,OUTPUT);digitalWrite(7,HIGH);
@@ -66,6 +79,7 @@ void boardHoldPower(){
 }
 void boardInit(){
   boardHoldPower();
+  pinMode(BATTERY_ADC,INPUT);analogReadResolution(12);analogSetPinAttenuation(BATTERY_ADC,ADC_6db);
   pinMode(CS,OUTPUT);pinMode(DC,OUTPUT);pinMode(RST,OUTPUT);digitalWrite(CS,HIGH);
   ledcSetup(5,20000,10);ledcAttachPin(BL,5);boardBacklight(0);
   lcd.begin(40,-1,45);digitalWrite(RST,LOW);delay(50);digitalWrite(RST,HIGH);delay(170);

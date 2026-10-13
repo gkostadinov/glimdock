@@ -103,6 +103,60 @@ A normal update keeps NVS; a full erase clears it. Settings are not encrypted at
 rest by this development build. Serial diagnostics report status, sequences and
 inventory counts without printing Wi-Fi credentials, tokens or snapshot bodies.
 
+## Device battery indication
+
+The small indicator below the header clock shows the Glimdock device's voltage.
+**Settings → Device battery** shows the voltage and a broad Very low / Low /
+Medium / High band. Both label the voltage as approximate. This is separate from
+any monitored laptop battery reported by a collector.
+
+The supported V1 board uses GPIO8 (ADC1) with a 200k/100k divider, so the calibrated
+ADC millivolts are multiplied by three. Nine readings are median-filtered every
+two seconds, then smoothed; band hysteresis reduces flicker around thresholds.
+No battery-specific calibration offset is assumed. Implausible ADC readings
+show Unavailable, not 0% or 100%.
+
+This is a voltage-only indication for a single 3.7 V LiPo, not a fuel gauge.
+Load, charging, temperature and cell age affect it. The firmware does not infer
+charging, full charge, USB power or remaining runtime from the voltage, and it
+does not shut the device down based on this estimate. The V1 charger status LED
+is not wired to an ESP32 input in the [manufacturer's schematic](https://files.waveshare.com/wiki/ESP32-S3-Touch-LCD-2.8/ESP32-S3-Touch-LCD-2.8.pdf).
+
+A low-voltage episode produces one brief **Battery low** banner and alert chime
+once Low or Very low persists for 30 seconds. It stays quiet while voltage is
+low, including a change to Very low. It re-arms after the smoothed voltage stays
+at or above 3.80 V for one minute. Missing readings and brief voltage rebounds
+do not re-arm it. This latch lasts for the current boot; a new low-battery boot
+may warn once after the same confirmation period. Existing banners and active
+touches/text edits defer the notice, and the chime honors saved mute/volume.
+The banner works even when the collector is offline.
+
+## Speaker notifications
+
+On the V1 board, the attached speaker receives short, quiet PCM5101 chimes through
+I2S (data GPIO47, bit clock GPIO48, word clock GPIO38). Playback uses a separate
+task and bounded queue; it requires no SD card or audio decoder and does not block
+touch or networking. **Settings → Notification sounds** mutes/unmutes notices and
+persists the choice. **Sound volume** adjusts chimes from 0–100%, shows the
+percentage while dragging and saves on release. Vertical Settings swipes do not
+change the saved level. The default 30% preserves the original quiet chime; 0%
+is silent, including speaker tests. **Test speaker** previews the current volume
+even when automatic notices are muted.
+The board's physical volume control also affects the speaker. Each notice also
+shows a small on-screen banner for about 4.5 seconds, with the connection state,
+new alert message or completed printer name. Tap the banner to dismiss it sooner.
+It remains visible across dashboard refreshes and does not pause monitoring;
+visual notices still appear when notification sounds are muted. **Test speaker**
+previews both the sound and the brief banner.
+
+A chime confirms the first live collector connection. New warning/critical alerts
+on the monitored node and observed Klipper print completion produce distinct
+chimes; fresh fleet summaries also track printer completion while another node is
+open. Existing alerts/completed jobs on initial connection, demo/stale readings,
+reordered or repeated snapshots do not trigger alarm replay. New-event sounds are
+limited to one per ten seconds. This does not enable music playback, gyro/RTC
+drivers, charging changes or power-button shutdown.
+
 ## All nodes and detail dashboards
 
 **All nodes** shows up to four bento cards without scrolling in either orientation.
@@ -117,6 +171,34 @@ clears the previous metrics and history, rejects late responses for an old
 selection and keeps the stable selected ID. Removed selections fall back to the
 configured default; no platform gets priority.
 
+Tap the header time, the fleet **Clock** tab or **Settings → Open clock mode**
+for a large clock with date, healthy-node count and compact tappable node
+summaries. Average CPU/RAM includes only known readings from fresh computing
+nodes; printers show job progress. Clock mode stays selected when automatic
+page rotation is enabled. The header places Settings at the right edge. The
+Glimdock wordmark's dot indicates feed status: brand purple for live, amber for stale
+or loading, red for offline and purple for demo. Tapping the dot opens connection
+settings from fleet views or health details from a node view. Settings includes
+the full feed status; the navigation has no extra dot or node-count strip.
+
+Dark appearance uses lighter slate backgrounds, brighter labels and clearer
+card borders for the small LCD. Selected controls and the purple status dot
+also brighten in dark mode; the saved backlight setting is retained.
+
+**Settings → Appearance → Auto** follows the selected clock time zone: White
+from 07:00 until 19:00 and Dark overnight. The choice is saved across updates
+and restarts. Until time is synchronized, it keeps the current appearance.
+Theme changes wait for touch/scrolling and text editing to finish; White and
+Dark remain manual overrides.
+
+**Settings → Clock time zone** cycles through UTC (default), Sofia, London,
+Berlin, New York, Los Angeles and Tokyo and saves the selection on the display.
+European and US zones follow daylight-saving changes. Only clock formatting
+changes; collector timestamps and freshness remain UTC. Hardware starts NTP
+after Wi-Fi connects and shows `--:--` until time is available. A synchronized
+clock keeps running during a connection loss; after a restart it needs a new
+time sync.
+
 | Node capability | Views and details |
 | --- | --- |
 | Server / device | Overview, Storage, Sensors and Health; available CPU, RAM, filesystems, disks, GPU, OS, battery and interface details |
@@ -124,7 +206,13 @@ configured default; no platform gets priority.
 | Klipper | Overview, Job, Temps and Health; state, progress, filename, duration, available layers/heaters and labeled remaining-time estimate |
 
 CPU/package-watts cards open CPU/power detail; RAM opens memory/load/I/O;
-health opens source/alert details. Lists use tap for detail and drag for scrolling.
+health opens source/alert details. Overview uses matching secondary cards for
+CPU temperature and power. A third card rotates through network traffic,
+guests or uptime, disk temperature, fan speed and available graphics load every
+six seconds. Secondary cards use consistent 10-pixel captions and 16-pixel
+values; their text is centered using the actual font heights, keeping top and
+bottom padding balanced as readings change. Its label, value and frame stay aligned with the other cards, and
+tapping it opens the relevant detail page. Lists use tap for detail and drag for scrolling.
 A drag cannot activate a row or toolbar control. Refresh and page rotation wait
 until touch and momentum finish. Missing values stay `--`; known zero remains
 zero. Initial/reset counter samples stay unknown, component watts are not wall
@@ -178,3 +266,30 @@ emulate the ESP32 CPU, Wi-Fi, touch controller, flash or physical USB.
 Run the checks in [BUILDING.md](../public-docs/BUILDING.md). Native/WASM results
 verify layout and software interactions; physical power, touch, radio, USB and
 assembled enclosure fit require the supported board.
+
+Settings and its setup/editing screens preserve the active All nodes or Clock context, including fleet navigation and collector status. A node dashboard is selected only by an explicit node choice. The landscape header balances the visible gaps around the selector, clock, and right-edge Settings icon.
+
+The All nodes cards use four aligned text rows with consistent font sizes per
+orientation and a centered text block, leaving balanced top and bottom padding
+for both computer and printer summaries.
+
+## Router subnodes
+
+The collector supports four enabled root nodes and eight enabled devices total.
+An optional `parent_id` groups a device under an existing enabled root. The All
+nodes and Clock screens show roots; a stale/offline subnode marks its group as
+Degraded. Fleet CPU/RAM averages include computing roots only.
+
+Open the router and tap its conditional **Subnodes** tab (or subnode health
+link), then tap the MikroTik row for CPU, RAM, storage, sensors and Ethernet-port details. Rows match the Proxmox Guests layout, with status, CPU, RAM, temperature and
+RAM usage bar. Parents with children use Overview / Subnodes / Storage / Sensors,
+matching Proxmox navigation; their Health page remains accessible via the
+wordmark status dot. Devices without children retain Overview / Storage /
+Sensors / Health. Navigation always has four tabs. Its Overview and Health views provide **Back to Router**. Each child uses its own
+source freshness even if its parent is offline. Node settings preserve the
+collector-owned parent identifier. The node picker also shows parent context.
+
+SNMP devices can use a read-only adapter on the collector host; the monitored
+device does not need to run a Glimdock binary. Pair and set `parent_id` in the
+collector configuration/API. Parents cannot be disabled or deleted while an
+enabled child depends on them.

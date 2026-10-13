@@ -67,8 +67,8 @@ async function ensureEmulator(){
   $('emulator-state').textContent='Loading the firmware renderer…';
   state.emulatorLoading=(async()=>{
     try{
-      const {mountFirmwareEmulator}=await import('/emulator/emulator.js');
-      state.emulator=await mountFirmwareEmulator({canvas:$('firmware-canvas'),setupPaired:managementReady(),requestSnapshot:id=>api(`/api/v1/snapshot${id?'?node='+encodeURIComponent(id):''}`),requestConfig:()=>managementReady()?api('/api/v1/config',{management:true}):null,updateConfig:body=>api('/api/v1/config',{management:true,method:'POST',body}),onSelectNode:id=>{state.previewNode=id;},onStatus:status=>{$('emulator-state').textContent=typeof status==='string'?status:status.message;}});
+      const {mountFirmwareEmulator}=await import('/emulator/emulator.js?v=20261013-agents');
+      state.emulator=await mountFirmwareEmulator({canvas:$('firmware-canvas'),setupPaired:managementReady(),requestOperations:()=>api('/api/v1/agent-operations'),requestSnapshot:id=>api(`/api/v1/snapshot${id?'?node='+encodeURIComponent(id):''}`),requestConfig:()=>managementReady()?api('/api/v1/config',{management:true}):null,updateConfig:body=>api('/api/v1/config',{management:true,method:'POST',body}),onSelectNode:id=>{state.previewNode=id;},onStatus:status=>{$('emulator-state').textContent=typeof status==='string'?status:status.message;}});
       $('emulator-state').textContent='Live · same firmware renderer';
       if(state.previewNode && state.emulator.selectNode)await state.emulator.selectNode(state.previewNode);
       return state.emulator;

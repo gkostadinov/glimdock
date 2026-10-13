@@ -11,6 +11,7 @@
 #include <set>
 #include <vector>
 #include <sstream>
+#include <chrono>
 
 void homelabPreviewInit(Snapshot *, NetworkState *);
 void homelabPreviewShow(uint8_t);
@@ -22,6 +23,16 @@ void homelabPreviewGpu(uint8_t);
 void homelabPreviewPoll();
 uint32_t nativeClock = 1000;
 uint32_t millis() { return nativeClock; }
+// An optional frozen epoch follows the same simulated ticks as the LVGL UI.
+// Default renders continue to use the host's wall clock.
+bool fixedWallClock = false;
+time_t wallClockEpoch = 0;
+extern "C" time_t time(time_t *result) {
+  time_t value = fixedWallClock ? wallClockEpoch + (nativeClock - 1000) / 1000
+    : time_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+  if (result) *result = value;
+  return value;
+}
 Snapshot *publishedSnapshot = nullptr;
 SemaphoreHandle_t dataMutex = nullptr;
 NetworkState networkState;
@@ -67,9 +78,25 @@ void save(const std::filesystem::path &path, lv_display_t *display) {
 }
 }
 int main(int argc, char **argv) {
-  if (argc < 2 || argc > 3) { std::cerr << "Usage: native-preview OUTPUT_DIRECTORY [PAGE_NUMBERS]\n"; return 2; }
+  if (argc < 2) { std::cerr << "Usage: native-preview OUTPUT_DIRECTORY [PAGE_NUMBERS] [--clock UNIX_SECONDS]\n"; return 2; }
   std::set<int> selected;
-  if (argc == 3) { std::stringstream input(argv[2]); std::string part; while(std::getline(input,part,',')) selected.insert(std::stoi(part)); }
+  try {
+    bool pagesSet = false;
+    for (int arg = 2; arg < argc; ++arg) {
+      if (!strcmp(argv[arg], "--clock")) {
+        if (++arg == argc) throw std::invalid_argument("--clock needs Unix seconds");
+        size_t parsed = 0; double epoch = std::stod(argv[arg], &parsed);
+        if (parsed != strlen(argv[arg]) || !std::isfinite(epoch) || epoch < 0 || epoch > 4102444800.0)
+          throw std::invalid_argument("--clock must be Unix seconds between 1970 and 2100");
+        wallClockEpoch = time_t(epoch); fixedWallClock = true;
+      } else {
+        if (pagesSet) throw std::invalid_argument("Only one page list is supported");
+        pagesSet = true;
+        std::stringstream input(argv[arg]); std::string part;
+        while(std::getline(input,part,',')) selected.insert(std::stoi(part));
+      }
+    }
+  } catch (const std::exception &error) { std::cerr << error.what() << "\n"; return 2; }
   std::filesystem::path output = argv[1];
   std::filesystem::create_directories(output);
   static Snapshot data;
@@ -93,9 +120,9 @@ int main(int argc, char **argv) {
   lv_display_set_buffers(display, drawBuffer, nullptr, sizeof(drawBuffer), LV_DISPLAY_RENDER_MODE_PARTIAL);
   publishedSnapshot=&data;homelabPreviewInit(&data, &networkState);
   const bool printer=!strcmp(data.node.type,"klipper");
-  std::vector<std::pair<uint8_t,const char*>> pages = {{19,"all-nodes"},{0,"overview"},{1,"guests"},{4,"guest-detail"},{2,"storage"},{9,"disk-detail"},{3,"sensors"},{5,"power"},{10,"memory"},{11,"gpus"},{12,"gpu-detail"},{6,"alerts"},{7,"settings"},{13,"nodes"}};
-  if(deviceNodeType(data.node.type))pages={{19,"all-nodes"},{0,"overview"},{2,"storage"},{9,"disk-detail"},{3,"sensors"},{5,"power"},{10,"memory"},{11,"gpus"},{12,"gpu-detail"},{6,"health"},{7,"settings"},{13,"nodes"}};
-  if(printer)pages={{19,"all-nodes"},{0,"overview"},{1,"job"},{2,"temps"},{3,"health"},{13,"nodes"},{7,"settings"}};
+  std::vector<std::pair<uint8_t,const char*>> pages = {{19,"all-nodes"},{20,"clock"},{0,"overview"},{1,"guests"},{4,"guest-detail"},{2,"storage"},{9,"disk-detail"},{3,"sensors"},{5,"power"},{10,"memory"},{11,"gpus"},{12,"gpu-detail"},{6,"alerts"},{7,"settings"},{13,"nodes"}};
+  if(deviceNodeType(data.node.type))pages={{19,"all-nodes"},{20,"clock"},{0,"overview"},{2,"storage"},{9,"disk-detail"},{3,"sensors"},{5,"power"},{10,"memory"},{11,"gpus"},{12,"gpu-detail"},{6,"health"},{7,"settings"},{13,"nodes"}};
+  if(printer)pages={{19,"all-nodes"},{20,"clock"},{0,"overview"},{1,"job"},{2,"temps"},{3,"health"},{13,"nodes"},{7,"settings"}};
   for(auto item:std::vector<std::pair<uint8_t,const char*>>{{14,"wifi"},{15,"node-settings"},{16,"node-edit"},{17,"node-delete"},{18,"keyboard"}})if(selected.empty()||selected.count(item.first))pages.push_back(item);
   if(selected.count(8))pages.push_back({8,"setup"});
   for (auto item : pages) {
@@ -104,15 +131,18 @@ int main(int argc, char **argv) {
     save(output / (std::string(item.second) + ".ppm"), display);
     if (item.first == 0 && !printer) {
       uint32_t clockBefore = nativeClock, receivedBefore = data.received;
-      nativeClock = data.received = 6500; homelabPreviewShow(0); save(output / "overview-inventory.ppm",display);
-      nativeClock = data.received = 12500; homelabPreviewShow(0); save(output / "overview-thermals.ppm",display);
-      if(data.nGpus){nativeClock=data.received=18500;homelabPreviewShow(0);save(output/"overview-gpus.ppm",display);}
-      nativeClock = clockBefore; data.received = receivedBefore;
+      double generatedBefore = data.generated;
+      const char*names[]={"network-in","network-out","activity","disk-temp","fan-speed","graphics"};
+      for(int phase=1;phase<(data.nGpus?6:5);phase++){
+        nativeClock=data.received=phase*6000+1000;data.generated=std::time(nullptr);
+        homelabPreviewShow(0);save(output/("overview-"+std::string(names[phase])+".ppm"),display);
+      }
+      nativeClock = clockBefore; data.received = receivedBefore; data.generated = generatedBefore;
     }
     if(item.first==3&&!printer){const std::pair<uint8_t,const char*>filters[]={{0,"all"},{2,"fans"},{3,"volts"},{4,"power"},{5,"amps"}};for(auto filter:filters){homelabPreviewSensorFilter(filter.first);homelabPreviewScroll(0);save(output/("sensors-"+std::string(filter.second)+".ppm"),display);if(filter.first==4){homelabPreviewScroll(100);save(output/"sensors-power-scrolled.ppm",display);}}homelabPreviewSensorFilter(1);homelabPreviewScroll(0);}
     if(item.first==4){for(int i=1;i<std::min(3,int(data.nGuests));i++){homelabPreviewGuest(data.guests[i].id);homelabPreviewScroll(0);save(output/("guest-"+std::to_string(data.guests[i].id)+".ppm"),display);homelabPreviewScroll(145);save(output/("guest-"+std::to_string(data.guests[i].id)+"-memory.ppm"),display);}homelabPreviewShow(4);homelabPreviewScroll(0);}
     if(item.first==12){for(int i=1;i<data.nGpus;i++){homelabPreviewGpu(i);homelabPreviewScroll(0);save(output/("gpu-detail-"+std::to_string(i+1)+".ppm"),display);homelabPreviewScroll(140);save(output/("gpu-detail-"+std::to_string(i+1)+"-scrolled.ppm"),display);}homelabPreviewShow(12);homelabPreviewScroll(0);}
-    if (item.first != 0 && item.first != 18 && item.first != 19) {
+    if (item.first != 0 && item.first != 18 && item.first != 19 && item.first != 20) {
       homelabPreviewScroll(printer?(item.first==1?155:item.first==2?100:item.first==3?190:120):item.first == 2 ? 180 : item.first == 5 ? 140 : item.first == 7 ? 150 : item.first == 6 ? 300 : item.first == 4 ? 145 : item.first == 9 ? 170 : item.first == 10 ? 180 : item.first == 12 ? 140 : 420);
       save(output / (std::string(item.second) + "-scrolled.ppm"), display);
       homelabPreviewScroll(100000);

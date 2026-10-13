@@ -8,21 +8,25 @@
   "lvgl": "9.3.0",
   "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
   "sources": {
-    "firmware/src/main.cpp": "66b8e082b6f5de8788d1ca63dbb10313d658c1cf5f4bc7d073c84d2fb1973118",
-    "firmware/src/model.h": "7520385ac909d83126fa61e10322cfe5b28adcd4166816867c97e6e7aa07380d",
-    "firmware/src/network.cpp": "5978578570d56339d39f98d712b8d11b822d04f2c0010abecf67b160371490a2",
-    "firmware/include/lv_conf.h": "30287193318240073f56c867dd3babc77d363bcae79095724b6eef22aff88238",
+    "firmware/src/main.cpp": "44cabfb930bd3ef2f8b47c1d6804fbeef7a1b2ff44625550b5a78811bd8cb9f3",
+    "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
+    "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
+    "firmware/src/operations_ui.inc": "43a9a154f6dd17f3ac2b6089e02b15fb3df7dc909477712d15957e5bac7d61eb",
+    "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
+    "firmware/src/model.h": "8efd753fc3d137e70066a71ca9675b8cb42b5056d1a797284e722d217e736d9d",
+    "firmware/src/network.cpp": "c1bd8428c6e95085b087f4459a141a4e7ea6eb95e9485833bbd099647884f870",
+    "firmware/include/lv_conf.h": "9317f832f88fd084dedb1e896bd860a081f2650ceccf965a1ad0544ab5e5f2d0",
     "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
-    "tools/web-emulator/emulator.cpp": "66e188fbfbe505e6a1b13ef175bd73381be230a99a8ba29be3215a3e99401867"
+    "tools/web-emulator/emulator.cpp": "0a7147d5041fbc31fac07afdaa891f34995f5e14aed9eda67478027420c8945b"
   },
   "assets": {
     "firmware.js": {
-      "sha256": "52d6eb409963a85ef977e678a30c98ebecb9f9115b3ab07ddfe8548ed83740f5",
-      "bytes": 16932
+      "sha256": "77586266fba77330c8282bae84a69867f7934bb5cb8c258acf8627b563920548",
+      "bytes": 17256
     },
     "firmware.wasm": {
-      "sha256": "ef79a8f5d8bc2fb2c380121c57dd569730d755e60a1fefb048b55124825a58db",
-      "bytes": 953199
+      "sha256": "fa4dd1f9afc6f068fe885f54775a59bf0b4582d3642f8e045e23f6bd89994120",
+      "bytes": 1172495
     }
   },
   "licenses": "LICENSES.txt"

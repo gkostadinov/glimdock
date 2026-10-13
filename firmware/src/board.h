@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include "config.h"
+#include "battery_status.h"
 
 // Geometry is shared by the physical display, UI and native rasterizer.
 // Rotation numbers describe panel coordinates; the USB-bottom orientation must
@@ -37,6 +38,13 @@ void boardHoldPower();
 void boardInit();
 void boardBacklight(uint8_t percent);
 void boardLvglInit();
+#ifdef HOMELAB_NATIVE_PREVIEW
+// Explicit device fixture, separate from a monitored laptop's battery.
+inline BoardBatteryStatus nativeDeviceBattery;
+inline BoardBatteryStatus boardBattery(){return nativeDeviceBattery;}
+#else
+BoardBatteryStatus boardBattery();
+#endif
 void noteTouch(bool pressed);
 
 extern bool consumeWakeTouch;

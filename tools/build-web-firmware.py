@@ -29,8 +29,8 @@ APP_LIMIT = 0x510000
 FIRMWARE_FILES = (
     "platformio.ini", "partitions.csv", "build_and_run.sh", "README.md",
     "include/config.h", "include/config.example.h", "include/lv_conf.h", "include/lv_psram.h",
-    "src/main.cpp", "src/model.h", "src/network.cpp", "src/board.cpp", "src/board.h",
-    "src/touch_state.h", "src/pairing_policy.h", "src/brand.h", "src/brand_assets.h", "src/brand_portal.h",
+    "src/main.cpp", "src/operations_model.h", "src/operations_parse.h", "src/operations_ui.inc", "src/model.h", "src/display_clock.h", "src/network.cpp", "src/board.cpp", "src/board.h",
+    "src/audio.cpp", "src/audio.h", "src/notification_policy.h", "src/battery_status.h", "src/touch_state.h", "src/pairing_policy.h", "src/brand.h", "src/brand_assets.h", "src/brand_portal.h",
 )
 PRIVATE_NAMES = {"local_credentials.h", "private_defaults.h", "secrets.h"}
 

@@ -1,10 +1,14 @@
-import createFirmware from './firmware.js';
 
 // Browser transport only. Every pixel and touch target is drawn by firmware C++.
-export async function mountFirmwareEmulator({canvas, requestSnapshot, requestConfig, updateConfig, onSelectNode, onStatus, endpoint = `${location.origin}/api/v1/snapshot`, setupPaired = false}) {
+export async function mountFirmwareEmulator({canvas, requestSnapshot, requestOperations, initialWorkspace = "nodes", requestConfig, updateConfig, onSelectNode, onStatus, endpoint = `${location.origin}/api/v1/snapshot`, setupPaired = false}) {
   if (!(canvas instanceof HTMLCanvasElement)) throw new TypeError('A canvas is required for the firmware emulator.');
   if (typeof requestSnapshot !== 'function') throw new TypeError('A collector snapshot callback is required.');
-  const firmware = await createFirmware({locateFile: name => new URL(name, import.meta.url).href});
+  const nodeRuntime = typeof process !== 'undefined' && process.versions?.node;
+  const manifestUrl = new URL('manifest.json', import.meta.url);
+  const manifest = nodeRuntime ? JSON.parse(await (await import('node:fs/promises')).readFile(manifestUrl, 'utf8')) : await (await fetch(manifestUrl, {cache:'no-store'})).json();
+  const assetUrl = name => { const url = new URL(name, import.meta.url); if (!nodeRuntime && manifest.assets?.[name]?.sha256) url.searchParams.set('v', manifest.assets[name].sha256); return url.href; };
+  const {default:createFirmware} = await import(assetUrl('firmware.js'));
+  const firmware = await createFirmware({locateFile: assetUrl});
   const width = firmware._glimdock_width(), height = firmware._glimdock_height();
   canvas.width = width; canvas.height = height;
   canvas.style.touchAction = 'none'; canvas.style.imageRendering = 'pixelated';
@@ -60,6 +64,20 @@ export async function mountFirmwareEmulator({canvas, requestSnapshot, requestCon
     }
   }
 
+  let operationsPending = false;
+  async function refreshOperations() {
+    if (disposed || operationsPending) return;
+    operationsPending = true;
+    try {
+      if (typeof requestOperations !== 'function') throw new Error('Agent operations source is not configured.');
+      const {status, body} = await responseValue(await requestOperations());
+      if (disposed) return;
+      if (status !== 200 || !callString('glimdock_operations', JSON.stringify(body))) throw new Error(status === 200 ? 'Unsupported agent operations snapshot.' : 'Agent operations source unavailable.');
+    } catch (error) {
+      if (!disposed) callString('glimdock_operations_error', error?.message || 'Agent operations unavailable.');
+    } finally { operationsPending = false; }
+  }
+
   async function configurationRequest(kind, payload) {
     try {
       if (typeof (kind === 'config' ? requestConfig : updateConfig) !== 'function') throw new Error('Pair a configuration token in the web interface to manage nodes.');
@@ -82,7 +100,8 @@ export async function mountFirmwareEmulator({canvas, requestSnapshot, requestCon
     if (kind === 'select') {
       selected = payload; generation++; onSelectNode?.(selected); emit('loading', 'Loading selected node');
       void refresh();
-    } else if (kind === 'config' || kind === 'update') void configurationRequest(kind, payload);
+    } else if (kind === 'operations') void refreshOperations();
+    else if (kind === 'config' || kind === 'update') void configurationRequest(kind, payload);
   };
 
   const position = event => {
@@ -119,8 +138,9 @@ export async function mountFirmwareEmulator({canvas, requestSnapshot, requestCon
     canvas.style.opacity = String(Math.min(1, firmware._glimdock_brightness() / 80));
     animation = requestAnimationFrame(draw);
   }
-  draw(); emit('loading', 'Starting firmware'); void refresh();
-  requestTimer = setInterval(() => { void refresh(); }, 3000);
+  if (initialWorkspace === 'agents') firmware._glimdock_show(22);
+  draw(); emit('loading', 'Starting firmware'); void refresh(); void refreshOperations();
+  requestTimer = setInterval(() => { void refresh(); void refreshOperations(); }, 3000);
   return {
     refresh,
     setConnection,

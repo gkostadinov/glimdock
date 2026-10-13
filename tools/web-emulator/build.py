@@ -60,25 +60,33 @@ def main():
     if deps is None: parser.error("Run the firmware dependency install first (LVGL 9.3.0 and ArduinoJson 7)")
     args.build_dir.mkdir(parents=True, exist_ok=True)
     args.output.mkdir(parents=True, exist_ok=True)
+    tracked = [ROOT/"firmware/src/main.cpp",ROOT/"firmware/src/operations_model.h",ROOT/"firmware/src/operations_parse.h",ROOT/"firmware/src/operations_ui.inc",ROOT/"firmware/src/display_clock.h",ROOT/"firmware/src/model.h",ROOT/"firmware/src/network.cpp",ROOT/"firmware/include/lv_conf.h",ROOT/"firmware/src/brand_assets.h",Path(__file__).parent/"emulator.cpp"]
+    sources = {str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}
     source = (ROOT/"firmware/src/network.cpp").read_text()
     (args.build_dir/"firmware_parser.h").write_text(parser_header(source))
     env = dict(os.environ)
     env["PATH"] = str(emscripten)+os.pathsep+env.get("PATH", "")
     configure = [str(emcmake),"cmake","-S",str(Path(__file__).parent),"-B",str(args.build_dir.resolve()),"-DCMAKE_BUILD_TYPE=Release",f"-DHOMELAB_ROTATION={args.rotation}",f"-DLVGL_SOURCE_DIR={(deps/'lvgl').resolve()}",f"-DARDUINOJSON_SOURCE_DIR={(deps/'ArduinoJson/src').resolve()}"]
+    # Make can miss edits within one timestamp second. These two small app units
+    # must correspond to the source fingerprints even during rapid UI changes.
+    object_root = args.build_dir/"CMakeFiles/firmware.dir"
+    for name in ("main.cpp.o", "emulator.cpp.o", "main.cpp.obj", "emulator.cpp.obj"):
+        for object_file in object_root.rglob(name):
+            object_file.unlink()
     with (args.build_dir/"build.log").open("w") as log:
         for command in (configure,["cmake","--build",str(args.build_dir),"--target","firmware","-j","8"]):
             result = subprocess.run(command, env=env, stdout=log, stderr=subprocess.STDOUT)
             if result.returncode:
                 print((args.build_dir/"build.log").read_text()[-16000:])
                 return result.returncode
+    if sources != {str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}:
+        raise ValueError("Firmware source changed during the emulator build; retry after edits finish")
     assets = {}
     for name in ("firmware.js", "firmware.wasm"):
         shutil.copy2(args.build_dir/name,args.output/name)
         assets[name] = {"sha256":hashlib.sha256((args.output/name).read_bytes()).hexdigest(),"bytes":(args.output/name).stat().st_size}
     notices = [ROOT/"LICENSE", *(ROOT/"LICENSES"/name for name in ("LVGL-9.3.0-MIT.txt", "LVGL-9.3.0-SPRINTF.txt", "LVGL-9.3.0-TLSF.txt", "ArduinoJson-7.4.2-MIT.txt", "Montserrat-OFL-1.1.txt", "Space-Grotesk-OFL-1.1.txt", "Font-Awesome-5-NOTICES.txt")), emscripten/"LICENSE", emscripten/"system/lib/libc/musl/COPYRIGHT", *(emscripten/"system/lib"/name/"LICENSE.TXT" for name in ("libcxx", "libcxxabi", "libunwind", "compiler-rt"))]
     (args.output/"LICENSES.txt").write_text("Glimdock firmware browser emulator — license notices\n\n" + "\n\n".join(p.name+"\n"+"="*72+"\n"+p.read_text() for p in notices))
-    tracked = [ROOT/"firmware/src/main.cpp",ROOT/"firmware/src/model.h",ROOT/"firmware/src/network.cpp",ROOT/"firmware/include/lv_conf.h",ROOT/"firmware/src/brand_assets.h",Path(__file__).parent/"emulator.cpp"]
-    sources = {str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}
     sdk = subprocess.check_output([str(emscripten/"emcc"),"--version"],env=env,text=True).splitlines()[0]
     manifest = {"format":1,"implementation":"production firmware UI, LVGL software renderer, production snapshot/config parser","public_build":True,"width":240 if args.rotation%2==0 else 320,"height":320 if args.rotation%2==0 else 240,"rotation":args.rotation,"lvgl":"9.3.0","toolchain":sdk,"sources":sources,"assets":assets,"licenses":"LICENSES.txt"}
     (args.output/"manifest.json").write_text(json.dumps(manifest,indent=2)+"\n")

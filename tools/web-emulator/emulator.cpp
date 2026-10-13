@@ -1,12 +1,15 @@
 /* Production main.cpp and LVGL run unchanged; only board/network transport differ. */
 #include "model.h"
+#include "operations_parse.h"
 #include "board.h"
 #include <lvgl.h>
 #include <ArduinoJson.h>
 #include <emscripten.h>
+#include <emscripten/html5.h>
 #include <array>
 #include <string>
 #include <cstdlib>
+#include <ctime>
 
 void homelabPreviewInit(Snapshot *, NetworkState *);
 void homelabPreviewShow(uint8_t);
@@ -19,6 +22,13 @@ bool homelabPreviewBusy();
 
 uint32_t webClock=1000;
 uint32_t millis(){return webClock;}
+double webWallClockEpoch=NAN;
+uint32_t webWallClockStarted=1000;
+extern "C" time_t time(time_t*result){
+  time_t value=time_t(std::isfinite(webWallClockEpoch)?webWallClockEpoch+(webClock-webWallClockStarted)/1000.0:emscripten_date_now()/1000.0);
+  if(result)*result=value;
+  return value;
+}
 Snapshot *publishedSnapshot=nullptr;
 SemaphoreHandle_t dataMutex=nullptr;
 NetworkState networkState;
@@ -35,6 +45,13 @@ EM_JS(void, webRequest, (const char *kind, const char *payload), {
   const request={kind:UTF8ToString(kind),payload:UTF8ToString(payload)};
   queueMicrotask(()=>Module.onRequest?.(request));
 });
+
+void requestOperationsTransport(){webRequest("operations","");}
+
+extern "C" EMSCRIPTEN_KEEPALIVE int glimdock_operations(const char*json){
+ if(!json||strlen(json)>49152)return 0;JsonDocument document;if(deserializeJson(document,json))return 0;static ops::Snapshot next;if(!ops_json::parse(document,next))return 0;auto&old=opsTransportSnapshot();next.received=old.valid&&old.sequence==next.sequence&&old.generated==next.generated?old.received:millis();old=next;auto&state=opsTransportState();state.connected=true;state.revision++;state.message[0]=0;homelabPreviewPoll();return 1;
+}
+extern "C" EMSCRIPTEN_KEEPALIVE void glimdock_operations_error(const char*message){auto&state=opsTransportState();state.connected=false;state.revision++;strlcpy(state.message,message?message:"Agent source unavailable",sizeof(state.message));}
 
 namespace {
 constexpr int width=HOMELAB_VIEWPORT_WIDTH,height=HOMELAB_VIEWPORT_HEIGHT;
@@ -97,6 +114,9 @@ EMSCRIPTEN_KEEPALIVE uintptr_t glimdock_pixels(){return reinterpret_cast<uintptr
 EMSCRIPTEN_KEEPALIVE uint32_t glimdock_frame(){return frameRevision;}
 EMSCRIPTEN_KEEPALIVE int glimdock_page(){return homelabPreviewPage();}
 EMSCRIPTEN_KEEPALIVE int glimdock_brightness(){return webBrightness;}
+// Tests can freeze the epoch and advance it with _glimdock_tick; a negative value
+// restores the browser wall clock. Ordinary emulator sessions need no override.
+EMSCRIPTEN_KEEPALIVE void glimdock_time(double epoch){webWallClockEpoch=std::isfinite(epoch)&&epoch>=0?epoch:NAN;webWallClockStarted=webClock;homelabPreviewRefresh();lv_refr_now(display);}
 EMSCRIPTEN_KEEPALIVE int glimdock_select(const char*id){if(!requestNodeSelection(id))return 0;homelabPreviewPoll();homelabPreviewShow(0);lv_refr_now(display);return 1;}
 EMSCRIPTEN_KEEPALIVE void glimdock_default(){NodeDescriptor unknown;clearForNode(transportSnapshot,unknown);networkState.loading=true;strlcpy(networkState.message,"Node removed; loading default",sizeof(networkState.message));networkState.revision++;}
 EMSCRIPTEN_KEEPALIVE void glimdock_tick(uint32_t now){webClock=now;homelabPreviewTick();lv_timer_handler();}

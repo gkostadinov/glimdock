@@ -55,6 +55,7 @@ def fixture(document, path):
     def descriptor(target, node):
         for field in ("id", "type", "platform", "name", "address", "status"):
             text(target + "." + field, node.get(field))
+        text(target + ".parentId", node.get("parent_id"))
         summary = node.get("summary")
         if isinstance(summary, dict):
             lines.append(target + ".summary.available = true;")
@@ -71,7 +72,7 @@ def fixture(document, path):
     lines.append(f"s.demo = {'true' if document.get('demo') else 'false'};")
     node=document.get("node", {})
     descriptor("s.node", node)
-    nodes=document.get("nodes",[])[:4];lines.append(f"s.nNodes = {len(nodes)};")
+    nodes=document.get("nodes",[])[:8];lines.append(f"s.nNodes = {len(nodes)};")
     for i,node in enumerate(nodes):
         descriptor(f"s.nodes[{i}]", node)
     printer=document.get("printer")
@@ -161,8 +162,9 @@ def fixture(document, path):
         local=config.get('local_node',{})
         for key,field in {'id':'localId','name':'localName','address':'localAddress','type':'localType','platform':'localPlatform'}.items():text('c.'+field,local.get(key))
         lines.append(f"c.localEnabled = {'true' if local.get('enabled') else 'false'};")
-        nodes=config.get('nodes',[])[:4];lines.append(f"c.count = {len(nodes)};")
+        nodes=config.get('nodes',[])[:16];lines.append(f"c.count = {len(nodes)};")
         for i,node in enumerate(nodes):
+            text(f'c.nodes[{i}].parentId',node.get('parent_id'))
             for key in ('id','type','platform','origin','name','url'):
                 value = node.get(key)
                 if key == 'type' and value in {'server', 'proxmox'}:
@@ -193,8 +195,11 @@ def main():
     parser.add_argument("--lvgl-source", type=Path, default=Path(os.environ["LVGL_SOURCE_DIR"]) if "LVGL_SOURCE_DIR" in os.environ else None)
     parser.add_argument("--rotation",type=int,choices=range(4),default=configured_rotation(),help="Display rotation; defaults to firmware config (0/2 portrait, 1/3 landscape)")
     parser.add_argument("--pages", help="Capture selected page numbers only, e.g. 0,3,6")
+    parser.add_argument("--clock",type=int,help="Freeze wall time at this Unix timestamp; UI ticks advance it deterministically")
     parser.add_argument("--config",type=Path,help="Saved public GET /api/v1/config projection; secrets must be absent")
     args = parser.parse_args()
+    if args.clock is not None and not 0 <= args.clock <= 4102444800:
+        parser.error("--clock must be Unix seconds between 1970 and 2100")
     width, height = viewport(args.rotation)
     if args.lvgl_source is None:
         candidates = [ROOT/"firmware/.pio/libdeps/homelab_s3/lvgl"]
@@ -227,6 +232,7 @@ def main():
             if result.returncode: print(log.read_text()[-12000:],file=sys.stderr); return result.returncode
     command = [str(args.build_dir/"native-preview"),str(args.output.resolve())]
     if args.pages: command.append(args.pages)
+    if args.clock is not None: command.extend(["--clock",str(args.clock)])
     result = subprocess.run(command, stdout=subprocess.PIPE, text=True)
     print(result.stdout, end="")
     if result.returncode: return result.returncode
@@ -240,7 +246,7 @@ def main():
     captures = [line.split(".ppm:", 1)[0] for line in result.stdout.splitlines() if ".ppm:" in line]
     (args.output/"snapshot.json").write_text(json.dumps(document, ensure_ascii=False, indent=2)+"\n")
     (args.output/"memory.txt").write_text(result.stdout)
-    (args.output/"provenance.json").write_text(json.dumps({"renderer":"Actual firmware/src/main.cpp + LVGL 9.3 software renderer", "snapshot":str(args.snapshot.resolve()),"demo":bool(document.get("demo")),"native_resolution":[width,height],"rotation":args.rotation,"board_sha256":hashlib.sha256((ROOT/"firmware/src/board.h").read_bytes()).hexdigest(),"hardware_tested":False,"captured_at":datetime.datetime.now(datetime.timezone.utc).isoformat(),"fixture_sha256":fingerprint,"firmware_sha256":hashlib.sha256((ROOT/"firmware/src/main.cpp").read_bytes()).hexdigest(),"model_sha256":hashlib.sha256((ROOT/"firmware/src/model.h").read_bytes()).hexdigest(),"lv_conf_sha256":hashlib.sha256((ROOT/"firmware/include/lv_conf.h").read_bytes()).hexdigest(),"captures":captures},indent=2)+"\n")
+    (args.output/"provenance.json").write_text(json.dumps({"renderer":"Actual firmware/src/main.cpp + LVGL 9.3 software renderer", "snapshot":str(args.snapshot.resolve()),"demo":bool(document.get("demo")),"native_resolution":[width,height],"rotation":args.rotation,"clock_epoch":args.clock,"board_sha256":hashlib.sha256((ROOT/"firmware/src/board.h").read_bytes()).hexdigest(),"hardware_tested":False,"captured_at":datetime.datetime.now(datetime.timezone.utc).isoformat(),"fixture_sha256":fingerprint,"firmware_sha256":hashlib.sha256((ROOT/"firmware/src/main.cpp").read_bytes()).hexdigest(),"model_sha256":hashlib.sha256((ROOT/"firmware/src/model.h").read_bytes()).hexdigest(),"lv_conf_sha256":hashlib.sha256((ROOT/"firmware/include/lv_conf.h").read_bytes()).hexdigest(),"captures":captures},indent=2)+"\n")
     title = "Actual firmware UI / " + ("demo" if document.get("demo") else str(document.get("host",{}).get("name","saved snapshot")))
     cards = "".join(f'<figure><a href="{name}.png"><img src="{name}.png" width="{width}" height="{height}" alt="{name.replace("-"," ")}"></a><figcaption>{name.replace("-"," ")}</figcaption></figure>' for name in captures)
     gallery = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+html.escape(title)+'</title><style>body{margin:0;background:#f2f5f8;color:#101e30;font:16px system-ui;padding:28px}h1{font-size:24px;margin:0 0 8px}p{color:#526275;margin:0 0 28px}main{display:grid;grid-template-columns:repeat(auto-fit,PREVIEW_WIDTHpx);gap:26px}figure{margin:0}img{display:block;border-radius:12px;outline:1px solid #dce5ed}figcaption{color:#526275;font-size:13px;margin-top:10px;text-transform:capitalize}a{color:inherit}</style><h1>'+html.escape(title)+'</h1><p>Production LVGL renderer · PREVIEW_WIDTH × PREVIEW_HEIGHT RGB565 · Rotation PREVIEW_ROTATION · Device hardware verification pending</p><main>'+cards+'</main></html>\n'
