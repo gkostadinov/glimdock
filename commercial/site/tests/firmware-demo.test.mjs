@@ -24,10 +24,10 @@ test('all synthetic nodes have stable IDs, fresh sequences and documentation add
   assert.deepEqual(first.nodes.filter(node=>!node.parent_id).map(node=>node.id),demoNodes.map(node=>node.id));
   for(const node of first.nodes)assert.match(node.address,/^192\.0\.2\./);
   assert.equal(transport('').sequence,first.sequence+1);assert.equal(transport('unknown:node').status,404);
-  assert.equal(first.power.cpu_temp_c,null,'Mac thermal reading is correctly unavailable');
+  assert.equal(first.power.cpu_temp_c,54);assert.equal(first.power.cpu_power_basis,'macos-ioreport-estimate');
   assert.equal(transport('demo:router').platform.interfaces.length,2);
   assert.equal(transport('demo:switch').node.parent_id,'demo:router');
-  const lab=transport('demo:lab');assert.equal(lab.guests.length,3);assert.equal(lab.gpus.length,2);assert(lab.guests[0].mem_used_bytes<lab.guests[0].mem_total_bytes);assert.equal(lab.guests[0].memory_basis,'guest-os');
+  const lab=transport('demo:lab');assert.equal(lab.guests.length,4);assert.equal(lab.gpus.length,2);assert(lab.guests[0].mem_used_bytes<lab.guests[0].mem_total_bytes);assert.equal(lab.guests[0].memory_basis,'guest-os');assert.equal(lab.guests.find(g=>g.memory_basis==='guest-os-macos').memory_pressure,'normal');assert.equal(first.host.memory_basis,'macos-native');
   const app=readFileSync('public/demo/app.js','utf8'),data=readFileSync('public/demo/data.js','utf8');
   assert(!/\bfetch\s*\(|XMLHttpRequest|WebSocket/.test(app+data),'demo must not request telemetry from a device');
   assert(!/requestConfig:|updateConfig:/.test(app),'public website cannot write collector settings');

@@ -1,7 +1,7 @@
 // Documentation addresses and invented readings only. No local devices are queried.
 const GiB = 1024 ** 3;
 const definitions = [
-  {id:'demo:mac', type:'server', platform:'macos', name:'Studio Mac', address:'192.0.2.10:8765', cpu:18, memory:36, temperature:null, sensors:3},
+  {id:'demo:mac', type:'server', platform:'macos', name:'Studio Mac', address:'192.0.2.10:8765', cpu:18, memory:36, temperature:54, sensors:5},
   {id:'demo:lab', type:'proxmox', platform:'linux', name:'Mini lab', address:'192.0.2.11:8765', cpu:29, memory:52, temperature:51, sensors:7},
   {id:'demo:router', type:'server', platform:'router', name:'Home router', address:'192.0.2.12:8765', cpu:14, memory:22, temperature:44, sensors:2},
   {id:'demo:printer', type:'klipper', platform:'other', name:'Workshop printer', address:'192.0.2.13:7125', progress:68, temperature:215},
@@ -19,7 +19,7 @@ export function createDemoTransport(now = () => Date.now()) {
       address:value.address, status:'healthy',
       summary:{
         cpu_percent:value.cpu ?? null, memory_percent:value.memory ?? null,
-        temperature_c:value.temperature, sensors:value.sensors ?? 2, guests:value.type==='proxmox'?3:0,
+        temperature_c:value.temperature, sensors:value.sensors ?? 2, guests:value.type==='proxmox'?4:0,
         progress_percent:value.progress ?? null, print_state:value.progress == null ? '' : 'printing',
         generated_at:stamp, age_s:0, ttl_s:15, status:'healthy',
       },
@@ -39,10 +39,11 @@ export function createDemoTransport(now = () => Date.now()) {
         load:router ? [0.3,0.2,0.2] : [1.2,1.1,0.9],
         mem_used_bytes:printer ? null : total * details.memory / 100,
         mem_total_bytes:printer ? null : total, swap_used_bytes:0, swap_total_bytes:2 * GiB,
+        ...(node.platform === 'macos' ? {memory_basis:'macos-native',memory_pressure:'normal',mem_available_bytes:total*(1-details.memory/100),mem_app_bytes:total*details.memory/100-3*GiB,mem_wired_bytes:2*GiB,mem_compressed_bytes:GiB,mem_cache_bytes:8*GiB} : {}),
         net_rx_bps:router ? 4_800_000 : 360_000, net_tx_bps:router ? 820_000 : 120_000,
         disk_read_bps:router ? null : 1_200_000, disk_write_bps:router ? null : 640_000,
       },
-      power:{cpu_temp_c:printer ? null : details.temperature, package_w:lab?38:null},
+      power:{cpu_temp_c:printer ? null : details.temperature, package_w:lab?38:node.platform==='macos'?6.4:null,...(node.platform==='macos'?{cpu_power_basis:'macos-ioreport-estimate'}:{})},
       platform:{
         os:node.platform, release:node.platform === 'macos' ? 'macOS' : node.platform === 'windows' ? 'Windows' : router ? 'Router firmware' : 'Linux',
         architecture:node.platform === 'macos' ? 'aarch64' : 'x86_64',
@@ -54,6 +55,8 @@ export function createDemoTransport(now = () => Date.now()) {
       },
       storage:router || printer ? [] : [{id:'system',name:'System drive',status:'available',used_bytes:380 * GiB,total_bytes:1000 * GiB},...(lab?[{id:'pool',name:'Data pool',type:'zfspool',status:'available',used_bytes:2300*GiB,total_bytes:8000*GiB}]:[])],
       sensors:printer ? [] : node.platform === 'macos' ? [
+        {id:'cpu-die',name:'CPU temperature',chip:'Apple silicon (sample)',kind:'temperature',value:54,unit:'°C'},
+        {id:'cpu-watts',name:'CPU package (estimate)',chip:'Apple silicon (sample)',kind:'power',value:6.4,unit:'W'},
         {id:'battery',name:'Battery charge',chip:'Native host',kind:'other',value:82,unit:'%'},
         {id:'net-rx',name:'Network receive',chip:'Native host',kind:'other',value:360,unit:'KB/s'},
         {id:'net-tx',name:'Network transmit',chip:'Native host',kind:'other',value:120,unit:'KB/s'},
@@ -69,6 +72,7 @@ export function createDemoTransport(now = () => Date.now()) {
       guests:lab?[
         {id:101,name:'Windows workstation',type:'vm',status:'running',cpu_pct:14,mem_used_bytes:4.6*GiB,mem_total_bytes:32*GiB,mem_assigned_bytes:32*GiB,mem_available_bytes:27.4*GiB,memory_basis:'guest-os',mem_updated_at:stamp,mem_age_s:0,uptime_s:172800,net_rx_bps:44000,net_tx_bps:13000},
         {id:102,name:'NAS services',type:'vm',status:'running',cpu_pct:6,mem_used_bytes:6.2*GiB,mem_total_bytes:24*GiB,mem_cache_bytes:8*GiB,mem_noncache_used_bytes:6.2*GiB,mem_assigned_bytes:24*GiB,memory_basis:'guest-os',mem_updated_at:stamp,mem_age_s:0,uptime_s:604800,net_rx_bps:1200000,net_tx_bps:340000},
+        {id:104,name:'macOS studio',type:'vm',status:'running',cpu_pct:8,mem_used_bytes:9*GiB,mem_total_bytes:20*GiB,mem_assigned_bytes:20*GiB,pve_mem_used_bytes:20*GiB,pve_mem_total_bytes:20*GiB,mem_host_bytes:20*GiB,mem_available_bytes:11*GiB,mem_app_bytes:6*GiB,mem_wired_bytes:2*GiB,mem_compressed_bytes:GiB,mem_cache_bytes:5*GiB,memory_pressure:'normal',swap_used_bytes:0,swap_total_bytes:0,memory_basis:'guest-os-macos',mem_updated_at:stamp,mem_age_s:0,uptime_s:172800},
         {id:103,name:'Home automation',type:'lxc',status:'running',cpu_pct:3,mem_used_bytes:1.2*GiB,mem_total_bytes:2*GiB,memory_basis:'proxmox',uptime_s:604800},
       ]:[],
       gpus:lab?[

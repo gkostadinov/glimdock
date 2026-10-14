@@ -56,7 +56,7 @@
     "lvgl": "9.3.0",
     "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
     "sources": {
-      "firmware/src/main.cpp": "305b0c11cd45ed03da15ac6696f861d85e7719e93335a31bc184455e651ed30c",
+      "firmware/src/main.cpp": "02d65155eab372167de99789548239eed9324bbc9bd529ea63dda8664c49d4af",
       "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
       "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
       "firmware/src/operations_ui.inc": "6c725f6671b8ca6ab7cbe8586d8ea840c6b71ae0f71430cc3f2fdd4ecb436df0",
@@ -66,8 +66,8 @@
       "firmware/src/private_chat_network.cpp": "b3a618efcbcc4ee9803e0c6c6f952d3921e8a2038781499f8cb98071c385eb1e",
       "firmware/src/private_chat_ui.inc": "8b70b596f455061d6fe45b024c85b49e9d63910f86bf6ea24837b593a9324c85",
       "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
-      "firmware/src/model.h": "8efd753fc3d137e70066a71ca9675b8cb42b5056d1a797284e722d217e736d9d",
-      "firmware/src/network.cpp": "c1bd8428c6e95085b087f4459a141a4e7ea6eb95e9485833bbd099647884f870",
+      "firmware/src/model.h": "7d377f57f27489ff64e38db83eb00189093a9be053e24ca9d872a9fc89006576",
+      "firmware/src/network.cpp": "ee771c35864381ee1ce54cea907b2d7e0837fa617bad86c81172d468ac662b2e",
       "firmware/include/lv_conf.h": "9317f832f88fd084dedb1e896bd860a081f2650ceccf965a1ad0544ab5e5f2d0",
       "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
       "tools/web-emulator/emulator.cpp": "3ca051b2dfd42e935e77eefd4502bf1250c5ca59057d0c957e44e0121dd46e93"
@@ -78,17 +78,17 @@
         "bytes": 17632
       },
       "firmware.wasm": {
-        "sha256": "5fada3a6e31d5496e52ed7ebe63bd9793bc210ea1472d5e4ff1afeab462d6593",
-        "bytes": 1205487
+        "sha256": "78f3af4ee573ee8972807f96229a201d1ed70b1b517b2eb854344866dbbc4fa1",
+        "bytes": 1217547
       }
     },
     "licenses": "LICENSES.txt"
   },
   "fallback": {
-    "renderer_sha256": "5fada3a6e31d5496e52ed7ebe63bd9793bc210ea1472d5e4ff1afeab462d6593",
+    "renderer_sha256": "78f3af4ee573ee8972807f96229a201d1ed70b1b517b2eb854344866dbbc4fa1",
     "transport": "commercial/site/public/demo/data.js",
-    "transport_sha256": "90db3cf785e55c091a41618453eb5e848417bc12a756be788e909e85bb8ab3d1",
-    "sha256": "2dbfbee3e2060101cd53c0bb6a069725aa1e03faa78f0247f6a0ffe09168bd53",
+    "transport_sha256": "85bc7485e485a69429bca303426417b0b0784c4c0d525a0c9e5f1aa0280fa718",
+    "sha256": "a9de684621f2d9e9927a05617280b5caf27d770d620570fd66a283a9593f373a",
     "data": "Four synthetic nodes; no live collector or LAN telemetry",
     "width": 320,
     "height": 240
