@@ -4,11 +4,11 @@
 #include <limits>
 #include <new>
 #include <cstring>
-constexpr size_t MAX_GUESTS=48, MAX_SENSORS=64, MAX_STORAGE=16, MAX_DISKS=16, MAX_ALERTS=24, MAX_CORES=64, MAX_SOURCES=16, MAX_FAULTS=16, MAX_GPUS=8, MAX_NODES=8, MAX_HEATERS=8, MAX_PRINTER_TEMPS=16, MAX_INTERFACES=16;
+constexpr size_t MAX_GUESTS=48, MAX_SENSORS=64, MAX_STORAGE=16, MAX_DISKS=16, MAX_ALERTS=24, MAX_CORES=64, MAX_SOURCES=32, MAX_FAULTS=16, MAX_GPUS=8, MAX_NODES=8, MAX_HEATERS=8, MAX_PRINTER_TEMPS=16, MAX_INTERFACES=16;
 constexpr size_t MAX_JSON=48*1024;
 constexpr size_t MAX_CONFIG_NODES=16, MAX_CONFIG_JSON=16*1024;
 constexpr float UNKNOWN = std::numeric_limits<float>::quiet_NaN();
-struct Guest { int id=0; char name[64]{},type[8]{},status[16]{},memoryBasis[20]{"proxmox"},memError[128]{}; float cpu=UNKNOWN; double used=NAN,total=NAN,uptime=NAN,rx=NAN,tx=NAN,read=NAN,write=NAN,available=NAN,cache=NAN,noncache=NAN,assigned=NAN,hostMem=NAN,pveUsed=NAN,pveTotal=NAN,memUpdated=NAN,memAge=NAN; };
+struct Guest { int id=0; char name[64]{},type[8]{},status[16]{},memoryBasis[20]{"proxmox"},memError[128]{},memoryPressure[12]{}; float cpu=UNKNOWN; double used=NAN,total=NAN,uptime=NAN,rx=NAN,tx=NAN,read=NAN,write=NAN,available=NAN,cache=NAN,noncache=NAN,assigned=NAN,hostMem=NAN,pveUsed=NAN,pveTotal=NAN,memUpdated=NAN,memAge=NAN,app=NAN,wired=NAN,compressed=NAN,swapUsed=NAN,swapTotal=NAN; };
 struct Gpu {char id[64]{},name[96]{},vendor[32]{},kind[16]{},owner[32]{},driver[48]{},status[24]{},error[128]{},utilizationKind[24]{"gpu"};float utilization=UNKNOWN,temp=UNKNOWN,power=UNKNOWN,graphicsMhz=UNKNOWN,memoryMhz=UNKNOWN,fan=UNKNOWN;double memUsed=NAN,memTotal=NAN,updated=NAN,age=NAN;};
 struct Pool { char id[48]{},name[64]{},status[20]{}; double used=NAN,total=NAN; };
 struct Disk { char name[48]{},model[64]{},health[20]{},status[20]{},zfsStatus[24]{}; float temp=UNKNOWN; double read=NAN,write=NAN,wear=NAN,mediaErrors=NAN,powerHours=NAN,spare=NAN,reallocated=NAN,pending=NAN,zfsReadErrors=NAN,zfsWriteErrors=NAN,zfsChecksumErrors=NAN; };
@@ -32,6 +32,7 @@ inline bool encodeNodeId(const char*id,char*out,size_t cap){if(!validNodeId(id)|
 struct Snapshot {
   bool valid=false,demo=false; uint64_t sequence=0; double generated=NAN; uint32_t received=0;
   char host[64]{},ip[48]{}; double uptime=NAN,memUsed=NAN,memTotal=NAN,swapUsed=NAN,swapTotal=NAN,arc=NAN,rx=NAN,tx=NAN,read=NAN,write=NAN;
+  char memoryBasis[20]{},memoryPressure[12]{},cpuPowerBasis[32]{};double memAvailable=NAN,memApp=NAN,memWired=NAN,memCompressed=NAN,memCache=NAN;
   float cpu=UNKNOWN,iowait=UNKNOWN,temp=UNKNOWN,watts=UNKNOWN,mhz=UNKNOWN,busyMhz=UNKNOWN,load[3]{UNKNOWN,UNKNOWN,UNKNOWN};
   float cores[MAX_CORES]{},cstates[10]{}; char cstateNames[10][12]{};
   uint8_t nGuests=0,nPools=0,nDisks=0,nSensors=0,nAlerts=0,nCores=0,nCstates=0,nSources=0,nFaults=0,nGpus=0;

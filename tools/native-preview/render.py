@@ -133,7 +133,7 @@ def fixture(document, path):
             for source, field in numbers.items():
                 if source == "id": lines.append(f"s.{array}[{i}].{field} = {int(value.get(source, 0))};")
                 else: num(f"s.{array}[{i}].{field}", value.get(source))
-    sources = list(document.get("sources", {}).items())[:16]
+    sources = list(document.get("sources", {}).items())[:32]
     lines.append(f"s.nSources = {len(sources)};")
     for i, (key, value) in enumerate(sources):
         text(f"s.sources[{i}].name", key); text(f"s.sources[{i}].error", value.get("error"))
