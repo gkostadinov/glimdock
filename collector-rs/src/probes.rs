@@ -844,13 +844,18 @@ pub fn generate_alerts(s: &Value, c: &Config) -> Vec<Value> {
                 format!("{name} SMART unavailable"),
             )
         }
+        let (warning, critical) = if crate::storage::is_nvme_disk(d) {
+            (c.nvme_temperature_warning_c, c.nvme_temperature_critical_c)
+        } else {
+            (c.disk_temperature_warning_c, c.disk_temperature_critical_c)
+        };
         limit_alert(
             &mut alerts,
             &format!("disk/{name}/temperature"),
             name,
             num(&d["temp_c"]),
-            c.disk_temperature_warning_c,
-            c.disk_temperature_critical_c,
+            warning,
+            critical,
             "°C",
         );
         for (i, w) in d["warnings"].as_array().into_iter().flatten().enumerate() {
@@ -1192,6 +1197,75 @@ mod command_tests {
 #[cfg(test)]
 mod alert_tests {
     use super::*;
+    #[test]
+    fn nvme_temperature_boundaries_keep_sata_and_nas_limits() {
+        let config = Config::default();
+        for temperature in [49.9, 50., 59.9, 60., 69.9, 70.] {
+            let mut s = empty_snapshot("synthetic", "192.0.2.1", 1, 100.);
+            s["disks"] = json!([
+                {"name":"nvme0n1","temp_c":temperature,"health":"passed"},
+                {"name":"NAS/nvme2n1","temp_c":temperature},
+                {"name":"named-ssd","protocol":"nVmE","temp_c":temperature},
+                {"name":"sda","temp_c":temperature},
+                {"name":"NAS/sdb","temp_c":temperature},
+                {"name":"nvme3n1","protocol":"ATA","temp_c":temperature},
+                {"name":"nvme-archive","model":"NVMe example","temp_c":temperature},
+                {"name":"nvme4n1","temp_c":null}
+            ]);
+            let alerts = generate_alerts(&s, &config);
+            for (name, warning, critical) in [
+                ("nvme0n1", 60., 70.),
+                ("NAS/nvme2n1", 60., 70.),
+                ("named-ssd", 60., 70.),
+                ("sda", 50., 60.),
+                ("NAS/sdb", 50., 60.),
+                ("nvme3n1", 50., 60.),
+                ("nvme-archive", 50., 60.),
+            ] {
+                let alert = alerts
+                    .iter()
+                    .find(|a| a["id"] == format!("disk/{name}/temperature"));
+                let expected = if temperature >= critical {
+                    Some("critical")
+                } else if temperature >= warning {
+                    Some("warning")
+                } else {
+                    None
+                };
+                assert_eq!(
+                    alert.and_then(|a| a["severity"].as_str()),
+                    expected,
+                    "{name} at {temperature}"
+                );
+            }
+            assert!(!alerts.iter().any(|a| a["id"] == "disk/nvme4n1/temperature"));
+        }
+    }
+    #[test]
+    fn nvme_custom_limits_preserve_smart_critical_alerts() {
+        let c = Config {
+            nvme_temperature_warning_c: 65.,
+            nvme_temperature_critical_c: 80.,
+            ..Config::default()
+        };
+        for (temperature, expected) in
+            [(60., None), (65., Some("warning")), (80., Some("critical"))]
+        {
+            let mut s = empty_snapshot("synthetic", "192.0.2.1", 1, 100.);
+            s["disks"] = json!([{"name":"nvme0n1","temp_c":temperature,"health":"failed"}]);
+            let alerts = generate_alerts(&s, &c);
+            assert!(alerts
+                .iter()
+                .any(|a| a["id"] == "disk/nvme0n1/smart" && a["severity"] == "critical"));
+            assert_eq!(
+                alerts
+                    .iter()
+                    .find(|a| a["id"] == "disk/nvme0n1/temperature")
+                    .and_then(|a| a["severity"].as_str()),
+                expected
+            );
+        }
+    }
     #[test]
     fn hardware_critical_limit_below_default_warning() {
         let mut s = empty_snapshot("synthetic", "192.0.2.1", 1, 100.);

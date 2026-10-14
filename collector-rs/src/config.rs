@@ -236,6 +236,8 @@ pub struct Config {
     pub temperature_critical_c: f64,
     pub disk_temperature_warning_c: f64,
     pub disk_temperature_critical_c: f64,
+    pub nvme_temperature_warning_c: f64,
+    pub nvme_temperature_critical_c: f64,
     pub memory_warning_pct: f64,
     pub memory_critical_pct: f64,
     pub storage_warning_pct: f64,
@@ -287,6 +289,8 @@ impl Default for Config {
             temperature_critical_c: 90.,
             disk_temperature_warning_c: 50.,
             disk_temperature_critical_c: 60.,
+            nvme_temperature_warning_c: 60.,
+            nvme_temperature_critical_c: 70.,
             memory_warning_pct: 90.,
             memory_critical_pct: 97.,
             storage_warning_pct: 85.,
@@ -468,6 +472,10 @@ impl Config {
             (
                 self.disk_temperature_warning_c,
                 self.disk_temperature_critical_c,
+            ),
+            (
+                self.nvme_temperature_warning_c,
+                self.nvme_temperature_critical_c,
             ),
             (self.memory_warning_pct, self.memory_critical_pct),
             (self.storage_warning_pct, self.storage_critical_pct),

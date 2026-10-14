@@ -16,5 +16,9 @@
   "enable_gpus": true,
   "enable_faults": true,
   "expected_running_guests": [],
-  "qga_guest_ids": []
+  "qga_guest_ids": [],
+  "disk_temperature_warning_c": 50,
+  "disk_temperature_critical_c": 60,
+  "nvme_temperature_warning_c": 60,
+  "nvme_temperature_critical_c": 70
 }

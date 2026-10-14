@@ -141,6 +141,12 @@ The web editor is the usual way to pair agents and manage feeds. Agent enrollmen
 
 Proxmox probes, QEMU guest agents, restricted TrueNAS reads, SMART, ZFS, GPU and package-power tools are additional capabilities. [macOS memory and guest mapping](docs/macos-memory.md) and [Native telemetry](collector-rs/docs/TELEMETRY.md) documents their setup and measurement meanings. Guest OS memory remains distinct from assigned RAM and hypervisor accounting; component watts are not guessed wall power; ZFS status is not SMART health. Optional Python NAS/QGA compatibility payloads run on those monitored systems, while the collector runtime is Rust.
 
+### Disk temperature alerts
+
+NVMe drives warn at **60°C** and become critical at **70°C** by default. Other disks retain **50°C / 60°C**. Set `nvme_temperature_warning_c` and `nvme_temperature_critical_c` independently of `disk_temperature_warning_c` and `disk_temperature_critical_c` in `config.json`. Warning must be lower than critical. Thresholds trigger at or above the configured value.
+
+SMART protocol identifies NVMe drives; older snapshots fall back to native names such as `nvme0n1` or `NAS/nvme0n1`. Unknown drive types use the general disk limits. Manufacturer sensor limits, hardware alarms and SMART failures still produce their own alerts. Validate edited configuration before restarting a systemd collector; the integrated `run` command reloads valid changes automatically.
+
 ## Troubleshooting
 
 Check the foreground collector output or, for systemd, `journalctl -u homelab-monitor-collector -u homelab-monitor-http -u homelab-monitor-config`. HTTP 401 usually means the wrong key or role; a missing selected node returns 404; startup or publication failures can return 503. Use a private Bearer header to inspect telemetry, never a token in the URL.

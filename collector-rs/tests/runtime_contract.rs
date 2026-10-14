@@ -69,9 +69,45 @@ fn config_validates_existing_fields_and_disallows_controls() {
         json!({"qga_guest_ids":[99]}),
         json!({"host_ip":"not-an-ip"}),
         json!({"temperature_warning_c":90,"temperature_critical_c":80}),
+        json!({"nvme_temperature_warning_c":60,"nvme_temperature_critical_c":60}),
+        json!({"nvme_temperature_warning_c":70,"nvme_temperature_critical_c":60}),
+        json!({"nvme_temperature_warning_c":"60"}),
     ] {
         assert!(Config::from_value(value).is_err());
     }
+}
+#[test]
+fn nvme_temperature_configuration_keeps_disk_limits_independent() {
+    let defaults = Config::from_value(json!({})).unwrap();
+    assert_eq!(
+        (
+            defaults.nvme_temperature_warning_c,
+            defaults.nvme_temperature_critical_c
+        ),
+        (60., 70.)
+    );
+    assert_eq!(
+        (
+            defaults.disk_temperature_warning_c,
+            defaults.disk_temperature_critical_c
+        ),
+        (50., 60.)
+    );
+    let custom = Config::from_value(json!({"nvme_temperature_warning_c":65,"nvme_temperature_critical_c":80,"disk_temperature_warning_c":45,"disk_temperature_critical_c":55})).unwrap();
+    assert_eq!(
+        (
+            custom.nvme_temperature_warning_c,
+            custom.nvme_temperature_critical_c
+        ),
+        (65., 80.)
+    );
+    assert_eq!(
+        (
+            custom.disk_temperature_warning_c,
+            custom.disk_temperature_critical_c
+        ),
+        (45., 55.)
+    );
 }
 #[test]
 fn node_validation_requires_fixed_origin_and_supported_fields() {

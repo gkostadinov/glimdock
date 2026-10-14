@@ -4,7 +4,20 @@ use crate::{
     probes::{command, num, text},
 };
 use serde_json::{json, Value};
-use std::{fs, path::Path};
+use std::{fs, path::Path, sync::LazyLock};
+
+/// Prefer explicit SMART protocol; native NVMe device names support older feeds.
+pub(crate) fn is_nvme_disk(d: &Value) -> bool {
+    if let Some(protocol) = d["protocol"].as_str().filter(|p| !p.is_empty()) {
+        return protocol.eq_ignore_ascii_case("nvme");
+    }
+    static NAME: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"^nvme\d+(?:n\d+)?$").unwrap());
+    d["name"]
+        .as_str()
+        .and_then(|name| name.rsplit('/').next())
+        .is_some_and(|name| NAME.is_match(name))
+}
 /// Fixed local filesystem capacity probe for ordinary Linux hosts.
 pub fn read_filesystems() -> anyhow::Result<Value> {
     let output = command("df", &["-P", "-B1", "-l"], 5., false)?;
@@ -67,6 +80,11 @@ pub fn parse_smart(d: &Value, name: &str, code: i32) -> Value {
         Some("unknown")
     };
     let n = &d["nvme_smart_health_information_log"];
+    let protocol = if n.is_object() {
+        Some("NVMe".to_owned())
+    } else {
+        d["device"]["protocol"].as_str().map(|p| text(p, 16))
+    };
     let attributes = d["ata_smart_attributes"]["table"]
         .as_array()
         .cloned()
@@ -101,7 +119,7 @@ pub fn parse_smart(d: &Value, name: &str, code: i32) -> Value {
         }
     }
     let optional = |v: Option<f64>| if standby { None } else { v };
-    json!({"name":text(name,64),"model":text(d["model_name"].as_str().or(d["product"].as_str()).unwrap_or(""),64),"temp_c":optional(temp),"health":health,"status":status,"read_bps":null,"write_bps":null,"warnings":warnings.into_iter().take(3).collect::<Vec<_>>(),"wear_pct":optional(num(&n["percentage_used"])),"media_errors":optional(num(&n["media_errors"])),"power_on_hours":optional(num(&d["power_on_time"]["hours"]).or_else(||num(&n["power_on_hours"]))),"spare_pct":optional(num(&n["available_spare"])),"reallocated_sectors":optional(attr(5)),"pending_sectors":optional(attr(197))})
+    json!({"name":text(name,64),"protocol":protocol,"model":text(d["model_name"].as_str().or(d["product"].as_str()).unwrap_or(""),64),"temp_c":optional(temp),"health":health,"status":status,"read_bps":null,"write_bps":null,"warnings":warnings.into_iter().take(3).collect::<Vec<_>>(),"wear_pct":optional(num(&n["percentage_used"])),"media_errors":optional(num(&n["media_errors"])),"power_on_hours":optional(num(&d["power_on_time"]["hours"]).or_else(||num(&n["power_on_hours"]))),"spare_pct":optional(num(&n["available_spare"])),"reallocated_sectors":optional(attr(5)),"pending_sectors":optional(attr(197))})
 }
 pub fn read_smart(c: &Config) -> anyhow::Result<Value> {
     let devices = if c.smart_devices.is_empty() {
@@ -229,6 +247,8 @@ mod tests {
             0,
         );
         assert_eq!(v["health"], "failed");
+        assert_eq!(v["protocol"], "NVMe");
+        assert!(is_nvme_disk(&v));
         assert!(v["temp_c"].is_null());
         assert_eq!(v["warnings"][0], "NVMe critical warning")
     }
