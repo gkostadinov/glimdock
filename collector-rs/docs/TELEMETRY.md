@@ -207,3 +207,12 @@ is advertised as whole-system power. Current in amps appears only when hwmon
 actually reports it; watts are never converted into guessed rail current.
 Kernel crash counts are matching log records, not a claim of unique crashes.
 Journal/current-boot kernel copies of the same event are deduplicated.
+
+## Native macOS memory
+
+Native agents read Mach VM statistics, physical compression and wired RAM, and
+the kernel pressure state. App memory and available headroom are estimates;
+reclaimable file cache is separate. Explicit authenticated feed bindings can
+replace Proxmox guest allocation with these readings. See
+[macOS memory accounting and mapping](../../docs/macos-memory.md) for configuration,
+freshness rules and snapshot fields.

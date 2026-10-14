@@ -23,6 +23,14 @@ interfaces or additional vendor exporters. Unsupported SMART, GPU, temperature
 and power values stay unknown. Configure actual SNMP indexes/OIDs and vendor JSON
 fields rather than expecting every router to provide every measurement.
 
+## macOS memory
+
+Version 0.5.4 adds native macOS physical memory accounting, kernel pressure,
+compression, wired RAM, reclaimable cache and swap. Both Intel and Apple silicon
+agents use these readings. Map an authenticated agent to a Proxmox guest to
+replace host allocation with guest OS RAM without installing QEMU drivers or
+rebooting. See [the measurement and mapping guide](../docs/macos-memory.md).
+
 ## Build or install an agent
 
 Use the `glimdock-agent` executable matching the monitored machine's OS and

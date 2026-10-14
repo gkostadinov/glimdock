@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "scope": "Selected-target normal/build dependencies; excludes dev-only and unselected-platform packages",
-  "cargo_lock_sha256": "d37bf45509d3e43959bc79c8cd1b0cc493a6fe1bf57bce40627ebb1a12152198",
+  "cargo_lock_sha256": "6b1c6fd7122e277706754396716ae3b6b4af8469b63bce1eec4842f9f6da518a",
   "packages": [
     {
       "name": "aho-corasick",
@@ -849,6 +849,32 @@
         {
           "published_path": "LICENSE-MIT",
           "retained_path": "core-foundation-sys-0.8.7/LICENSE-MIT.txt",
+          "sha256": "62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3"
+        }
+      ]
+    },
+    {
+      "name": "core-foundation",
+      "version": "0.10.1",
+      "license_expression": "MIT OR Apache-2.0",
+      "authors": [
+        "The Servo Project Developers"
+      ],
+      "repository": "https://github.com/servo/core-foundation-rs",
+      "purl": "pkg:cargo/core-foundation@0.10.1",
+      "registry_checksum": "b2a6cd9ae233e7f62ba4e9353e81a88df7fc8a5987b8d445b4d90c879bd156f6",
+      "targets": [
+        "aarch64-apple-darwin"
+      ],
+      "notices": [
+        {
+          "published_path": "LICENSE-APACHE",
+          "retained_path": "core-foundation-0.10.1/LICENSE-APACHE.txt",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "published_path": "LICENSE-MIT",
+          "retained_path": "core-foundation-0.10.1/LICENSE-MIT.txt",
           "sha256": "62065228e42caebca7e7d7db1204cbb867033de5982ca4009928915e4095f3a3"
         }
       ]
@@ -2515,6 +2541,27 @@
           "published_path": "LICENSE.md",
           "retained_path": "mach-0.3.2/LICENSE.md.txt",
           "sha256": "399507a62fba271ddb3e24dc857e85b571fbb76435546f51b212cf04d8463f58"
+        }
+      ]
+    },
+    {
+      "name": "macmon",
+      "version": "0.9.0",
+      "license_expression": "MIT",
+      "authors": [
+        "vladkens"
+      ],
+      "repository": "https://github.com/vladkens/macmon",
+      "purl": "pkg:cargo/macmon@0.9.0",
+      "registry_checksum": "d4daf884de125918d4c5c602cf1a6f137038a28ba4b12f98a43c498e24c78e8c",
+      "targets": [
+        "aarch64-apple-darwin"
+      ],
+      "notices": [
+        {
+          "published_path": "LICENSE",
+          "retained_path": "macmon-0.9.0/LICENSE.txt",
+          "sha256": "65f575b0127a4383e4710c5ffefe2c5a9ab906231013f42ba899f3fa9b9fdaaf"
         }
       ]
     },

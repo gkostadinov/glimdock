@@ -255,12 +255,16 @@ binary. The complete terms in each file prevail over the summaries above.
 | [Waveshare-CST328-Apache-2.0.txt](LICENSES/Waveshare-CST328-Apache-2.0.txt) | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` | [upstream](https://github.com/waveshareteam/Waveshare-ESP32-components/blob/30d0ac3b8b6b27ebd402c5852819cbe0dab92749/display/touch/esp_lcd_touch_cst328/license.txt) |
 
 
-## Shared Rust workspace 0.2.0
+## Shared Rust workspace 0.5.4
 
 The current collector and device-agent packages share the root `Cargo.lock`.
 `LICENSES/Rust/inventory.json` records the four-target dependency audit for Linux
-x86_64/aarch64, macOS arm64 and Windows x86_64: 197 crate inventories and 365
+x86_64/aarch64, macOS arm64 and Windows x86_64: 199 crate inventories and 368
 retained notice files. Existing standalone-agent notice files remain retained
 as an earlier inventory; the shared workspace inventory governs current builds.
 The inventory is regenerated with `tools/cargo-notices.py`, using the root
 workspace lockfile discovered through Cargo metadata.
+
+Apple silicon hardware sampling uses macmon 0.9.0 (MIT), by vladkens. Its complete
+notice is retained in `LICENSES/Rust/macmon-0.9.0/`. Glimdock uses only its library
+feature; the TUI and application dependencies are disabled.

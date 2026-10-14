@@ -139,7 +139,7 @@ An empty `node` uses the actual hostname. `display_name` changes its visible lab
 
 The web editor is the usual way to pair agents and manage feeds. Agent enrollment is stored separately from legacy `remote_collectors`; use the pairing flow rather than hand-writing publisher credentials. A manually configured feed uses `remote_collectors`, a stable `id`, `type` (`server` or `proxmox`), optional `platform`, fixed HTTP(S) `url`, private `token_file` and polling fields. Printers use `printers` and `api_key_file`. URLs contain no embedded credentials, queries or arbitrary API paths; device feeds accept an origin or the fixed snapshot endpoint. Redirects are refused and HTTPS is verified.
 
-Proxmox probes, QEMU guest agents, restricted TrueNAS reads, SMART, ZFS, GPU and package-power tools are additional capabilities. [Native telemetry](collector-rs/docs/TELEMETRY.md) documents their setup and measurement meanings. Guest OS memory remains distinct from assigned RAM and hypervisor accounting; component watts are not guessed wall power; ZFS status is not SMART health. Optional Python NAS/QGA compatibility payloads run on those monitored systems, while the collector runtime is Rust.
+Proxmox probes, QEMU guest agents, restricted TrueNAS reads, SMART, ZFS, GPU and package-power tools are additional capabilities. [macOS memory and guest mapping](docs/macos-memory.md) and [Native telemetry](collector-rs/docs/TELEMETRY.md) documents their setup and measurement meanings. Guest OS memory remains distinct from assigned RAM and hypervisor accounting; component watts are not guessed wall power; ZFS status is not SMART health. Optional Python NAS/QGA compatibility payloads run on those monitored systems, while the collector runtime is Rust.
 
 ## Troubleshooting
 

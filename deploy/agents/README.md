@@ -23,7 +23,35 @@ Install the binary at `/usr/local/bin/glimdock-agent`. Create a dedicated `glimd
 
 ## macOS
 
-Install the binary at the absolute path in `com.glimdock.agent.plist`. Replace every placeholder path and the collector URL, copy the plist into `~/Library/LaunchAgents/`, and create the referenced host configuration and private pairing key. Use `chmod 700` on the Glimdock configuration directory and `chmod 600` on the pairing file. Load with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.glimdock.agent.plist`. The agent runs while that user is logged in. Stop with `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.glimdock.agent.plist`.
+Native macOS agents report physical RAM, kernel memory pressure, wired memory,
+compression, reclaimable cache and swap. See [macOS memory accounting and Proxmox
+guest mapping](../../docs/macos-memory.md). Upgrades preserve the private state
+directory: stop the launch service, replace only the executable, then load the
+same plist. No re-pairing or VM reboot is needed.
+
+For macOS 15 and newer, use an app bundle with a stable signing identity so the
+background agent can request Local Network access under its own name:
+
+```sh
+python3 tools/package-macos-agent.py --binary target/release/glimdock-agent \
+  --output /ABSOLUTE/APPLICATIONS/GlimdockAgent.app
+```
+
+A local build defaults to ad-hoc signing. For reliable identity across upgrades,
+pass your Apple-issued signing identity with `--sign-identity`. Public signed
+bundles keep the same `com.glimdock.agent` identifier. Keep configuration and
+pairing state outside the app. The plist's `AssociatedBundleIdentifiers` binds
+this launch agent to the installed app, as required by [Apple's Local Network
+guidance](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy).
+
+Install the bundle at the absolute path in `com.glimdock.agent.plist`. Replace every placeholder path and the collector URL, copy the plist into `~/Library/LaunchAgents/`, and create the referenced host configuration and private pairing key. Use `chmod 700` on the Glimdock configuration directory and `chmod 600` on the pairing file. Load with `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.glimdock.agent.plist`. The agent runs while that user is logged in. If background connections fail
+with “No route to host” while Terminal/SSH works, grant **Glimdock Agent** Local
+Network access in System Settings → Privacy & Security, then restart the service.
+For initial consent, stop the service and start the app through Launch Services:
+`open -a /ABSOLUTE/APPLICATIONS/GlimdockAgent.app --args` followed by the same
+configuration, collector URL and state arguments as the plist. Stop that initial
+app process before bootstrapping the service again. Do not disable system-wide
+network privacy or run the telemetry agent as root. Stop with `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.glimdock.agent.plist`.
 
 ## Windows
 

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FILES = (
     'Cargo.toml','Cargo.lock','.gitignore','.gitattributes','README.md','SETUP.md','BUILDING.md','CONTRIBUTING.md','SECURITY.md','LICENSE','LICENSE_POLICY.md','THIRD_PARTY_NOTICES.md',
     '.github/workflows/build.yml','.github/ISSUE_TEMPLATE/bug-report.yml','.github/ISSUE_TEMPLATE/feature-request.yml',
-    '.github/ISSUE_TEMPLATE/config.yml','.github/pull_request_template.md','docs/architecture.md','docs/DRIVER_PROVENANCE.md',
+    '.github/ISSUE_TEMPLATE/config.yml','.github/pull_request_template.md','docs/architecture.md','docs/DRIVER_PROVENANCE.md','docs/macos-memory.md',
     'collector-rs/Cargo.toml','collector-rs/build.rs','collector-rs/helpers/qga-bridge.pl','collector-rs/docs/TELEMETRY.md',
     'device-agent-rs/Cargo.toml','firmware/platformio.ini','firmware/partitions.csv','firmware/build_and_run.sh','firmware/README.md',
     'firmware/include/config.example.h','firmware/include/lv_conf.h','firmware/include/lv_psram.h',
@@ -20,7 +20,7 @@ FILES = (
     'deploy/install.sh','deploy/install-rust.sh','deploy/config.example.json',
     'deploy/homelab-monitor-config.service','deploy/homelab-monitor-collector.service','deploy/homelab-monitor-http.service',
     'deploy/rust/homelab-monitor-config.service','deploy/rust/homelab-monitor-collector.service','deploy/rust/homelab-monitor-http.service',
-    'tools/build-release.sh','tools/build-web-firmware.py','tools/package-public-release.py','tools/package-binaries.py',
+    'tools/build-release.sh','tools/build-web-firmware.py','tools/package-public-release.py','tools/package-binaries.py','tools/package-macos-agent.py',
     'tools/provision-private-reader.py','tools/test-provision-private-reader.py','tools/test-private-chat-model.cpp','docs/private-conversations.md','tools/cargo-notices.py','tools/test-pairing-policy.py','tools/configure_truenas_ssh.py',
     'integrations/truenas/probe.py','integrations/truenas/README.md',
     'examples/README.md','examples/collector.json','examples/nodes/proxmox.json',

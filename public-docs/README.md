@@ -7,6 +7,7 @@ pair or update the display.
 | Guide | Scope |
 | --- | --- |
 | [Setup](../SETUP.md) | Linux/macOS collector, built-in console, keys, node management and Chrome USB updates |
+| [macOS RAM](../docs/macos-memory.md) | Native pressure, compression, cache, swap and Proxmox guest mapping |
 | [Devices](DEVICES.md) | Native push enrollment, Linux/macOS/Windows agents, SNMP routers, JSON APIs and polling migration |
 | [Building](BUILDING.md) | Rust workspace, web assets, public firmware and verification |
 | [Architecture](../docs/architecture.md) | Registry, runtime boundaries, telemetry and management contracts |
