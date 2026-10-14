@@ -2,6 +2,7 @@
 pub mod config;
 pub mod faults;
 pub mod gpus;
+pub mod guest_feeds;
 pub mod guests;
 pub mod hub;
 pub mod operations;

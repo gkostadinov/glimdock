@@ -2,6 +2,9 @@
 pub mod config;
 pub mod host;
 pub mod json_device;
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+pub mod macos_hardware;
+pub mod macos_memory;
 pub mod protocol;
 pub mod push;
 pub mod server;

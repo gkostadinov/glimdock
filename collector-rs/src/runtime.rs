@@ -464,7 +464,9 @@ impl Collector {
                 now,
             ));
         }
+        crate::guest_feeds::apply(&mut nodes, &self.config, now);
         for node in &mut nodes {
+            node["snapshot"] = bounded_snapshot(node["snapshot"].take());
             node["status"] = json!(crate::server::node_status(&node["snapshot"], now));
         }
         let aggregate =

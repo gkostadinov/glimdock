@@ -208,6 +208,7 @@ pub struct Config {
     pub source_path: Option<PathBuf>,
     pub expected_running_guests: Vec<u64>,
     pub qga_guest_ids: Vec<u64>,
+    pub guest_memory_sources: Vec<crate::guest_feeds::GuestMemorySource>,
     pub truenas_ssh_host: String,
     pub truenas_ssh_user: String,
     pub truenas_ssh_key: String,
@@ -258,6 +259,7 @@ impl Default for Config {
             source_path: None,
             expected_running_guests: vec![],
             qga_guest_ids: vec![],
+            guest_memory_sources: vec![],
             truenas_ssh_host: String::new(),
             truenas_ssh_user: "truenas_admin".into(),
             truenas_ssh_key: "/etc/homelab-monitor/truenas_ed25519".into(),
@@ -417,6 +419,7 @@ impl Config {
             }
         }
         validate_node_groups(&self.node_groups(), true)?;
+        crate::guest_feeds::validate(self)?;
         for period in [
             self.interval_s,
             self.sensor_interval_s,

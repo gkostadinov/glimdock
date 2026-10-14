@@ -69,6 +69,18 @@ fn local_native_sample_has_real_memory_and_os_metadata_and_unknown_first_rates()
         assert!(first["host"][field].is_null(), "first {field} is not null");
     }
     assert!(serde_json::to_vec(&first).unwrap().len() <= MAX_PAYLOAD);
+    #[cfg(target_os = "macos")]
+    {
+        let h = &first["host"];
+        assert_eq!(h["memory_basis"], "macos-native");
+        assert_eq!(
+            h["mem_used_bytes"].as_u64().unwrap(),
+            h["mem_app_bytes"].as_u64().unwrap()
+                + h["mem_wired_bytes"].as_u64().unwrap()
+                + h["mem_compressed_bytes"].as_u64().unwrap()
+        );
+        assert!(h["memory_pressure"].as_str().is_some());
+    }
     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     let second = collector.sample(1003.0, 23.0).unwrap();
     assert_eq!(second["sequence"], 2);

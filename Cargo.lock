@@ -190,7 +190,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4b624268937c0e0a3edb7c27843f9e547c320d730c610d3b8e6e8e95b2026e4"
 dependencies = [
  "cfg-if",
- "core-foundation",
+ "core-foundation 0.7.0",
  "lazycell",
  "libc",
  "mach",
@@ -333,6 +333,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57d24c7a13c43e870e37c1556b74555437870a04514f7685f5b354e090567171"
 dependencies = [
  "core-foundation-sys 0.7.0",
+ "libc",
+]
+
+[[package]]
+name = "core-foundation"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b2a6cd9ae233e7f62ba4e9353e81a88df7fc8a5987b8d445b4d90c879bd156f6"
+dependencies = [
+ "core-foundation-sys 0.8.7",
  "libc",
 ]
 
@@ -587,7 +597,7 @@ dependencies = [
 
 [[package]]
 name = "glimdock-agent"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "axum",
@@ -598,6 +608,7 @@ dependencies = [
  "http-body-util",
  "hyper-util",
  "libc",
+ "macmon",
  "regex",
  "reqwest",
  "rustls",
@@ -614,7 +625,7 @@ dependencies = [
 
 [[package]]
 name = "glimdock-collector"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "axum",
@@ -998,6 +1009,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b823e83b2affd8f40a9ee8c29dbc56404c1e34cd2710921f2801e2cf29527afa"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "macmon"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d4daf884de125918d4c5c602cf1a6f137038a28ba4b12f98a43c498e24c78e8c"
+dependencies = [
+ "core-foundation 0.10.1",
+ "libc",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

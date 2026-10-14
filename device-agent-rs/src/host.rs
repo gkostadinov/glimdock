@@ -104,6 +104,8 @@ fn default_id(name: &str) -> String {
 }
 
 pub struct HostCollector {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    hardware: crate::macos_hardware::Hardware,
     pub config: HostConfig,
     descriptor: Value,
     sequence: u64,
@@ -141,6 +143,8 @@ impl HostCollector {
             "name": text(name, 96), "address": config.address,
         });
         Ok(Self {
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            hardware: crate::macos_hardware::Hardware::new(),
             config,
             descriptor,
             sequence: 0,
@@ -376,18 +380,53 @@ impl Collector for HostCollector {
             },
             true,
         );
-        let total = self.system.total_memory();
-        let available = self.system.available_memory();
-        if total > 0 && available <= total {
-            snapshot["host"]["mem_total_bytes"] = json!(total);
-            snapshot["host"]["mem_used_bytes"] = json!(total - available);
-            snapshot["sources"]["memory"] = source_status(now, None, true);
-        } else {
-            snapshot["sources"]["memory"] = source_status(now, Some("Probe unavailable"), true);
+        #[cfg(not(target_os = "macos"))]
+        {
+            let total = self.system.total_memory();
+            let available = self.system.available_memory();
+            if total > 0 && available <= total {
+                snapshot["host"]["mem_total_bytes"] = json!(total);
+                snapshot["host"]["mem_used_bytes"] = json!(total - available);
+                snapshot["sources"]["memory"] = source_status(now, None, true);
+            } else {
+                snapshot["sources"]["memory"] = source_status(now, Some("Probe unavailable"), true);
+            }
+            snapshot["host"]["swap_total_bytes"] = json!(self.system.total_swap());
+            snapshot["host"]["swap_used_bytes"] = json!(self.system.used_swap());
+            snapshot["sources"]["swap"] = snapshot["sources"]["memory"].clone();
         }
-        snapshot["host"]["swap_total_bytes"] = json!(self.system.total_swap());
-        snapshot["host"]["swap_used_bytes"] = json!(self.system.used_swap());
-        snapshot["sources"]["swap"] = snapshot["sources"]["memory"].clone();
+        #[cfg(target_os = "macos")]
+        {
+            match crate::macos_memory::sample() {
+                Ok(memory) => {
+                    snapshot["host"]
+                        .as_object_mut()
+                        .unwrap()
+                        .extend(memory.as_object().unwrap().clone());
+                    snapshot["sources"]["memory"] = source_status(now, None, true);
+                    snapshot["sources"]["memory_pressure"] = source_status(
+                        now,
+                        snapshot["host"]["memory_pressure"]
+                            .is_null()
+                            .then_some("Probe unavailable"),
+                        true,
+                    );
+                    snapshot["sources"]["swap"] = source_status(
+                        now,
+                        snapshot["host"]["swap_used_bytes"]
+                            .is_null()
+                            .then_some("Probe unavailable"),
+                        true,
+                    );
+                }
+                Err(_) => {
+                    for source in ["memory", "memory_pressure", "swap"] {
+                        snapshot["sources"][source] =
+                            source_status(now, Some("Probe unavailable"), true);
+                    }
+                }
+            }
+        }
         snapshot["host"]["uptime_s"] = json!(System::uptime());
         snapshot["sources"]["uptime"] = source_status(now, None, true);
         if cfg!(windows) {
@@ -447,6 +486,8 @@ impl Collector for HostCollector {
             cfg!(any(target_os = "linux", target_os = "macos", windows)),
         );
         collect_platform_extras(self, now, &mut snapshot);
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        self.hardware.apply(now, &mut snapshot);
         self.previous_mono = Some(mono);
         finish_snapshot(snapshot, &self.descriptor)
     }
