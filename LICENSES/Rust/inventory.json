@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "scope": "Selected-target normal/build dependencies; excludes dev-only and unselected-platform packages",
-  "cargo_lock_sha256": "6b1c6fd7122e277706754396716ae3b6b4af8469b63bce1eec4842f9f6da518a",
+  "cargo_lock_sha256": "cc4d76730b1351ba21ce0e0c0517977b53522c9a575619353a88105655280eff",
   "packages": [
     {
       "name": "aho-corasick",
