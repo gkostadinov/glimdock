@@ -255,7 +255,7 @@ binary. The complete terms in each file prevail over the summaries above.
 | [Waveshare-CST328-Apache-2.0.txt](LICENSES/Waveshare-CST328-Apache-2.0.txt) | `cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30` | [upstream](https://github.com/waveshareteam/Waveshare-ESP32-components/blob/30d0ac3b8b6b27ebd402c5852819cbe0dab92749/display/touch/esp_lcd_touch_cst328/license.txt) |
 
 
-## Shared Rust workspace 0.5.5
+## Shared Rust workspace 0.5.6
 
 The current collector and device-agent packages share the root `Cargo.lock`.
 `LICENSES/Rust/inventory.json` records the four-target dependency audit for Linux
