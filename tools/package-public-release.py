@@ -51,7 +51,7 @@ TREES = {
     'examples/agent-operations':{'.json','.py'},
     'tools/agent-operations':{'.py','.txt'},
     'design/agent-operations':{'.html','.js','.css','.md'},
-    'commercial/site/public':{'.html','.css','.js','.json','.svg','.woff2','.webp','.png','.txt','.xml','.md','.wasm','.py'},
+    'commercial/site/public':{'.bin','.html','.css','.js','.json','.svg','.woff2','.webp','.png','.txt','.xml','.md','.wasm','.py'},
     'commercial/site/scripts':{'.mjs','.py'},
     'commercial/site/tests':{'.mjs'},
     'commercial/site/worker':{'.js'},
@@ -149,6 +149,19 @@ def candidate():
                 raise ValueError('Private source/relink header rejected')
             data=bundle.extractfile(member).read()
             if any(value in data for value in literals): raise ValueError('Private build default rejected in source/relink member')
+    if 'commercial/site/public/firmware/manifest.json' in sources:
+        website=json.loads(sources['commercial/site/public/firmware/manifest.json'])
+        assert website['parts']==public['parts'] and website['version']==public['version'], 'Website firmware must match the audited public build'
+        assert re.fullmatch(r'v\d+\.\d+\.\d+',website['release']), 'Invalid website firmware release'
+        assert website['source_relink']==f"https://github.com/gkostadinov/glimdock/releases/download/{website['release']}/source-relink.tar.gz", 'Website source must use a fixed public release'
+        assert website['source_relink_sha256']==public['source_relink_sha256'] and website['source_relink_size']==public['source_relink_size']
+        allowed={"commercial/site/public"+part['path'] for part in public['parts']}
+        actual={name for name in sources if name.startswith('commercial/site/public/') and name.endswith('.bin')}
+        assert actual==allowed, 'Unexpected website firmware binary'
+        for part in public['parts']:
+            assert sources['commercial/site/public'+part['path']]==sources['collector-web'+part['path']], 'Website firmware differs from audited public image'
+        assert sources['commercial/site/public/assets/usb-flasher.js']==sources['collector-web/assets/usb-flasher.js'], 'Website USB updater differs from shared bundle'
+        assert sources['commercial/site/public/flash/flash-plan.js']==sources['collector-web/src/flash-plan.js'], 'Website flash safeguards differ from shared source'
     emulator=json.loads(sources['collector-web/emulator/manifest.json'])
     assert emulator['public_build'] and (emulator['width'],emulator['height'],emulator['rotation']) == (320,240,3), 'Unexpected public emulator dimensions or rotation'
     for name,asset in emulator['assets'].items():
