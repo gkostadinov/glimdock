@@ -1272,7 +1272,7 @@
     "integrations/truenas/README.md": "870b85adaec5f8c91020473b9c660c23bacf81e513cf15c780ff0fbbe1f155bd",
     "integrations/truenas/probe.py": "f4bc376b00844dfa84a6560be8057c5b468a4cd0a1d09c58fa12afb7c00449ab",
     "public-docs/AGENT-INTEGRATION.md": "d2312b35b79d12cc26ca924b66f446e83865d585ac159bf776c1b726c29e9ed9",
-    "public-docs/AGENT-OPERATIONS.md": "66c319297af729548391a5af29603540dd27568d2b466c3b4cbe055387947118",
+    "public-docs/AGENT-OPERATIONS.md": "dbc8a6ff75284d56d606bb9358ce2054647968e3399f5991fb7a265bfc0889b3",
     "public-docs/AGENT-PROMPTS.md": "81e546a0e12a3924dba68d2392707ef6ee145313a3ce682e65b07cf8d65a07d2",
     "public-docs/BUILDING.md": "3879eecebb7c4ca183f4ad59c240b989becc8ccbdc26c61f4a9202aad3466454",
     "public-docs/CONTRIBUTING.md": "0f32edf5e072e7e0ed09f6ab865b91eaa29b5b3df5bed7bf31ad18c1ce58b680",

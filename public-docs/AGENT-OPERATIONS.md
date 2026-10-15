@@ -146,6 +146,25 @@ the collector's bounded scheduler, preserving the four-card/four-tab constraint.
 Hardware alerts retain their existing deduplicated notification policy; AI
 execution and approval actions are outside this monitoring interface.
 
+### Keep monitoring independent of a laptop
+
+Run the source adapter on the collector's server, or another server that stays
+powered on. For a Proxmox installation, a small VM/container or a dedicated
+unprivileged host service can read the existing NAS coordination share. Mount
+that share read-only, retain its original records, and start the adapter and
+mount automatically at boot. No laptop proxy or SSH tunnel is required.
+
+When the adapter and collector share a host, bind the adapter to `127.0.0.1`
+on a separate port such as `8787`. Point `agent_operations.url` at
+`http://127.0.0.1:8787/v1/snapshot` and retain a separate source key in
+`token_file`. The display continues to use the collector's address and display
+key. A Mac or PC device agent remains an optional source of that machine's
+hardware readings; it does not need to host the agent operations API.
+
+The encrypted private conversation archive and its authenticated reader are
+separate from this metadata service. Do not copy private reader keys into the
+adapter or expose transcript content through the operations feed.
+
 ## Verify
 
 ```sh
