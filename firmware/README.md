@@ -302,3 +302,7 @@ Pair over USB with the [private-reader guide](../docs/private-conversations.md).
 The runtime reader is separate from node/agent telemetry and clears text on exit;
 public builds contain no pairing credential or archive content. The browser
 renderer accepts only explicitly synthetic private-chat pages.
+
+## Install from the public website
+
+Open [glimdock.com/flash/](https://glimdock.com/flash/) in desktop Chrome or Edge to install the verified public Waveshare V1 images directly over USB. No local collector is needed for installation. Confirm the board, select its serial port, and keep the cable connected until verification and restart finish. The updater preserves saved Wi-Fi, pairing and display preferences. New boards require connection setup afterwards; monitoring uses a running collector.

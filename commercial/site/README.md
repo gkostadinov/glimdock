@@ -143,3 +143,9 @@ The v0.1.0 artifacts describe the older architecture.
 The explicitly labelled v0.1.0 link remains an archive. Do not
 label old binaries as the current central collector. Local product-copy
 validation does not confirm that a public Site version has been deployed.
+
+## Public USB installer
+
+`/flash/` installs the supported Waveshare V1 public firmware directly with Web Serial. Run `python3 scripts/sync-flash-assets.py --release v0.5.6` after building or selecting an audited public firmware bundle. Use an existing immutable release whose source-relink archive matches the local manifest. The script copies only four verified images, the shared USB updater, flash safeguards and notices; the larger corresponding source archive is linked from GitHub. It never copies local Wi-Fi settings, monitoring keys, device backups or private builds.
+
+The website worker permits Serial only on the installer page. Firmware manifest and image hashes must match `collector-web`; tests and the public export enforce this. The worker budget is checked both uncompressed and gzip compressed. To update the UI, run `node scripts/build.mjs`, `node --test tests/*.test.mjs` and `node scripts/check.mjs`. The local collector remains an alternative installer and live monitoring console.

@@ -76,7 +76,9 @@ Polling feeds retain their separate interval, timeout and TTL controls. A blank 
 
 Use **Waveshare ESP32-S3-Touch-LCD-2.8 V1 / ST7789 + CST328** with 16 MiB flash and 8 MiB PSRAM. The V1 image does not support V2/CST3530. The current Pebble Landscape enclosure uses rotation 3, USB to the right, at 320 × 240.
 
-Open **Display & firmware** in desktop Chrome or Edge. Connect the board by USB and choose **Connect & update**, then select it in the browser's device chooser. The updater checks the chip, manifest and all image hashes, writes the required flash segments and restarts the board. Saved Wi-Fi, collector pairing and preferences are retained; a new board opens setup. The same page provides the public image's source/relink materials.
+To flash without running anything locally, open [glimdock.com/flash/](https://glimdock.com/flash/) in desktop Chrome or Edge. Connect by USB, confirm the supported V1 board, choose **Flash firmware** and select its port. Monitoring still requires your own collector after installation.
+
+You can also open **Display & firmware** in your collector console using desktop Chrome or Edge. Connect the board by USB and choose **Connect & update**, then select it in the browser's device chooser. The updater checks the chip, manifest and all image hashes, writes the required flash segments and restarts the board. Saved Wi-Fi, collector pairing and preferences are retained; a new board opens setup. The same page provides the public image's source/relink materials.
 
 If your collector is on LAN HTTP, run the same Rust interface on the computer connected to the board:
 
