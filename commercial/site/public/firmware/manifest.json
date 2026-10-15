@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "chip": "ESP32-S3",
+  "board": "waveshare-v1",
+  "rotation": 3,
+  "flash_size": 16777216,
+  "version": "glimdock-31e33b3d25f5",
+  "source_sha256": "31e33b3d25f5f5b7ad8cc5e9e2ece4acc45ec12aac2ac7ab0b4b01958d75d072",
+  "source_relink": "https://github.com/gkostadinov/glimdock/releases/download/v0.5.6/source-relink.tar.gz",
+  "source_relink_size": 22463200,
+  "source_relink_sha256": "b82312ed2c34342f6da473bde50d793818f2ba591ff1af710f930cfadca04fee",
+  "parts": [
+    {
+      "offset": 0,
+      "size": 15104,
+      "sha256": "2a71d69b471e20c2bac7fb469f3c6a807b3ebee780e348e5889db0da849ca363",
+      "path": "/firmware/bootloader.bin"
+    },
+    {
+      "offset": 32768,
+      "size": 3072,
+      "sha256": "932e4471368b0da7deefc440726c93cdd509dc768d8ab9c62682d457eacbbe6c",
+      "path": "/firmware/partitions.bin"
+    },
+    {
+      "offset": 57344,
+      "size": 8192,
+      "sha256": "f94c5d786a7a8fab06ac5d10e33bf37711a6697636dc037559ea19cc410a17f0",
+      "path": "/firmware/boot_app0.bin"
+    },
+    {
+      "offset": 65536,
+      "size": 1691408,
+      "sha256": "5a87290a114f2b3921b1ad07dfb9264db1ca64e8cc374988f87c7642c62a9dc8",
+      "path": "/firmware/firmware.bin"
+    }
+  ],
+  "release": "v0.5.6"
+}
