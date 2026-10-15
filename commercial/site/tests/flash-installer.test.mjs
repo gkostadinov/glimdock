@@ -33,6 +33,7 @@ test('public installer serves four manifest-verified images without collector au
     const bytes=Buffer.from(await image.arrayBuffer());assert.equal(bytes.length,part.size);assert.equal(createHash('sha256').update(bytes).digest('hex'),part.sha256);
   }
   assert.equal(manifest.source_relink,`https://github.com/gkostadinov/glimdock/releases/download/${manifest.release}/source-relink.tar.gz`);
+  const frozen=readFileSync('public/firmware/release-manifest.json');assert.equal(createHash('sha256').update(frozen).digest('hex'),manifest.release_manifest_sha256);assert.deepEqual(JSON.parse(frozen).parts,manifest.parts);
 });
 test('Serial permission is limited to the standalone installer',async()=>{
   for(const [path,expected] of [['/flash/','serial=(self)'],['/','serial=()'],['/demo/','serial=()']]){

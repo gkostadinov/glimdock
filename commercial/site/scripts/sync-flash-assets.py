@@ -17,7 +17,8 @@ def main():
     if not re.fullmatch(r'v\d+\.\d+\.\d+', args.release):
         parser.error('Expected a published semantic version tag')
     canonical = ROOT / 'collector-web'
-    manifest = json.loads((canonical / 'firmware/manifest.json').read_text())
+    released_manifest = (canonical / 'firmware/manifest.json').read_bytes()
+    manifest = json.loads(released_manifest)
     assert (manifest['schema'], manifest['chip'], manifest['board'], manifest['rotation'], manifest['flash_size']) == (1, 'ESP32-S3', 'waveshare-v1', 3, 16777216)
     assert [(p['offset'], p['path']) for p in manifest['parts']] == [(0, '/firmware/bootloader.bin'), (32768, '/firmware/partitions.bin'), (57344, '/firmware/boot_app0.bin'), (65536, '/firmware/firmware.bin')]
     files = {}
@@ -30,6 +31,8 @@ def main():
         files[part['path'].lstrip('/')] = data
     source = (canonical / manifest['source_relink'].lstrip('/')).read_bytes()
     assert len(source) == manifest['source_relink_size'] and hashlib.sha256(source).hexdigest() == manifest['source_relink_sha256']
+    files['firmware/release-manifest.json'] = released_manifest
+    manifest['release_manifest_sha256'] = hashlib.sha256(released_manifest).hexdigest()
     manifest['release'] = args.release
     manifest['source_relink'] = f'https://github.com/gkostadinov/glimdock/releases/download/{args.release}/source-relink.tar.gz'
     files['firmware/manifest.json'] = (json.dumps(manifest, indent=2) + '\n').encode()

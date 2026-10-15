@@ -35,5 +35,6 @@
       "path": "/firmware/firmware.bin"
     }
   ],
+  "release_manifest_sha256": "105c12a369676009b0864746ae81d52524bb1fe04c5007692ca041b23daf21f2",
   "release": "v0.5.6"
 }
