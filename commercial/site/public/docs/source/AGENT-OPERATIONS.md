@@ -54,7 +54,7 @@ For the existing authorized hub:
 
 ```sh
 .venv-agent-ops/bin/python tools/agent-operations/api.py \
-  --hub /ABSOLUTE/PATH/fast-share/AGENTS --port 8784
+  --hub /ABSOLUTE/PATH/TO/SHARED-COORDINATION-DIRECTORY --port 8784
 ```
 
 Select **Shared hub** in Settings, or open `/?mode=hub`. The default hides task
