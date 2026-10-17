@@ -31,6 +31,8 @@ FIRMWARE_FILES = (
     "include/config.h", "include/config.example.h", "include/lv_conf.h", "include/lv_psram.h",
     "src/main.cpp", "src/operations_model.h", "src/operations_parse.h", "src/operations_ui.inc", "src/private_chat_model.h", "src/private_chat_parse.h", "src/private_chat_network.h", "src/private_chat_network.cpp", "src/private_chat_ui.inc", "src/model.h", "src/display_clock.h", "src/network.cpp", "src/board.cpp", "src/board.h",
     "src/audio.cpp", "src/audio.h", "src/notification_policy.h", "src/battery_status.h", "src/touch_state.h", "src/pairing_policy.h", "src/brand.h", "src/brand_assets.h", "src/brand_portal.h",
+    "src/flipper_ble.cpp", "src/flipper_ble.h", "src/flipper_protocol.h", "src/flipper_status.h",
+    "src/flipper_usb.cpp", "src/flipper_usb.h", "src/flipper_ble_protocol.h", "src/flipper_control_queue.h", "src/flipper_cache_protocol.h",
 )
 PRIVATE_NAMES = {"local_credentials.h", "private_defaults.h", "secrets.h"}
 
@@ -133,8 +135,8 @@ for name,key in [("toolchain-xtensa-esp32s3","toolchain"),("tool-esptoolpy","esp
         raise SystemExit("Tool version differs from the exact bundle inventory")
 for name in ["cores","libraries","variants"]:
     shutil.copytree(root/"dependencies/arduino-framework"/name,framework/name,dirs_exist_ok=True)
-# Vendored MIT dependencies are compiled from their supplied sources, too.
-for name in ["lvgl","ArduinoJson"]:
+# Vendored dependencies are compiled from their supplied sources, too.
+for name in ["lvgl","ArduinoJson","NimBLE-Arduino"]:
     shutil.copytree(root/"dependencies"/name,project/"lib"/name,dirs_exist_ok=True)
 configuration=(project/"platformio.ini").read_text()
 start=configuration.index("lib_deps =")
@@ -198,6 +200,7 @@ def source_archive(stage: Path, build: Path, framework: Path, packages: Path, lo
         if path.is_file() and path.name != ".piopm":
             add_file(files, f"{prefix}/dependencies/lvgl/{path.name}", path)
     add_tree(files, f"{prefix}/dependencies/ArduinoJson", dependency_root / "ArduinoJson")
+    add_tree(files, f"{prefix}/dependencies/NimBLE-Arduino", dependency_root / "NimBLE-Arduino")
     toolchain = packages / "toolchain-xtensa-esp32s3"
     add_tree(files, f"{prefix}/LICENSES/toolchain", toolchain / "share/licenses")
     for path in sorted((build / "src").glob("*.o")):
@@ -216,9 +219,10 @@ def source_archive(stage: Path, build: Path, framework: Path, packages: Path, lo
                  "platformio_core": subprocess.check_output([pio, "--version"], text=True).strip(),
                  "toolchain": json.loads((toolchain / "package.json").read_text()),
                  "esptool": json.loads((packages / "tool-esptoolpy/package.json").read_text()),
-                 "dependencies": {"lvgl": "9.3.0", "ArduinoJson": "7.4.2"}, "linked_sdk_libraries": linked_libraries,
-                 "public_defaults": True, "private_defaults_included": False, "application_objects": 3,
-                 "source_scope": "Exact installed Arduino cores, libraries and selected board variant; complete LVGL source/libs and notices; ArduinoJson; original firmware; SDK linker/configuration and notices. Pinned PlatformIO packages supply the remaining ESP-IDF SDK and toolchain."}
+                 "dependencies": {"lvgl": "9.3.0", "ArduinoJson": "7.4.2", "NimBLE-Arduino": "1.4.3"}, "linked_sdk_libraries": linked_libraries,
+                 "public_defaults": True, "private_defaults_included": False,
+                 "application_objects": len(list((build / "src").glob("*.o"))),
+                 "source_scope": "Exact installed Arduino cores, libraries and selected board variant; complete LVGL source/libs and notices; ArduinoJson; NimBLE-Arduino and its component notices; original firmware; SDK linker/configuration and notices. Pinned PlatformIO packages supply the remaining ESP-IDF SDK and toolchain."}
     files[f"{prefix}/build-inventory.json"] = (json.dumps(inventory, indent=2) + "\n").encode()
     files[f"{prefix}/rebuild.py"] = REBUILD_SCRIPT.encode()
     files[f"{prefix}/relink-application.py"] = RELINK_SCRIPT.encode()
@@ -226,7 +230,7 @@ def source_archive(stage: Path, build: Path, framework: Path, packages: Path, lo
 
 This bundle accompanies the downloadable Glimdock ESP32-S3 Waveshare V1 image.
 Original application source is MIT licensed. Arduino core/libraries retain
-LGPL-2.1-or-later and individual notices; ESP-IDF, LVGL, fonts, ArduinoJson and
+LGPL-2.1-or-later and individual notices; ESP-IDF, LVGL, fonts, ArduinoJson, NimBLE and
 compiler runtime terms are retained under LICENSES and dependencies.
 
 Install the PlatformIO Core version in build-inventory.json, then run:
@@ -235,8 +239,9 @@ Install the PlatformIO Core version in build-inventory.json, then run:
 
 The helper creates an isolated package cache, installs the pinned platform and
 checks its exact Arduino framework version. It overlays the supplied Arduino
-source (including any modifications you make), builds the vendored LVGL and
-ArduinoJson source, and links a public unpaired application. No flash action runs.
+source (including any modifications you make), builds the vendored LVGL,
+ArduinoJson and NimBLE-Arduino source, and links a public unpaired application.
+No flash action runs.
 
 To rebuild the LGPL libraries and relink the original application object files:
 

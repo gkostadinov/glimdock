@@ -41,7 +41,8 @@ struct Snapshot {
   char osRelease[97]{},osVersion[97]{},architecture[49]{},uptimeScope[24]{};uint16_t cpuCount=0;double batteryPercent=NAN,batteryRemaining=NAN;int8_t batteryPlugged=-1;uint8_t nInterfaces=0;DeviceInterface interfaces[MAX_INTERFACES];
   Guest guests[MAX_GUESTS]; Pool pools[MAX_STORAGE]; Disk disks[MAX_DISKS]; Sensor sensors[MAX_SENSORS]; Alert alerts[MAX_ALERTS]; Source sources[MAX_SOURCES];Fault faults[MAX_FAULTS];Gpu gpus[MAX_GPUS];
 };
-inline void clearForNode(Snapshot&s,const NodeDescriptor&node){NodeDescriptor chosen=node,registry[MAX_NODES];uint8_t count=s.nNodes;memcpy(registry,s.nodes,sizeof(registry));new(&s)Snapshot{};s.node=chosen;s.nNodes=count;memcpy(s.nodes,registry,sizeof(registry));}
+// Registry summaries retain their original age and provenance across selection.
+inline void clearForNode(Snapshot&s,const NodeDescriptor&node){NodeDescriptor chosen=node,registry[MAX_NODES];uint8_t count=s.nNodes;double generated=s.generated;uint32_t received=s.received;bool demo=s.demo;memcpy(registry,s.nodes,sizeof(registry));new(&s)Snapshot{};s.node=chosen;s.nNodes=count;s.generated=generated;s.received=received;s.demo=demo;memcpy(s.nodes,registry,sizeof(registry));}
 inline int nodeIndexForId(const Snapshot&s,const char*id){if(!validNodeId(id))return -1;for(int i=0;i<s.nNodes;i++)if(!strcmp(s.nodes[i].id,id))return i;return -1;}
 inline bool nodeReplyMatches(const Snapshot&s,const char*requested,uint32_t capturedGeneration,uint32_t currentGeneration){return capturedGeneration==currentGeneration&&(!requested[0]||!strcmp(requested,s.node.id));}
 struct NetworkState { bool configured=false,wifi=false,setup=false,loading=false; char message[96]{},apPassword[16]{},ip[48]{}; uint32_t revision=0; };

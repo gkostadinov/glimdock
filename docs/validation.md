@@ -45,3 +45,29 @@ geometry, detail/back navigation, swipe cancellation, unknown progress, scoped
 references, heartbeat expiry and source failure. Physical verification is
 recorded separately from software checks. Public examples and the website demo
 are synthetic; no live hub telemetry or personal coordination history is distributed.
+
+## Flipper Zero cache — 17 October 2026
+
+The optional [Flipper companion](../integrations/flipper/README.md) was physically
+tested with a Waveshare ESP32-S3-Touch-LCD-2.8 V1, Flipper Momentum mntm-012 and
+six active nodes. USB screen capture recorded 14 local node changes at
+19.71–24.59 ms. All 16 offline node/page navigation checks passed. Source ages
+continued advancing while disconnected; cached pages stayed available, and
+uncached pages identified the selected node while awaiting details.
+
+Saved-pair reconnect required no new PIN, preserved the latest selected target
+and delivered fresh detail pages in the background. Wi-Fi remained connected,
+no firmware errors or reboots were observed, and saved NVS was verified
+unchanged through the guarded firmware update.
+
+Portable C99/C++17 and AddressSanitizer/UndefinedBehaviorSanitizer checks cover
+atomic catalogs for up to eight stable node IDs, selection wrapping, rapid
+selection changes, reordered and removed nodes, malformed packets, sequence
+replay, clock wraparound and offline source ages. New source-age snapshots can
+refresh unchanged healthy readings; retransmitted packets cannot revive old
+samples. Loading responses preserve complete cached detail pages. The cache
+lives only in RAM and clears when the Flipper app exits.
+
+Both Momentum mntm-012 and official Flipper firmware 1.5.1 app builds passed.
+Physical validation above applies to V1 with Momentum mntm-012; the official
+1.5.1 build has not been tested on hardware.

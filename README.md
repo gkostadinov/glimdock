@@ -60,6 +60,26 @@ The public browser demo uses fictional conversations only. Private pairing files
 reader keys and archive contents are excluded from public source and firmware.
 See [private-reader setup and API](docs/private-conversations.md).
 
+## Flipper Zero companion screen
+
+An optional Bluetooth LE connection sends compact **System, Alerts, Agents and
+Printer** pages to Flipper Zero. Install and open the
+[Flipper app](integrations/flipper/README.md), then pair from
+**Settings → Flipper Bluetooth screen** on Glimdock. Sharing starts disabled and
+requires the PIN shown by Flipper.
+
+The app keeps summaries for up to eight active nodes and previously received
+node details in RAM. **Up/Down** changes the displayed node immediately, including
+while disconnected; Glimdock fetches the selected node's details in the
+background. **Left/Right** switches pages, **OK** returns to System and **Back**
+exits. Closing the app clears its cache. Source ages and LIVE, SUMMARY, CACHED,
+LOADING, STALE, NO UPDATES, DISCONNECTED and DEMO labels keep freshness visible.
+
+Pairing, six-node browsing, offline navigation, page changes and saved-pair
+reconnection have been physically validated on the V1 board with Momentum
+mntm-012. See [validation scope](public-docs/VALIDATION.md#flipper-zero-cache--17-october-2026)
+for the measurements and tested configuration.
+
 ## Hardware and enclosure
 
 The supported board has an ST7789 display, CST328 touch, 16 MiB flash and 8 MiB PSRAM. The current **[Pebble public prototype](enclosure/public/pebble-r26-prototype-v2/README.md)** combines the r25 fitted purple body and continuous white cradle with compatible r24 internal parts. The r26 print trial changes supports and orientation; body CAD is unchanged. USB is to the right, rotation 3, at 320 × 240. The fitted body uses the native board USB opening.

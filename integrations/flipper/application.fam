@@ -1,0 +1,12 @@
+App(
+    appid="glimdock",
+    name="Glimdock",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="glimdock_app",
+    stack_size=4096,
+    fap_category="Tools",
+    fap_version=(0, 2),
+    fap_description="Cached Glimdock nodes over paired Bluetooth",
+    fap_author="Glimdock",
+    fap_weburl="https://glimdock.com",
+)

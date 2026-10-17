@@ -1,6 +1,7 @@
 /* Render the production firmware UI through LVGL's real software rasterizer. */
 #include "model.h"
 #include "board.h"
+#include "flipper_ble.h"
 #include <lvgl.h>
 #include <fixture.h>
 #include <fstream>
@@ -21,6 +22,8 @@ void homelabPreviewSensorFilter(uint8_t);
 void homelabPreviewGuest(int);
 void homelabPreviewGpu(uint8_t);
 void homelabPreviewPoll();
+void homelabPreviewFlipperState(const flipper::State&);
+void homelabPreviewFlipperPinEditor();
 uint32_t nativeClock = 1000;
 uint32_t millis() { return nativeClock; }
 // An optional frozen epoch follows the same simulated ticks as the LVGL UI.
@@ -123,7 +126,7 @@ int main(int argc, char **argv) {
   std::vector<std::pair<uint8_t,const char*>> pages = {{19,"all-nodes"},{20,"clock"},{0,"overview"},{1,"guests"},{4,"guest-detail"},{2,"storage"},{9,"disk-detail"},{3,"sensors"},{5,"power"},{10,"memory"},{11,"gpus"},{12,"gpu-detail"},{6,"alerts"},{7,"settings"},{13,"nodes"}};
   if(deviceNodeType(data.node.type))pages={{19,"all-nodes"},{20,"clock"},{0,"overview"},{2,"storage"},{9,"disk-detail"},{3,"sensors"},{5,"power"},{10,"memory"},{11,"gpus"},{12,"gpu-detail"},{6,"health"},{7,"settings"},{13,"nodes"}};
   if(printer)pages={{19,"all-nodes"},{20,"clock"},{0,"overview"},{1,"job"},{2,"temps"},{3,"health"},{13,"nodes"},{7,"settings"}};
-  for(auto item:std::vector<std::pair<uint8_t,const char*>>{{14,"wifi"},{15,"node-settings"},{16,"node-edit"},{17,"node-delete"},{18,"keyboard"}})if(selected.empty()||selected.count(item.first))pages.push_back(item);
+  for(auto item:std::vector<std::pair<uint8_t,const char*>>{{14,"wifi"},{15,"node-settings"},{16,"node-edit"},{17,"node-delete"},{18,"keyboard"},{34,"flipper"}})if(selected.empty()||selected.count(item.first))pages.push_back(item);
   if(selected.count(8))pages.push_back({8,"setup"});
   for (auto item : pages) {
     if (!selected.empty() && !selected.count(item.first)) continue;
@@ -152,6 +155,24 @@ int main(int argc, char **argv) {
   homelabPreviewTheme(false);
   for(auto item:pages){if(!selected.empty()&&!selected.count(item.first))continue;homelabPreviewShow(item.first);homelabPreviewScroll(0);save(output/("dark-"+std::string(item.second)+".ppm"),display);if(item.first==3&&!printer){for(auto filter:std::array<std::pair<uint8_t,const char*>,2>{{{4,"power"},{5,"amps"}}}){homelabPreviewSensorFilter(filter.first);homelabPreviewScroll(0);save(output/("dark-sensors-"+std::string(filter.second)+".ppm"),display);if(filter.first==4){homelabPreviewScroll(100);save(output/"dark-sensors-power-scrolled.ppm",display);}}homelabPreviewSensorFilter(1);}}
   homelabPreviewTheme(true);
+  if(selected.count(34)) {
+   for(bool light: {true,false}) {
+    homelabPreviewTheme(light);
+    const std::string prefix=light?"":"dark-";
+    flipper::State state;state.enabled=true;state.pairing=true;state.passkeyEntry=true;
+    strlcpy(state.peer,"Flipper Zero",sizeof(state.peer));
+    strlcpy(state.message,"Enter the six-digit PIN displayed on Flipper.",sizeof(state.message));
+    homelabPreviewFlipperState(state);homelabPreviewScroll(0);save(output/(prefix+"flipper-enter-pin.ppm"),display);
+    homelabPreviewFlipperPinEditor();save(output/(prefix+"flipper-keyboard.ppm"),display);
+    state.passkeyEntry=false;state.passkey=123456;
+    strlcpy(state.message,"Compare this code with Flipper. Confirm on both devices.",sizeof(state.message));
+    homelabPreviewFlipperState(state);homelabPreviewScroll(0);save(output/(prefix+"flipper-compare.ppm"),display);
+    state.pairing=false;state.connected=true;
+    strlcpy(state.message,"Connected. Up/Down: nodes; Left/Right: pages.",sizeof(state.message));
+    homelabPreviewFlipperState(state);homelabPreviewScroll(0);save(output/(prefix+"flipper-connected.ppm"),display);
+   }
+   homelabPreviewTheme(true);
+  }
   if (selected.empty()) {
   data.demo = false;
   data.generated=std::time(nullptr);data.received=nativeClock;homelabPreviewShow(0);save(output/"live.ppm",display);

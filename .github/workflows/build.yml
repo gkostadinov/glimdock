@@ -81,6 +81,12 @@ jobs:
       - run: npm ci --prefix collector-web
       - run: npm run build --prefix collector-web
       - run: npm test --prefix collector-web
+      - name: Verify Flipper cache, native BLE protocol and USB diagnostics
+        run: |
+          python3 tools/test-flipper-status.py
+          python3 integrations/flipper/build.py --test
+          c++ -std=c++17 -Wall -Wextra -Werror -fsanitize=address,undefined -Itools/flipper-usb-test-stubs -Ifirmware/src tools/flipper-test-usb.cpp firmware/src/flipper_usb.cpp -o output/flipper-usb-test
+          output/flipper-usb-test
       - run: pio pkg install --project-dir firmware --environment homelab_s3
       - run: python3 tools/build-web-firmware.py
       - uses: actions/checkout@v4

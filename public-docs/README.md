@@ -12,6 +12,7 @@ pair or update the display.
 | [Building](BUILDING.md) | Rust workspace, web assets, public firmware and verification |
 | [Architecture](../docs/architecture.md) | Registry, runtime boundaries, telemetry and management contracts |
 | [Firmware](../firmware/README.md) | Supported board, pairing, orientations and display behavior |
+| [Flipper Zero](../integrations/flipper/README.md) | Paired Bluetooth pages, local node cache, buttons, build and installation |
 | [Pebble Landscape](../enclosure/pebble-landscape/README.md) | Current enclosure concept and assembly status |
 | [Contributing](CONTRIBUTING.md) | Development expectations |
 | [Security](SECURITY.md) | Credentials and vulnerability reporting |

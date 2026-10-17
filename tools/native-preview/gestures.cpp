@@ -4,6 +4,7 @@
 #include "display_clock.h"
 #include "brand.h"
 #include "brand_assets.h"
+#include "flipper_ble.h"
 #include <Preferences.h>
 #include <lvgl.h>
 // Pinned LVGL 9.3 test-only access to the actual keyboard button rectangles.
@@ -24,6 +25,7 @@ void homelabPreviewGuest(int);
 void homelabPreviewRefresh();
 void homelabPreviewPoll();
 void homelabPreviewTick();
+void homelabPreviewFlipperState(const flipper::State&);
 bool homelabPreviewNotificationVisible();
 void homelabPreviewNotification(const char*,const char*,uint8_t);
 uint8_t homelabPreviewHistoryCount();
@@ -300,5 +302,39 @@ int main(int argc,char**argv){
  tapButton("Auto");setWallClock(1791838800);auto pressed=objectPoint(homelabPreviewStatusControl(),false);point(pressed.x,pressed.y,true);themeTick();expect(homelabPreviewLightTheme(),"Auto defers a palette rebuild while a finger is down");point(pressed.x,pressed.y,false);themeTick();expect(!homelabPreviewLightTheme(),"Auto applies the deferred change after release");
  homelabPreviewShow(7);tapButton("Wi-Fi & collector setup");tapButton("Wi-Fi name");auto*editingArea=findClass(lv_screen_active(),&lv_textarea_class);lv_textarea_set_text(editingArea,"Retained edit");setWallClock(1791806400);themeTick();expect(!homelabPreviewLightTheme()&&homelabPreviewPage()==18&&editingArea==findClass(lv_screen_active(),&lv_textarea_class)&&!strcmp(lv_textarea_get_text(editingArea),"Retained edit"),"Auto waits until text editing finishes without destroying the input");tapBack();expect(homelabPreviewLightTheme(),"Auto applies the pending theme when the editor closes");
  homelabPreviewShow(7);tapButton("White");testWallFixed=false;
+ // The real pairing editor stays numeric, masked and transient in either theme.
+ for(bool light: {true,false}) {
+  homelabPreviewTheme(light);
+  flipper::State pairing;pairing.enabled=true;pairing.pairing=true;pairing.passkeyEntry=true;
+  strlcpy(pairing.peer,"Synthetic Flipper",sizeof(pairing.peer));
+  strlcpy(pairing.message,"Enter the six-digit PIN displayed on Flipper.",sizeof(pairing.message));
+  flipper::previewState()=pairing;
+  homelabPreviewShow(7);int selectionsBeforeFlipper=nativeSelections;
+  dragReturning(buttonPoint("Flipper Bluetooth screen"),25);
+  expect(homelabPreviewPage()==7,"Settings drag does not open Flipper controls");
+  tapButton("Flipper Bluetooth screen");
+  expect(homelabPreviewPage()==34&&nativeSelections==selectionsBeforeFlipper,"Flipper Settings opens without changing monitored node");
+  dragReturning(buttonPoint("Enter Flipper PIN"),25);
+  expect(homelabPreviewPage()==34,"drag over PIN action does not open the editor");
+  tapButton("Enter Flipper PIN");
+  auto*pinArea=findClass(lv_screen_active(),&lv_textarea_class);
+  expect(homelabPreviewPage()==18&&pinArea&&lv_textarea_get_password_mode(pinArea)&&!strlen(lv_textarea_get_text(pinArea)),"pairing PIN opens an empty masked numeric editor");
+  dragReturning(keyboardPoint("1"),25);
+  expect(!strlen(lv_textarea_get_text(pinArea)),"numeric keyboard drag does not enter a PIN digit");
+  tapKey("1");
+  expect(strlen(lv_textarea_get_text(pinArea))==1,"deliberate numeric-key release enters one PIN digit");
+  lv_textarea_add_text(pinArea,"a2345678");
+  expect(strlen(lv_textarea_get_text(pinArea))==6&&!strchr(lv_textarea_get_text(pinArea),'a'),"pairing editor rejects letters and bounds input to six digits");
+  tapButton("Clear");expect(!strlen(lv_textarea_get_text(pinArea)),"PIN Clear removes transient input");
+  tapKey("2");tapBack();
+  expect(homelabPreviewPage()==34&&!findClass(lv_screen_active(),&lv_keyboard_class),"PIN Back closes the keyboard and returns to Flipper controls");
+  tapButton("Enter Flipper PIN");pinArea=findClass(lv_screen_active(),&lv_textarea_class);
+  expect(pinArea&&!strlen(lv_textarea_get_text(pinArea)),"reopening pairing editor does not retain cancelled PIN digits");
+  pairing.pairing=false;pairing.passkeyEntry=false;pairing.revision++;
+  flipper::previewState()=pairing;homelabPreviewTick();settle();
+  expect(homelabPreviewPage()==34&&!findClass(lv_screen_active(),&lv_keyboard_class),"ended pairing dismisses the PIN editor on the UI tick");
+  tapBack();expect(homelabPreviewPage()==7,"Flipper Back returns to Settings");
+ }
+ homelabPreviewTheme(true);
  printf("All continuous-pointer integration checks passed.\n");
 }

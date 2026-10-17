@@ -103,6 +103,51 @@ A normal update keeps NVS; a full erase clears it. Settings are not encrypted at
 rest by this development build. Serial diagnostics report status, sequences and
 inventory counts without printing Wi-Fi credentials, tokens or snapshot bodies.
 
+## Flipper Zero Bluetooth screen
+
+**Settings → Flipper Bluetooth screen** connects a nearby Flipper Zero directly
+over Bluetooth LE. Install the [Glimdock Flipper app](../integrations/flipper/README.md)
+at `/ext/apps/Tools/glimdock.fap`, then open it on Flipper to start the
+status Bluetooth service. Disconnect its phone companion before connecting from Glimdock.
+
+Bluetooth status sharing is off by default. Choose **Pair / reconnect Flipper**,
+enter the six-digit PIN shown by Flipper into Glimdock. Firmware that uses
+numeric comparison instead displays a code to confirm on both devices. Glimdock remembers
+the bonded peer for later reconnections. **Forget Flipper** removes that pairing;
+turning the feature off stops the connection. Keep the app open while using the status display. Exiting it restores
+Flipper’s normal Bluetooth profile.
+
+Flipper **Up/Down** changes the displayed node locally and immediately, wrapping
+through the active registry. The app keeps summaries for up to eight nodes and
+previously received complete detail pages in RAM, so browsing also works while
+Bluetooth is disconnected. The latest selection is sent to Glimdock as the
+requested node; details load in the background. **Left/Right** moves through
+**System, Alerts, Agents and Printer**, **OK** returns to System and **Back**
+exits. Closing the app clears its cache.
+
+System and Alerts follow the selected node. Printer shows its registry summary
+or job details when that printer is selected. Agent counts use fresh public
+operations sources and indicate partial inventories. Pages without cached
+details show the selected node's name and a loading message. Previously received
+details remain available while new details load. Selected-node details refresh
+about once per second, with navigation updates sent promptly; the registry's
+summary list refreshes periodically.
+
+Source ages continue advancing while offline. LIVE, SUMMARY, CACHED, LOADING,
+STALE, NO UPDATES, DISCONNECTED and DEMO labels distinguish current readings,
+cached data and unavailable sources. Repeated packets do not renew source age.
+The bounded, versioned Bluetooth protocol stages each registry update atomically
+and acknowledges complete packets; late detail replies cannot change local
+focus. Private conversations, credentials and network addresses are excluded.
+
+Pairing, six-node local browsing, offline page navigation, background details,
+Wi-Fi/Bluetooth coexistence and saved-pair reconnect without another PIN were
+physically validated on the V1 board with Flipper Momentum mntm-012. Local node
+changes measured 19.71–24.59 ms across 14 samples; all 16 offline navigation
+checks passed. See the [dated validation record](../public-docs/VALIDATION.md#flipper-zero-cache--17-october-2026).
+The official 1.5.1 Flipper app also builds successfully; its hardware behavior has
+not been validated by these tests.
+
 ## Device battery indication
 
 The small indicator below the header clock shows the Glimdock device's voltage.

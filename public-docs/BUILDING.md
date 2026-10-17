@@ -82,6 +82,27 @@ The Rust executable embeds only the allowlisted public `collector-web/index.html
 private configuration, tests and keys are excluded. The running server needs no
 Python/Node.js runtime and no separate web asset directory.
 
+## Flipper Zero companion
+
+Build the Glimdock sender and Flipper app from the same source revision. The
+cache protocol requires matching versions on both devices; existing public USB
+installer downloads remain pinned to their published release.
+
+Run the portable status, cache and transport checks before building the app:
+
+```sh
+python3 tools/test-flipper-status.py
+python3 integrations/flipper/build.py --test
+python3 integrations/flipper/build.py
+```
+
+The default app build pins official Flipper SDK 1.5.1. Use
+`python3 integrations/flipper/build.py --momentum mntm-012` for the separately
+verified Momentum SDK preset. Build output and downloaded SDKs stay under
+`output/flipper-status/`. The [companion guide](../integrations/flipper/README.md)
+covers matching firmware, guarded uploads, pairing, controls and USB diagnostics.
+Building and running host tests do not access either physical device.
+
 ## Run without installing services
 
 ```sh

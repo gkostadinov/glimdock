@@ -1,4 +1,5 @@
 #include "private_chat_network.h"
+#include "flipper_usb.h"
 #include "private_chat_parse.h"
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -145,6 +146,7 @@ void worker(void*){
 bool queue(Request&request){if(!ready)return false;xSemaphoreTake(mutex,portMAX_DELAY);bool allowed=state.active&&state.configured;if(allowed){state.generation++;request.generation=state.generation;pending=request;resetModel(published);state.loading=true;state.revision++;strlcpy(state.message,"Loading private conversation page…",sizeof(state.message));}xSemaphoreGive(mutex);if(allowed)xTaskNotifyGive(task);return allowed;}
 bool configText(char*to,size_t cap,JsonVariantConst value){if(!value.is<const char*>())return false;JsonString input=value.as<JsonString>();if(!input.size()||input.size()>=cap||strlen(input.c_str())!=input.size())return false;memcpy(to,input.c_str(),input.size()+1);return true;}
 void provision(Stream&serial){
+  if(!serialOverflow&&flipper::handleUsbLine(serialLine,serialUsed,serial)){privatechat::wipe(serialLine,privatechat::MAX_CONFIG_JSON+1);serialUsed=0;serialOverflow=false;return;}
   constexpr char prefix[]="GLIMDOCK_PRIVATE_READER ";char nonce[49]{};bool success=false;
   if(!serialOverflow&&!strcmp(serialLine,"GLIMDOCK_PRIVATE_READER_OPEN")){viewRequest=1;privatechat::wipe(serialLine,privatechat::MAX_CONFIG_JSON+1);serialUsed=0;return;}
   if(!serialOverflow&&!strcmp(serialLine,"GLIMDOCK_PRIVATE_READER_CLOSE")){setPrivateChatActive(false);clearPrivateChatRuntime();viewRequest=2;privatechat::wipe(serialLine,privatechat::MAX_CONFIG_JSON+1);serialUsed=0;return;}

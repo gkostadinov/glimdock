@@ -1,6 +1,7 @@
 # Third-party notices
 
-Reviewed 8 October 2026; native device-agent inventory added 9 October 2026.
+Reviewed 8 October 2026; native device-agent inventory added 9 October 2026;
+NimBLE Bluetooth inventory added 17 October 2026.
 Original Glimdock software uses the root project
 license; third-party components retain their own terms. The original enclosure
 is separately scoped by `LICENSE_POLICY.md`. A dependency license does not
@@ -29,6 +30,7 @@ The ESP-IDF license/component inventory is anchored to tag `v4.4.7`, commit
 | Other ESP-IDF components | Component-specific terms | cJSON, TinyUSB, SPIFFS, micro-ecc, protobuf-c, libsodium, TinyCBOR, Expat, Asio, argtable3, linenoise, nghttp and FreeModbus texts retained as SDK inventory. Inclusion here does not assert every component is linked into the final image. |
 | LVGL 9.3.0 | MIT; embedded helpers keep their own notices | Installed MIT, TLSF and sprintf notices copied byte-for-byte. |
 | ArduinoJson 7.4.2 | MIT | Installed copyright/license copied byte-for-byte. |
+| NimBLE-Arduino 1.4.3 | Apache-2.0 wrapper and Apache Mynewt NimBLE; bundled components retain their stated BSD/permissive terms | Exact installed LICENSE, NimBLE LICENSE/NOTICE and tinycrypt LICENSE retained in `LICENSES/NimBLE*`; corresponding dependency sources accompany source/relink bundles. Copyright 2020 Ryan Powell; esp32-snippets copyright 2017 Neil Kolban; Mynewt copyright 2015–2020 Apache Software Foundation with Espressif and Runtime notices. |
 | Montserrat glyphs in LVGL | SIL OFL 1.1 | Installed Montserrat notice. Enabled sizes are 8, 10, 12, 14, 18, 24, 28 and 32 px. |
 | Font Awesome font glyphs in LVGL's Montserrat tables | SIL OFL 1.1 for font files | Full installed Font Awesome notice retained; it separately describes CC BY 4.0 for SVG/JS icons and MIT for code. No SVG/JS icon license is silently substituted for the embedded font glyph license. |
 

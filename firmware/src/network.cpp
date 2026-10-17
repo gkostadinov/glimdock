@@ -234,7 +234,9 @@ void worker(void*){
   defaultPairingPending=glimdock::shouldPreserveDefaultPairing(true,savedSettings,true,pairingSettings(cfg));
 #endif
   publishConnection();
-  WiFi.persistent(false);WiFi.mode(WIFI_STA);WiFi.setAutoReconnect(true);WiFi.setSleep(false);
+  // ESP32-S3 requires modem sleep for Wi-Fi/BLE coexistence; disabling it
+  // makes the controller abort when Bluetooth starts while Wi-Fi is active.
+  WiFi.persistent(false);WiFi.mode(WIFI_STA);WiFi.setAutoReconnect(true);WiFi.setSleep(true);
   if(networkState.configured){WiFi.begin(cfg.ssid.c_str(),cfg.password.c_str());lastWifiAttempt=millis();status("Connecting to Wi-Fi");}else setupPortal();
   uint32_t nextFetch=0,nextOperations=0;bool clockStarted=false;
   for(;;){

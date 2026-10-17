@@ -61,6 +61,10 @@ def main():
     args.build_dir.mkdir(parents=True, exist_ok=True)
     args.output.mkdir(parents=True, exist_ok=True)
     tracked = [ROOT/"firmware/src/main.cpp",ROOT/"firmware/src/operations_model.h",ROOT/"firmware/src/operations_parse.h",ROOT/"firmware/src/operations_ui.inc",*(ROOT/"firmware/src"/name for name in ("private_chat_model.h","private_chat_parse.h","private_chat_network.h","private_chat_network.cpp","private_chat_ui.inc")),ROOT/"firmware/src/display_clock.h",ROOT/"firmware/src/model.h",ROOT/"firmware/src/network.cpp",ROOT/"firmware/include/lv_conf.h",ROOT/"firmware/src/brand_assets.h",Path(__file__).parent/"emulator.cpp"]
+    tracked += [ROOT/"firmware/src"/name for name in (
+        "flipper_ble.h", "flipper_ble_protocol.h", "flipper_cache_protocol.h",
+        "flipper_control_queue.h", "flipper_protocol.h", "flipper_status.h", "flipper_usb.h",
+    )]
     sources = {str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}
     source = (ROOT/"firmware/src/network.cpp").read_text()
     (args.build_dir/"firmware_parser.h").write_text(parser_header(source))

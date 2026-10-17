@@ -14,6 +14,8 @@
 #include "notification_policy.h"
 #include "operations_model.h"
 #include "private_chat_network.h"
+#include "flipper_ble.h"
+#include "flipper_status.h"
 bool consumeWakeTouch=false;
 namespace {
 // The panel geometry is shared with the display/touch driver and native preview.
@@ -36,6 +38,11 @@ bool agentsWorkspace=false;uint8_t savedNodesPage=19,savedAgentsPage=22;
 lv_obj_t*workspaceHighlight=nullptr;int workspaceStep=60;
 constexpr uint8_t OPS_OVERVIEW=22,OPS_AGENTS=23,OPS_TASKS=24,OPS_EVENTS=25,OPS_AGENT=26,OPS_TASK=27,OPS_EVENT=28,OPS_OPERATIONS=29,OPS_SOURCES=30,OPS_SYSTEMS=31;
 constexpr uint8_t PRIVATE_SESSIONS=32,PRIVATE_MESSAGES=33;
+constexpr uint8_t FLIPPER_PAGE=34;
+flipper::State flipperUi{};
+uint32_t lastFlipperPublish=0,flipperSequence=0;
+char flipperRequestedNode[64]{};uint32_t flipperRequestSequence=0;
+String flipperPinDraft;
 bool privatePage(uint8_t p){return p==PRIVATE_SESSIONS||p==PRIVATE_MESSAGES;}
 bool privateNewRequest=false,privateScrollToBottom=false;privatechat::Model*privateChat=nullptr;privatechat::State privateState;
 void privateOpen(lv_event_t*);void privateOpenTask(lv_event_t*);void privateRender();void privateBack();void privateResetUi();void privateWipeLabels(lv_obj_t*);void privateHeader();
@@ -59,7 +66,7 @@ uint32_t notificationStarted=0;
 uint8_t notificationKind=0;
 uint8_t page=ALL_NODES_PAGE,detailOrigin=0,brightness=80,clockZone=0;int selectedGuestId=0;char selectedDiskName[48]{};bool autoRotate=false,idleDim=false,dimmed=false,manualDemo=false,uiReady=false,lightTheme=true;
 bool fleetContext=true;
-bool utilityPage(uint8_t p){return p==7||p==8||(p>=13&&p<=18);}
+bool utilityPage(uint8_t p){return p==7||p==8||(p>=13&&p<=18)||p==FLIPPER_PAGE;}
 bool fleetPage(){return privatePage(page)||page==ALL_NODES_PAGE||page==CLOCK_PAGE||(agentsWorkspace&&(page==OPS_SYSTEMS||(page==OPS_OVERVIEW&&operationsAll())))||(utilityPage(page)&&fleetContext);}
 void setViewPage(uint8_t p){if(privatePage(page)&&!privatePage(p)){setPrivateChatActive(false);privateResetUi();}else if(privatePage(p)&&!privatePage(page))setPrivateChatActive(true);fleetContext=privatePage(p)||p==ALL_NODES_PAGE||p==CLOCK_PAGE||(agentsWorkspace&&(p==OPS_SYSTEMS||(p==OPS_OVERVIEW&&operationsAll())))||(utilityPage(p)&&fleetPage());page=p;}
 char selectedGpuId[64]{},gpuLinkIds[MAX_GPUS][64]{},nodeLinkIds[MAX_NODES][64]{},trackedNodeId[64]{};uint8_t pickerOrigin=0;uint8_t gpuReturnPage=11,gpuListOrigin=5;
@@ -156,8 +163,36 @@ void clockGo(lv_event_t*){if(agentsWorkspace)operationsClockGo();else openPage(C
 void feedStatusGo(lv_event_t*e){if(privatePage(page)){openPage(7);return;}if(agentsWorkspace){openPage(OPS_SOURCES);return;}if(fleetPage())openPage(7);else go(e);}
 void nodeGo(lv_event_t*e){size_t index=uintptr_t(lv_event_get_user_data(e));if(index>=MAX_NODES||!nodeLinkIds[index][0])return;if(manualDemo){int selected=nodeIndexForId(*snapshot,nodeLinkIds[index]);if(selected>=0){snapshot->node=snapshot->nodes[selected];makeDemo(*snapshot);resetNodeView();render();}return;}if(requestNodeSelection(nodeLinkIds[index])){readSnapshot(*snapshot,net);resetNodeView();render();}}
 
+bool applyFlipperNodeSelection(){
+  // A rapid local browse sends only the newest absolute node ID. All selection
+  // and LVGL work remains on this task, outside the BLE callback.
+  static char pendingId[64]{};static uint32_t pendingSequence=0,generation=0;
+  flipper::State controls;flipper::readState(controls);
+  if(generation!=controls.linkGeneration){generation=controls.linkGeneration;pendingId[0]=0;flipperRequestedNode[0]=0;flipperRequestSequence=0;}
+  char nextId[64]{};uint32_t nextSequence=0;
+  if(flipper::takeNodeSelection(nextId,sizeof(nextId),nextSequence)){
+    strlcpy(pendingId,nextId,sizeof(pendingId));pendingSequence=nextSequence;
+  }
+  if(!controls.connected||!pendingId[0])return false;
+  int selected=nodeIndexForId(*snapshot,pendingId);
+  if(selected<0){pendingId[0]=0;return false;}
+  const NodeDescriptor chosen=snapshot->nodes[selected];
+  const bool changed=strcmp(chosen.id,snapshot->node.id)!=0;
+  if(changed&&manualDemo){snapshot->node=chosen;makeDemo(*snapshot);}
+  else if(!manualDemo){
+    // The UI copy can lag a prior request when its short mutex read failed.
+    // Always select through the authoritative model, even for the same UI ID.
+    if(!requestNodeSelection(chosen.id))return false;
+    if(!readSnapshot(*snapshot,net)||strcmp(snapshot->node.id,chosen.id))return false;
+  }
+  strlcpy(flipperRequestedNode,chosen.id,sizeof(flipperRequestedNode));
+  flipperRequestSequence=pendingSequence;pendingId[0]=0;
+  if(changed)resetNodeView(true);
+  return true;
+}
+
 void guestGo(lv_event_t*e){int index=uintptr_t(lv_event_get_user_data(e));if(index<snapshot->nGuests){selectedGuestId=snapshot->guests[index].id;openPage(4);}}
-void back(lv_event_t*){if(privatePage(page)){privateBack();return;}if(operationsPage(page)){operationsBack();return;}if(page==18){finishField(true);return;}openPage(page==14||page==15?7:page==16?15:page==17?16:page==13?pickerOrigin:page==4?1:page==9?2:page==11?gpuListOrigin:page==12?gpuReturnPage:detailOrigin);}
+void back(lv_event_t*){if(privatePage(page)){privateBack();return;}if(operationsPage(page)){operationsBack();return;}if(page==18){finishField(true);return;}openPage(page==14||page==15||page==FLIPPER_PAGE?7:page==16?15:page==17?16:page==13?pickerOrigin:page==4?1:page==9?2:page==11?gpuListOrigin:page==12?gpuReturnPage:detailOrigin);}
 void diskGo(lv_event_t*e){int index=uintptr_t(lv_event_get_user_data(e));if(index<snapshot->nDisks){strlcpy(selectedDiskName,snapshot->disks[index].name,sizeof(selectedDiskName));openPage(9);}}
 void gpuGo(lv_event_t*e){size_t index=uintptr_t(lv_event_get_user_data(e));if(index<MAX_GPUS&&gpuLinkIds[index][0]){strlcpy(selectedGpuId,gpuLinkIds[index],sizeof(selectedGpuId));gpuReturnPage=page==4?4:11;openPage(12);}}
 void gpuIdentities(){for(size_t i=0;i<MAX_GPUS;i++)strlcpy(gpuLinkIds[i],i<snapshot->nGpus?snapshot->gpus[i].id:"",sizeof(gpuLinkIds[i]));}
@@ -526,18 +561,21 @@ void readManagement(){
 void openConnection(lv_event_t*){manualDemo=false;readSnapshot(*snapshot,net);readManagement();wifiDraft[0]=connectionUi.ssid;wifiDraft[1]="";wifiDraft[2]=connectionUi.endpoint;wifiDraft[3]=wifiDraft[4]="";wifiClearPassword=false;formMessage="";openPage(14);}
 void openNodeSettings(lv_event_t*){manualDemo=false;readSnapshot(*snapshot,net);formMessage="";requestNodeConfiguration();openPage(15);}
 void refreshNodes(lv_event_t*){requestNodeConfiguration();render();}
-String&fieldDraft(){return fieldOrigin==14?wifiDraft[fieldIndex]:nodeDraft[fieldIndex];}
-bool secretField(){return fieldOrigin==14?(fieldIndex==1||fieldIndex==3||fieldIndex==4):fieldIndex==2;}
+String&fieldDraft(){return fieldOrigin==FLIPPER_PAGE?flipperPinDraft:fieldOrigin==14?wifiDraft[fieldIndex]:nodeDraft[fieldIndex];}
+bool secretField(){return fieldOrigin==FLIPPER_PAGE?true:fieldOrigin==14?(fieldIndex==1||fieldIndex==3||fieldIndex==4):fieldIndex==2;}
 void fieldChanged(lv_event_t*e){fieldDraft()=lv_textarea_get_text(lv_event_get_current_target_obj(e));if(fieldDraft().length()){if(fieldOrigin==14&&fieldIndex==1)wifiClearPassword=false;else if(fieldOrigin==16&&fieldIndex==2)nodeClearSecret=false;}}
-void finishField(bool cancel){if(cancel){fieldDraft()=fieldOriginal;if(fieldOrigin==14&&fieldIndex==1)wifiClearPassword=fieldOriginalToggle;else if(fieldOrigin==16&&fieldIndex==2)nodeClearSecret=fieldOriginalToggle;}page=fieldOrigin;render();}
+void finishField(bool cancel){if(fieldOrigin==FLIPPER_PAGE){
+  bool submitted=false;if(!cancel&&flipperPinDraft.length()==6){uint32_t code=0;bool digits=true;for(size_t i=0;i<6;i++){char c=flipperPinDraft[i];if(c<'0'||c>'9'){digits=false;break;}code=code*10+uint32_t(c-'0');}if(digits)submitted=flipper::submitPasskey(code);}
+  flipperPinDraft="";fieldOriginal="";if(!submitted)flipper::confirmPairing(false);page=FLIPPER_PAGE;render();return;
+}if(cancel){fieldDraft()=fieldOriginal;if(fieldOrigin==14&&fieldIndex==1)wifiClearPassword=fieldOriginalToggle;else if(fieldOrigin==16&&fieldIndex==2)nodeClearSecret=fieldOriginalToggle;}page=fieldOrigin;render();}
 void fieldDone(lv_event_t*e){finishField(lv_event_get_code(e)==LV_EVENT_CANCEL);}
 void clearField(lv_event_t*){lv_textarea_set_text(fieldArea,"");}
 void editField(lv_event_t*e){fieldOrigin=page;fieldIndex=uintptr_t(lv_event_get_user_data(e));fieldOriginal=fieldDraft();fieldOriginalToggle=fieldOrigin==14?wifiClearPassword:nodeClearSecret;page=18;render();}
 void keyboardInput(lv_event_t*e){auto*o=lv_event_get_current_target_obj(e);auto*input=lv_event_get_indev(e);lv_point_t point=tapOrigin;if(input)lv_indev_get_point(input,&point);int dx=point.x-tapOrigin.x,dy=point.y-tapOrigin.y;if(tapTarget!=o||tapDragged||consumeWakeTouch||dx*dx+dy*dy>=TAP_SLOP_PX*TAP_SLOP_PX)return;lv_keyboard_def_event_cb(e);if(keyboard)lv_buttonmatrix_set_button_ctrl_all(keyboard,lv_buttonmatrix_ctrl_t(LV_BUTTONMATRIX_CTRL_CLICK_TRIG|LV_BUTTONMATRIX_CTRL_NO_REPEAT));}
 void fieldEditor(){
-  heading("","",true);String fieldTitle=fieldOrigin==14?wifiFields[fieldIndex]:nodeFields[fieldIndex];label(content,fieldTitle,35,7,VIEW_W-103,INK,fitFont(fieldTitle,VIEW_W-103));auto*b=box(content,VIEW_W-60,0,60,40,BG,0);label(b,"Clear",9,12,48,CYAN,&lv_font_montserrat_10);clickable(b,clearField);
-  fieldArea=lv_textarea_create(content);lv_obj_set_pos(fieldArea,8,PORTRAIT?46:38);lv_obj_set_size(fieldArea,PAGE_W,PORTRAIT?54:40);lv_textarea_set_one_line(fieldArea,true);const uint16_t wifiLimits[]={32,64,240,192,192},nodeLimits[]={63,240,256,32,8,8,8};lv_textarea_set_max_length(fieldArea,fieldOrigin==14?wifiLimits[fieldIndex]:nodeLimits[fieldIndex]);lv_textarea_set_password_mode(fieldArea,secretField());lv_textarea_set_password_show_time(fieldArea,0);if(fieldOrigin==16&&fieldIndex>=4)lv_textarea_set_accepted_chars(fieldArea,"0123456789.");lv_textarea_set_text(fieldArea,fieldDraft().c_str());lv_textarea_set_cursor_pos(fieldArea,LV_TEXTAREA_CURSOR_LAST);lv_obj_set_style_bg_color(fieldArea,color(CARD),0);lv_obj_set_style_text_color(fieldArea,color(INK),0);lv_obj_set_style_text_font(fieldArea,&lv_font_montserrat_14,0);lv_obj_set_style_border_color(fieldArea,color(CYAN),0);lv_obj_set_style_border_width(fieldArea,1,0);lv_obj_set_style_radius(fieldArea,7,0);lv_obj_set_style_pad_all(fieldArea,8,0);lv_obj_add_event_cb(fieldArea,fieldChanged,LV_EVENT_VALUE_CHANGED,nullptr);
-  keyboard=lv_keyboard_create(lv_screen_active());lv_obj_set_align(keyboard,LV_ALIGN_TOP_LEFT);int keyboardY=PORTRAIT?HEADER_H+108:118;lv_obj_set_pos(keyboard,0,keyboardY);lv_obj_set_size(keyboard,VIEW_W,VIEW_H-keyboardY);lv_keyboard_set_textarea(keyboard,fieldArea);if(fieldOrigin==16&&fieldIndex>=4)lv_keyboard_set_mode(keyboard,LV_KEYBOARD_MODE_NUMBER);lv_keyboard_set_popovers(keyboard,false);lv_obj_remove_flag(keyboard,LV_OBJ_FLAG_SCROLLABLE);lv_obj_add_flag(keyboard,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_set_style_bg_color(keyboard,color(BG),LV_PART_MAIN);lv_obj_set_style_border_width(keyboard,0,LV_PART_MAIN);lv_obj_set_style_pad_all(keyboard,3,LV_PART_MAIN);lv_obj_set_style_pad_row(keyboard,3,LV_PART_MAIN);lv_obj_set_style_pad_column(keyboard,2,LV_PART_MAIN);lv_obj_set_style_bg_color(keyboard,color(CARD),LV_PART_ITEMS);lv_obj_set_style_bg_color(keyboard,color(EDGE),LV_PART_ITEMS|LV_STATE_CHECKED);lv_obj_set_style_text_color(keyboard,color(INK),LV_PART_ITEMS|LV_STATE_CHECKED);lv_obj_set_style_bg_color(keyboard,color(CYAN),LV_PART_ITEMS|LV_STATE_PRESSED);lv_obj_set_style_text_color(keyboard,color(CARD),LV_PART_ITEMS|LV_STATE_PRESSED);lv_obj_set_style_bg_opa(keyboard,LV_OPA_COVER,LV_PART_ITEMS);lv_obj_set_style_text_color(keyboard,color(INK),LV_PART_ITEMS);lv_obj_set_style_text_font(keyboard,&lv_font_montserrat_12,LV_PART_ITEMS);lv_obj_set_style_border_width(keyboard,1,LV_PART_ITEMS);lv_obj_set_style_border_color(keyboard,color(EDGE),LV_PART_ITEMS);lv_obj_set_style_radius(keyboard,4,LV_PART_ITEMS);lv_buttonmatrix_set_button_ctrl_all(keyboard,lv_buttonmatrix_ctrl_t(LV_BUTTONMATRIX_CTRL_CLICK_TRIG|LV_BUTTONMATRIX_CTRL_NO_REPEAT));lv_obj_remove_event_cb(keyboard,lv_keyboard_def_event_cb);lv_obj_add_event_cb(keyboard,tapGuard,LV_EVENT_ALL,nullptr);lv_obj_add_event_cb(keyboard,keyboardInput,LV_EVENT_VALUE_CHANGED,nullptr);lv_obj_add_event_cb(keyboard,fieldDone,LV_EVENT_READY,nullptr);lv_obj_add_event_cb(keyboard,fieldDone,LV_EVENT_CANCEL,nullptr);
+  heading("","",true);String fieldTitle=fieldOrigin==FLIPPER_PAGE?String("Flipper pairing PIN"):fieldOrigin==14?wifiFields[fieldIndex]:nodeFields[fieldIndex];label(content,fieldTitle,35,7,VIEW_W-103,INK,fitFont(fieldTitle,VIEW_W-103));auto*b=box(content,VIEW_W-60,0,60,40,BG,0);label(b,"Clear",9,12,48,CYAN,&lv_font_montserrat_10);clickable(b,clearField);
+  fieldArea=lv_textarea_create(content);lv_obj_remove_flag(fieldArea,LV_OBJ_FLAG_SCROLL_ON_FOCUS);lv_obj_set_pos(fieldArea,8,PORTRAIT?46:38);lv_obj_set_size(fieldArea,PAGE_W,PORTRAIT?54:40);lv_textarea_set_one_line(fieldArea,true);const uint16_t wifiLimits[]={32,64,240,192,192},nodeLimits[]={63,240,256,32,8,8,8};lv_textarea_set_max_length(fieldArea,fieldOrigin==FLIPPER_PAGE?6:fieldOrigin==14?wifiLimits[fieldIndex]:nodeLimits[fieldIndex]);lv_textarea_set_password_mode(fieldArea,secretField());lv_textarea_set_password_show_time(fieldArea,0);if(fieldOrigin==FLIPPER_PAGE)lv_textarea_set_accepted_chars(fieldArea,"0123456789");else if(fieldOrigin==16&&fieldIndex>=4)lv_textarea_set_accepted_chars(fieldArea,"0123456789.");lv_textarea_set_text(fieldArea,fieldDraft().c_str());lv_textarea_set_cursor_pos(fieldArea,LV_TEXTAREA_CURSOR_LAST);lv_obj_set_style_bg_color(fieldArea,color(CARD),0);lv_obj_set_style_text_color(fieldArea,color(INK),0);lv_obj_set_style_text_font(fieldArea,&lv_font_montserrat_14,0);lv_obj_set_style_border_color(fieldArea,color(CYAN),0);lv_obj_set_style_border_width(fieldArea,1,0);lv_obj_set_style_radius(fieldArea,7,0);lv_obj_set_style_pad_all(fieldArea,8,0);lv_obj_add_event_cb(fieldArea,fieldChanged,LV_EVENT_VALUE_CHANGED,nullptr);
+  keyboard=lv_keyboard_create(lv_screen_active());lv_obj_set_align(keyboard,LV_ALIGN_TOP_LEFT);int keyboardY=PORTRAIT?HEADER_H+108:118;lv_obj_set_pos(keyboard,0,keyboardY);lv_obj_set_size(keyboard,VIEW_W,VIEW_H-keyboardY);lv_keyboard_set_textarea(keyboard,fieldArea);if(fieldOrigin==FLIPPER_PAGE||(fieldOrigin==16&&fieldIndex>=4))lv_keyboard_set_mode(keyboard,LV_KEYBOARD_MODE_NUMBER);lv_keyboard_set_popovers(keyboard,false);lv_obj_remove_flag(keyboard,LV_OBJ_FLAG_SCROLLABLE);lv_obj_add_flag(keyboard,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_set_style_bg_color(keyboard,color(BG),LV_PART_MAIN);lv_obj_set_style_border_width(keyboard,0,LV_PART_MAIN);lv_obj_set_style_pad_all(keyboard,3,LV_PART_MAIN);lv_obj_set_style_pad_row(keyboard,3,LV_PART_MAIN);lv_obj_set_style_pad_column(keyboard,2,LV_PART_MAIN);lv_obj_set_style_bg_color(keyboard,color(CARD),LV_PART_ITEMS);lv_obj_set_style_bg_color(keyboard,color(EDGE),LV_PART_ITEMS|LV_STATE_CHECKED);lv_obj_set_style_text_color(keyboard,color(INK),LV_PART_ITEMS|LV_STATE_CHECKED);lv_obj_set_style_bg_color(keyboard,color(CYAN),LV_PART_ITEMS|LV_STATE_PRESSED);lv_obj_set_style_text_color(keyboard,color(CARD),LV_PART_ITEMS|LV_STATE_PRESSED);lv_obj_set_style_bg_opa(keyboard,LV_OPA_COVER,LV_PART_ITEMS);lv_obj_set_style_text_color(keyboard,color(INK),LV_PART_ITEMS);lv_obj_set_style_text_font(keyboard,&lv_font_montserrat_12,LV_PART_ITEMS);lv_obj_set_style_border_width(keyboard,1,LV_PART_ITEMS);lv_obj_set_style_border_color(keyboard,color(EDGE),LV_PART_ITEMS);lv_obj_set_style_radius(keyboard,4,LV_PART_ITEMS);lv_buttonmatrix_set_button_ctrl_all(keyboard,lv_buttonmatrix_ctrl_t(LV_BUTTONMATRIX_CTRL_CLICK_TRIG|LV_BUTTONMATRIX_CTRL_NO_REPEAT));lv_obj_remove_event_cb(keyboard,lv_keyboard_def_event_cb);lv_obj_add_event_cb(keyboard,tapGuard,LV_EVENT_ALL,nullptr);lv_obj_add_event_cb(keyboard,keyboardInput,LV_EVENT_VALUE_CHANGED,nullptr);lv_obj_add_event_cb(keyboard,fieldDone,LV_EVENT_READY,nullptr);lv_obj_add_event_cb(keyboard,fieldDone,LV_EVENT_CANCEL,nullptr);
 }
 void formField(lv_obj_t*p,int y,const char*key,const String&value,uint8_t index){auto*c=box(p,0,y,LIST_W,48,CARD,7);label(c,key,9,7,(LIST_W-25),MUTED,&lv_font_montserrat_10);label(c,value,9,24,(LIST_W-31),INK);label(c,">",LIST_W-17,23,10,CYAN,&lv_font_montserrat_10);clickable(c,editField,(void*)(uintptr_t)index);}
 void toggleWifiClear(lv_event_t*){wifiClearPassword=!wifiClearPassword;if(wifiClearPassword)wifiDraft[1]="";render();}
@@ -574,8 +612,39 @@ void nodeForm(){
   smallButton(s,nodeConfigUi.busy?"Saving...":"Save node",0,y,LIST_W,CYAN,saveNode);y+=48;if(nodeExisting){smallButton(s,"Remove node",0,y,LIST_W,RED,confirmDelete);y+=48;}note(s,y,"Saving briefly restarts the monitoring collector.");
 }
 void deleteScreen(){heading("Remove node?","",true);auto*s=scroll(28);int y=note(s,0,editingNode.name,INK);y=note(s,y,String(deleteNodeId));y=note(s,y,"Remove this node from desk monitoring? You can add it again from Settings.");if(formMessage.length())y=note(s,y,formMessage,RED);if(nodeConfigUi.message[0])y=note(s,y,nodeConfigUi.message,AMBER);smallButton(s,nodeConfigUi.busy?"Removing...":"Remove this node",0,y,LIST_W,RED,deleteConfirmed);y+=48;smallButton(s,"Keep node",0,y,LIST_W,CYAN,cancelDelete);}
+void openFlipper(lv_event_t*){flipper::readState(flipperUi);openPage(FLIPPER_PAGE);}
+void flipperToggle(lv_event_t*){flipper::setEnabled(!flipperUi.enabled);flipper::readState(flipperUi);render();}
+void flipperPair(lv_event_t*){flipper::pair();flipper::readState(flipperUi);render();}
+void flipperForget(lv_event_t*){flipper::forget();flipper::readState(flipperUi);render();}
+void flipperEnterPin(lv_event_t*){flipperPinDraft="";fieldOriginal="";fieldOrigin=FLIPPER_PAGE;fieldIndex=0;page=18;render();}
+void flipperConfirm(lv_event_t*){flipper::confirmPairing(true);}
+void flipperCancel(lv_event_t*){flipper::confirmPairing(false);}
+void flipperScreen(){
+  heading("Flipper status screen","",true);auto*s=scroll(28);int y=0;
+  y=note(s,y,flipperUi.message[0]?String(flipperUi.message):String("Bluetooth status display is off"),flipperUi.connected?MINT:AMBER);
+  if(flipperUi.peer[0])y=note(s,y,String("Flipper: ")+flipperUi.peer,INK);
+  if(flipperUi.pairing&&flipperUi.passkeyEntry){
+    y=note(s,y,"Read the six-digit code on Flipper and enter it here to pair securely.",INK);
+    smallButton(s,"Enter Flipper PIN",0,y,LIST_W,MINT,flipperEnterPin);y+=48;
+    smallButton(s,"Cancel pairing",0,y,LIST_W,AMBER,flipperCancel);y+=48;
+  }else if(flipperUi.pairing){
+    char pin[7];snprintf(pin,sizeof(pin),"%06lu",(unsigned long)flipperUi.passkey);
+    y=note(s,y,String("Pairing code: ")+pin,INK);
+    y=note(s,y,"Compare this code with the Flipper. Confirm on both devices only when they match.");
+    smallButton(s,"Confirm numbers match",0,y,LIST_W,MINT,flipperConfirm);y+=48;
+    smallButton(s,"Cancel pairing",0,y,LIST_W,AMBER,flipperCancel);y+=48;
+  }else{
+    smallButton(s,flipperUi.enabled?"Bluetooth display: ON":"Bluetooth display: OFF",0,y,LIST_W,CYAN,flipperToggle);y+=48;
+    smallButton(s,"Pair / reconnect Flipper",0,y,LIST_W,MINT,flipperPair);y+=48;
+    if(flipperUi.peer[0]){smallButton(s,"Forget Flipper",0,y,LIST_W,AMBER,flipperForget);y+=48;}
+  }
+  y=note(s,y,"Open the Glimdock app on Flipper to start its Bluetooth status service, then tap Pair here. Disconnect the phone app before pairing.");
+  y=note(s,y,"Flipper Up/Down selects a node. Left/Right switches System, Alerts, Agents and Printer pages. OK returns to System; Back exits.");
+  note(s,y,"System and Alerts follow the selected Glimdock node. Updates arrive once per second; stale readings stay marked.");
+}
 void settings(){
   auto*s=scroll();int y=0;section(s,y,"DISPLAY SETTINGS");y+=20;smallButton(s,"Private conversations",0,y,LIST_W,LAVENDER,privateOpen);y+=48;
+  smallButton(s,"Flipper Bluetooth screen",0,y,LIST_W,CYAN,openFlipper);y+=48;
   smallButton(s,soundEnabled?"Notification sounds: ON":"Notification sounds: OFF",0,y,LIST_W,MINT,soundChanged);y+=46;
   auto*volumeCard=box(s,0,y,LIST_W,68);label(volumeCard,"Sound volume",10,10,LIST_W-68,INK,&lv_font_montserrat_14);auto*volumeLabel=label(volumeCard,String(soundVolume)+"%",LIST_W-57,12,47,MUTED,&lv_font_montserrat_12);lv_obj_set_style_text_align(volumeLabel,LV_TEXT_ALIGN_RIGHT,0);
   auto*volumeSlider=lv_slider_create(volumeCard);lv_obj_add_flag(volumeSlider,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_set_pos(volumeSlider,14,43);lv_obj_set_size(volumeSlider,LIST_W-30,8);lv_obj_set_ext_click_area(volumeSlider,16);lv_slider_set_range(volumeSlider,0,100);lv_slider_set_value(volumeSlider,soundVolume,LV_ANIM_OFF);lv_obj_set_style_bg_color(volumeSlider,color(EDGE),LV_PART_MAIN);lv_obj_set_style_bg_color(volumeSlider,color(CYAN),LV_PART_INDICATOR);lv_obj_set_style_bg_color(volumeSlider,color(CYAN),LV_PART_KNOB);for(auto part:{LV_PART_MAIN,LV_PART_INDICATOR,LV_PART_KNOB})lv_obj_set_style_border_width(volumeSlider,0,part);lv_obj_add_event_cb(volumeSlider,volumeChanged,LV_EVENT_VALUE_CHANGED,volumeLabel);lv_obj_add_event_cb(volumeSlider,volumeChanged,LV_EVENT_RELEASED,volumeLabel);y+=76;
@@ -608,8 +677,8 @@ void noData(){
 }
 void render(){
   if(!uiReady)return;applyAppearance();struct tm appearanceTime{};appearanceClockSynced=themeMode==THEME_AUTO&&displayClockTm(time(nullptr),clockZone,appearanceTime);readManagement();if(keyboard){lv_obj_delete(keyboard);keyboard=nullptr;fieldArea=nullptr;}if(page==18)lv_obj_add_flag(tabBar,LV_OBJ_FLAG_HIDDEN);else lv_obj_remove_flag(tabBar,LV_OBJ_FLAG_HIDDEN);int oldScroll=privateNewRequest?0:scrollArea?lv_obj_get_scroll_y(scrollArea):0;static uint8_t previousPage=255;feedStatusLabel=nullptr;deviceBatteryLabel=nullptr;privateWipeLabels(content);lv_obj_clean(content);workspaceHighlight=nullptr;scrollArea=nullptr;header();
-  if(privatePage(page))privateRender();else if(operationsPage(page))operationsRender();else if(page==18)fieldEditor();else if(page==17)deleteScreen();else if(page==16)nodeForm();else if(page==15)nodeManager();else if(page==14)connectionForm();else if(page==13)nodePicker();else if(page==8)setupScreen();else if(page==7)settings();else if(page==ALL_NODES_PAGE)nodesOverview();else if(page==CLOCK_PAGE)clockOverview();else if(page==SUBNODES_PAGE)subnodesList();else if(!snapshot->valid)noData();else if(printerNode()){switch(page){case 1:printerJob();break;case 2:printerTemps();break;case 3:case 6:printerHealth();break;default:printerOverview();break;}}else switch(page){case 0:overview();break;case 1:guests();break;case 2:storage();break;case 3:sensors();break;case 4:guestDetail();break;case 5:powerDetail();break;case 6:alerts();break;case 9:diskDetail();break;case 10:memoryDetail();break;case 11:gpuList();break;case 12:gpuDetail();break;}
-  if(scrollArea&&previousPage==page)lv_obj_scroll_to_y(scrollArea,oldScroll,LV_ANIM_OFF);if(scrollArea&&page==PRIVATE_MESSAGES&&privateScrollToBottom&&privateChat&&privateChat->valid&&!privateState.loading){lv_obj_update_layout(scrollArea);lv_obj_scroll_to_y(scrollArea,lv_obj_get_scroll_y(scrollArea)+lv_obj_get_scroll_bottom(scrollArea),LV_ANIM_OFF);privateScrollToBottom=false;}previousPage=page;privateNewRequest=false;lastRender=millis();styleNotification();
+  if(page==FLIPPER_PAGE)flipperScreen();else if(privatePage(page))privateRender();else if(operationsPage(page))operationsRender();else if(page==18)fieldEditor();else if(page==17)deleteScreen();else if(page==16)nodeForm();else if(page==15)nodeManager();else if(page==14)connectionForm();else if(page==13)nodePicker();else if(page==8)setupScreen();else if(page==7)settings();else if(page==ALL_NODES_PAGE)nodesOverview();else if(page==CLOCK_PAGE)clockOverview();else if(page==SUBNODES_PAGE)subnodesList();else if(!snapshot->valid)noData();else if(printerNode()){switch(page){case 1:printerJob();break;case 2:printerTemps();break;case 3:case 6:printerHealth();break;default:printerOverview();break;}}else switch(page){case 0:overview();break;case 1:guests();break;case 2:storage();break;case 3:sensors();break;case 4:guestDetail();break;case 5:powerDetail();break;case 6:alerts();break;case 9:diskDetail();break;case 10:memoryDetail();break;case 11:gpuList();break;case 12:gpuDetail();break;}
+  if(scrollArea&&previousPage==page)lv_obj_scroll_to_y(scrollArea,oldScroll,LV_ANIM_OFF);if(scrollArea&&page==PRIVATE_MESSAGES&&privateScrollToBottom&&privateChat&&privateChat->valid&&!privateState.loading){lv_obj_update_layout(scrollArea);lv_obj_scroll_to_y(scrollArea,lv_obj_get_scroll_y(scrollArea)+lv_obj_get_scroll_bottom(scrollArea),LV_ANIM_OFF);privateScrollToBottom=false;}lv_obj_update_layout(content);lv_obj_stop_scroll_anim(content);lv_obj_scroll_to_x(content,0,LV_ANIM_OFF);lv_obj_scroll_to_y(content,0,LV_ANIM_OFF);lv_obj_invalidate(content);previousPage=page;privateNewRequest=false;lastRender=millis();styleNotification();
 }
 void buildUI(){
   lv_obj_t*screen=lv_screen_active();lv_obj_set_style_bg_color(screen,color(BG),0);lv_obj_set_style_pad_all(screen,0,0);lv_obj_remove_flag(screen,LV_OBJ_FLAG_SCROLLABLE);
@@ -652,17 +721,47 @@ void processBatteryNotice(uint32_t now){
   showNotification("Battery low",String("Device ")+batteryVoltage(battery)+" • connect USB power",battery.level==BatteryLevel::VeryLow?2:1);
   Serial.printf("Device battery: low-voltage notice at %.2f V; quiet until sustained recovery\n",battery.volts);
 }
+void publishFlipperStatus(uint32_t now,bool urgent=false){
+  lastFlipperPublish=now;GdStatus status;uint8_t wire[GD_DETAIL_BYTES];
+  flipperSequence=(flipperSequence+1)&0x7fffffffU;if(!flipperSequence)flipperSequence=1;
+  const double epoch=double(time(nullptr));
+  flipper::buildStatus(*snapshot,net,operations,operationsNet,now,epoch,flipperSequence,status);
+  const uint32_t request=!strcmp(snapshot->node.id,flipperRequestedNode)?flipperRequestSequence:0;
+  if(gd_detail_encode(&status,snapshot->node.id,request,snapshot->valid&&!net.loading,wire,sizeof(wire)))
+    flipper::publish(wire,sizeof(wire),urgent);
+  // Static storage avoids placing the bounded fleet inventory on the UI stack.
+  static GdNodeCatalog catalog;
+  memset(&catalog,0,sizeof(catalog));
+  strlcpy(catalog.selected_id,snapshot->node.id,sizeof(catalog.selected_id));
+  for(unsigned i=0;i<snapshot->nNodes&&i<MAX_NODES&&catalog.count<GD_CATALOG_MAX_NODES;++i){
+    const auto&node=snapshot->nodes[i];if(!validNodeId(node.id))continue;
+    auto&entry=catalog.nodes[catalog.count++];strlcpy(entry.id,node.id,sizeof(entry.id));
+    flipper::buildNodeSummary(node,*snapshot,net,now,epoch,entry.system);
+  }
+  if(catalog.count||(!net.loading&&net.configured))flipper::publishCatalog(catalog);
+}
 void updateUi(){
   if(!snapshot)return;uint32_t now=millis();
+  if(applyFlipperNodeSelection()){
+    publishFlipperStatus(now,true);
+    if(page!=18&&!interactionBusy())render();else header();
+  }
   if(now-lastPoll>=500){lastPoll=now;if(privatePage(page)&&privateChat)readPrivateChat(*privateChat,privateState);if(operations)readOperations(*operations,operationsNet);if(manualDemo)makeDemo(*snapshot);else readSnapshot(*snapshot,net);
     if(strcmp(trackedNodeId,snapshot->node.id)||(net.loading&&!snapshot->valid&&lastSequence))resetNodeView(true);
     if(!net.configured&&!manualDemo&&page!=7&&(page<13||page==ALL_NODES_PAGE))page=8;
     else if(net.configured&&!net.setup&&page==8&&!manualDemo)page=ALL_NODES_PAGE;
     if(snapshot->valid&&!printerNode()&&(manualDemo||snapshot->sequence!=lastSequence)){captureHistory();lastSequence=snapshot->sequence;}
     bool changed=net.revision!=lastNetRevision;lastNetRevision=net.revision;
+    uint32_t previousFlipperRevision=flipperUi.revision;
+    flipper::readState(flipperUi);
+    bool flipperChanged=previousFlipperRevision!=flipperUi.revision;
+    if(page==18&&fieldOrigin==FLIPPER_PAGE&&!flipperUi.pairing){flipperPinDraft="";fieldOriginal="";page=FLIPPER_PAGE;render();}
+    if(flipperUi.enabled&&uint32_t(now-lastFlipperPublish)>=1000){
+      publishFlipperStatus(now);
+    }
     processAudioNotices(now);
     processBatteryNotice(now);
-    bool appearanceChanged=false;if(themeMode==THEME_AUTO&&page!=18&&now-lastTouch>500&&!interactionBusy()){struct tm local{};bool synced=displayClockTm(time(nullptr),clockZone,local);appearanceChanged=applyAppearance()||synced!=appearanceClockSynced;}if(appearanceChanged)render();else if(page!=7&&page!=18&&now-lastTouch>500&&!interactionBusy()&&(changed||now-lastRender>=1000))render();else header();
+    bool appearanceChanged=false;if(themeMode==THEME_AUTO&&page!=18&&now-lastTouch>500&&!interactionBusy()){struct tm local{};bool synced=displayClockTm(time(nullptr),clockZone,local);appearanceChanged=applyAppearance()||synced!=appearanceClockSynced;}if(appearanceChanged||(page==FLIPPER_PAGE&&flipperChanged&&!interactionBusy()))render();else if(page!=7&&page!=18&&now-lastTouch>500&&!interactionBusy()&&(changed||now-lastRender>=1000))render();else header();
   }
   if(autoRotate&&pageTab(page)>=0&&snapshot->valid&&!interactionBusy()&&now-lastRotate>HOMELAB_AUTO_PAGE_MS){openPage(tabPage((pageTab(page)+1)%4));lastRotate=now;}
   if(idleDim&&!dimmed&&now-lastTouch>HOMELAB_IDLE_DIM_MS){dimmed=true;boardBacklight(10);}
@@ -677,7 +776,7 @@ void setup(){
   Serial.printf("Glimdock boot: reset=%d; power latch=on; gyro/RTC=off; notification audio=%s\n",int(esp_reset_reason()),boardAudioReady()?"ready":"unavailable");
   snapshot=(Snapshot*)heap_caps_malloc(sizeof(Snapshot),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
   if(!snapshot){auto*l=lv_label_create(lv_screen_active());lv_label_set_text(l,"PSRAM unavailable\nCheck V1 board configuration");lv_obj_center(l);boardBacklight(80);return;}new(snapshot)Snapshot{};
-  for(int i=0;i<32;i++){cpuHistory[i]=NAN;ramHistory[i]=NAN;}initPrivateChat();startNetwork();lastTouch=lastRotate=millis();buildUI();boardBacklight(brightness);
+  for(int i=0;i<32;i++){cpuHistory[i]=NAN;ramHistory[i]=NAN;}initPrivateChat();startNetwork();flipper::begin();lastTouch=lastRotate=millis();buildUI();boardBacklight(brightness);
 }
 void loop(){
   privateChatProvisionTick();int privateView=consumePrivateChatViewRequest();if(privateView==1&&uiReady)privateOpen(nullptr);else if(privateView==2&&uiReady&&privatePage(page))openPage(7);else if(privateView==3&&uiReady&&page==PRIVATE_SESSIONS)privateSelectIndex(0);
@@ -686,6 +785,8 @@ void loop(){
 }
 
 #else
+void homelabPreviewFlipperState(const flipper::State& state){flipper::previewState()=state;flipperUi=state;openPage(FLIPPER_PAGE);}
+void homelabPreviewFlipperPinEditor(){flipperEnterPin(nullptr);}
 void homelabPreviewInit(Snapshot* data,NetworkState* state){initPrivateChat();snapshot=data;net=*state;strlcpy(trackedNodeId,data->node.id,sizeof(trackedNodeId));brightness=80;lastTouch=millis();lastRotate=millis();for(int i=0;i<32;i++){cpuHistory[i]=data->demo?16+i%8:NAN;ramHistory[i]=data->demo?55+i%4:NAN;}cpuHistory[31]=data->cpu;ramHistory[31]=memoryPct(data->memUsed,data->memTotal);buildUI();}
 void homelabPreviewShow(uint8_t selected){if(operations)readOperations(*operations,operationsNet);agentsWorkspace=operationsPage(selected)||privatePage(selected);if(selected==PRIVATE_SESSIONS){privateOpen(nullptr);return;}if(selected==14){openConnection(nullptr);return;}if(selected==15){openNodeSettings(nullptr);return;}if(selected==16||selected==17){readManagement();if(selected==16&&!nodeConfigUi.count){addNode(nullptr);return;}ConfigNode n=nodeConfigUi.count>1?nodeConfigUi.nodes[1]:nodeConfigUi.count?nodeConfigUi.nodes[0]:ConfigNode{};beginNode(n,nodeConfigUi.count>0);if(selected==17){strlcpy(deleteNodeId,n.id,sizeof(deleteNodeId));page=17;render();}return;}if(selected==18){openConnection(nullptr);fieldOrigin=14;fieldIndex=4;fieldOriginal=wifiDraft[fieldIndex];page=18;render();return;}if(selected==11)gpuListOrigin=5;if(selected==4&&snapshot->nGuests)selectedGuestId=snapshot->guests[0].id;if(selected==9&&snapshot->nDisks)strlcpy(selectedDiskName,snapshot->disks[0].name,sizeof(selectedDiskName));if(selected==12&&snapshot->nGpus){strlcpy(selectedGpuId,snapshot->gpus[0].id,sizeof(selectedGpuId));gpuReturnPage=11;}detailOrigin=selected==4?1:selected==9?2:0;setViewPage(selected);render();}
 void homelabPreviewGuest(int id){selectedGuestId=id;detailOrigin=1;page=4;render();}
