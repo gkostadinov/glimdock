@@ -1,9 +1,86 @@
 // Native checks for the bounded, connection-scoped BLE node-control queue.
 #include "flipper_control_queue.h"
+#include "flipper_scan.h"
 #include <cassert>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <deque>
+#include <functional>
+#include <memory>
+#include <vector>
+
+static void checkScanOwnership() {
+    // Model the NimBLE 1.x ownership rules that triggered the hardware panic:
+    // onResult borrows an advertisement, completion and stop delete it, and
+    // the library reads it again after onResult returns. Run both possible
+    // orderings of a natural completion and a worker cancellation.
+    struct Scanner {
+        bool host = false, active = false, inCallback = false, failStart = false;
+        unsigned starts = 0, stops = 0;
+        std::vector<std::unique_ptr<unsigned>> results;
+        bool isScanning() { assert(host); return active; }
+        bool start(uint32_t seconds, void (*)(int), bool keep) {
+            assert(host && !inCallback && !keep && seconds > 0);
+            ++starts; results.clear(); active = !failStart; return active;
+        }
+        bool stop() {
+            assert(host && !inCallback);
+            ++stops; active = false; results.clear(); return true;
+        }
+        void complete() {
+            assert(host && !inCallback);
+            active = false; results.clear();
+        }
+    } scanner;
+    flipper::ScanMailbox commands;
+    std::deque<std::function<void()>> queue;
+    const auto post = [&] {
+        queue.emplace_back([&] { commands.execute(scanner, +[](int) {}); });
+    };
+    const auto pump = [&] {
+        scanner.host = true;
+        while(!queue.empty()) { auto task = std::move(queue.front()); queue.pop_front(); task(); }
+        scanner.host = false;
+    };
+    using Action = flipper::ScanMailbox::Action;
+    for(unsigned i = 0; i < 2000; ++i) {
+        assert(commands.submit(Action::Start, 3, post));
+        assert(commands.pending());
+        // A delayed host event cannot be overwritten after a worker timeout.
+        assert(!commands.submit(Action::Stop, 0, post));
+        assert(queue.size() == 1);
+        pump();
+        assert(!commands.pending() && commands.result() && scanner.active);
+        scanner.results.emplace_back(new unsigned(i));
+        const unsigned* borrowed = scanner.results.back().get();
+        scanner.host = true; scanner.inCallback = true;
+        // Candidate/cancel signals only enqueue work. They never free the
+        // object still borrowed by the current GAP callback.
+        assert(commands.submit(Action::Stop, 0, post));
+        assert(scanner.active && *borrowed == i);
+        scanner.inCallback = false;
+        assert(*borrowed == i);
+        scanner.host = false;
+        const auto natural = [&] { scanner.complete(); };
+        if(i % 2) queue.emplace_front(natural);
+        else queue.emplace_back(natural);
+        pump();
+        assert(!commands.pending() && commands.result());
+        assert(!scanner.active && scanner.results.empty());
+    }
+    // A new command after a late start cancels that scan on the host first.
+    assert(commands.submit(Action::Start, 3, post)); pump();
+    const unsigned stopped = scanner.stops;
+    assert(commands.submit(Action::Start, 20, post)); pump();
+    assert(scanner.stops == stopped + 1 && scanner.active);
+    scanner.failStart = true;
+    assert(commands.submit(Action::Start, 3, post)); pump();
+    assert(!commands.pending() && !commands.result() && !scanner.active);
+    assert(commands.submit(Action::Stop, 0, post)); pump();
+    assert(commands.result());
+    std::cout << "BLE scan ownership: 2000 completion/cancel races, deferred cleanup and late commands passed.\n";
+}
 
 static void checkSelectionMailbox() {
     flipper::NodeSelectionMailbox mailbox;
@@ -61,6 +138,7 @@ static void checkSelectionMailbox() {
 }
 
 int main() {
+    checkScanOwnership();
     checkSelectionMailbox();
     flipper::ControlQueue queue;
     int8_t step = 42;

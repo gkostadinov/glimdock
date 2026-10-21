@@ -361,6 +361,13 @@ an initial reassociation grace period and retries with backoff; recovery retains
 saved pairing and does not reboot the display. Wi-Fi modem sleep remains enabled
 for ESP32-S3 Bluetooth coexistence.
 
+Bluetooth scan start/stop and result cleanup run on the NimBLE host event queue.
+Advertisement callbacks only copy a candidate; they never stop a scan or free
+the borrowed advertisement. This avoids concurrent scan-completion cleanup and
+worker cancellation in NimBLE 1.x. Saved Flipper pairs use brief reconnect
+scans with backoff; the status returns to idle between scans. The ownership
+regression checks run with `python3 tools/test-flipper-ble.py`.
+
 A USB serial monitor at 115200 baud accepts `GLIMDOCK_DIAGNOSTICS` followed by a
 newline. The response contains uptime, internal heap/free-block sizes, PSRAM,
 UI stack headroom, Wi-Fi status and the last eight boot reasons. It contains no
@@ -374,3 +381,18 @@ For a deliberate recovery check over physical USB, send
 erasing its settings. Keep the monitor open and confirm that live data resumes
 without a new boot. The portable regression suite is
 `python3 tools/test-network-recovery.py`.
+
+### Turn off and wake
+
+Hold **BAT_PWR** for two seconds, then release it, or use
+**Settings → Turn off Glimdock → Turn off**. The startup button press is ignored
+until its first release, and short presses do not turn off the device. The
+display shows a brief shutdown message and waits for button release before
+sleeping. Saved Wi-Fi, pairing and display preferences remain intact.
+
+On battery, shutdown releases the board's GPIO 7 power latch. USB bypasses that
+battery switch, so a USB-powered display instead enters deep sleep with its
+screen and radios off. Press **BAT_PWR** to start again in either case. USB
+reconnection or a programmer reset can also wake/restart a sleeping device.
+This uses the V1 schematic's active-low GPIO 6 key and GPIO 7 battery control,
+as described in [Waveshare's power-control FAQ](https://docs.waveshare.com/ESP32-S3-Touch-LCD-2.8/FAQ).

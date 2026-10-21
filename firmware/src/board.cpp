@@ -8,12 +8,15 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <esp_heap_caps.h>
+#include <esp_sleep.h>
+#include <driver/rtc_io.h>
 #include <algorithm>
 extern "C" void *homelab_lvgl_pool(size_t bytes){static void *pool=nullptr;if(!pool)pool=heap_caps_malloc(bytes,MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);if(!pool){Serial.println("512 KiB PSRAM pool unavailable; check board memory configuration");abort();}return pool;}
 namespace {
 constexpr int CS=42,DC=41,RST=39,BL=5,INT_PIN=4,TOUCH_RST=2;
 // V1 schematic R5=200k / R11=100k: cell voltage = ADC voltage * 3.
 constexpr int BATTERY_ADC=8;
+constexpr gpio_num_t POWER_KEY=GPIO_NUM_6,POWER_LATCH=GPIO_NUM_7;
 BatteryMonitor batteryMonitor;
 SPIClass lcd(FSPI);
 volatile bool touchIRQ=false;
@@ -74,8 +77,28 @@ BoardBatteryStatus boardBattery(){
 }
 void boardHoldPower(){
   // Assert the V1 latch before USB, display or radio startup. Never pulse it low.
-  digitalWrite(7,HIGH);pinMode(7,OUTPUT);digitalWrite(7,HIGH);
-  pinMode(6,INPUT_PULLUP);
+  rtc_gpio_hold_dis(POWER_LATCH);rtc_gpio_deinit(POWER_LATCH);rtc_gpio_deinit(POWER_KEY);
+  digitalWrite(POWER_LATCH,HIGH);pinMode(POWER_LATCH,OUTPUT);digitalWrite(POWER_LATCH,HIGH);
+  pinMode(POWER_KEY,INPUT_PULLUP);
+}
+bool boardPowerButtonDown(){return digitalRead(POWER_KEY)==LOW;}
+bool boardPowerOff(){
+  // USB bypasses the battery switch. Configure wake before releasing the latch.
+  // The caller waits for release so EXT0 cannot immediately wake the device.
+  rtc_gpio_init(POWER_KEY);rtc_gpio_set_direction(POWER_KEY,RTC_GPIO_MODE_INPUT_ONLY);
+  rtc_gpio_pullup_en(POWER_KEY);rtc_gpio_pulldown_dis(POWER_KEY);
+  if(esp_sleep_enable_ext0_wakeup(POWER_KEY,0)!=ESP_OK){
+    rtc_gpio_deinit(POWER_KEY);pinMode(POWER_KEY,INPUT_PULLUP);
+    Serial.println("Power off: button wake unavailable; keeping power on.");return false;
+  }
+  Serial.println("Power off: display sleeping; battery latch released; BAT_PWR wakes USB sleep.");
+  Serial.flush();boardBacklight(0);command(0x28);command(0x10);delay(120);
+  // Hold low across USB-powered sleep; boardHoldPower releases the RTC hold
+  // and reasserts the latch on wake. Battery-only power drops here.
+  digitalWrite(POWER_LATCH,LOW);rtc_gpio_init(POWER_LATCH);
+  rtc_gpio_set_direction(POWER_LATCH,RTC_GPIO_MODE_OUTPUT_ONLY);
+  rtc_gpio_set_level(POWER_LATCH,0);rtc_gpio_hold_en(POWER_LATCH);
+  esp_deep_sleep_start();return true;
 }
 void boardInit(){
   boardHoldPower();

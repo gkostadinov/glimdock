@@ -122,6 +122,8 @@ EMSCRIPTEN_KEEPALIVE uintptr_t glimdock_pixels(){return reinterpret_cast<uintptr
 EMSCRIPTEN_KEEPALIVE uint32_t glimdock_frame(){return frameRevision;}
 EMSCRIPTEN_KEEPALIVE int glimdock_page(){return homelabPreviewPage();}
 EMSCRIPTEN_KEEPALIVE int glimdock_brightness(){return webBrightness;}
+EMSCRIPTEN_KEEPALIVE void glimdock_power_button(int pressed){nativePowerButtonDown=pressed!=0;}
+EMSCRIPTEN_KEEPALIVE int glimdock_powered_off(){return nativeDevicePoweredOff;}
 // Tests can freeze the epoch and advance it with _glimdock_tick; a negative value
 // restores the browser wall clock. Ordinary emulator sessions need no override.
 EMSCRIPTEN_KEEPALIVE void glimdock_time(double epoch){webWallClockEpoch=std::isfinite(epoch)&&epoch>=0?epoch:NAN;webWallClockStarted=webClock;homelabPreviewRefresh();lv_refr_now(display);}

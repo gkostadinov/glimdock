@@ -24,7 +24,7 @@ def main():
         binary = Path(temporary) / "test-controls"
         subprocess.run([
             *shlex.split(os.environ.get("CXX", "c++")), "-std=c++17",
-            "-Wall", "-Wextra", "-Werror", "-Ifirmware/src",
+            "-Wall", "-Wextra", "-Werror", "-fsanitize=address,undefined", "-Ifirmware/src",
             "tools/flipper-test-controls.cpp", "-o", str(binary),
         ], cwd=root, check=True)
         subprocess.run([str(binary)], cwd=root, check=True)

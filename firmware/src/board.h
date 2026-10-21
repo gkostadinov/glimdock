@@ -42,8 +42,15 @@ void boardLvglInit();
 // Explicit device fixture, separate from a monitored laptop's battery.
 inline BoardBatteryStatus nativeDeviceBattery;
 inline BoardBatteryStatus boardBattery(){return nativeDeviceBattery;}
+inline bool nativePowerButtonDown=false,nativeDevicePoweredOff=false;
+inline bool boardPowerButtonDown(){return nativePowerButtonDown;}
+inline bool boardPowerOff(){nativeDevicePoweredOff=true;return true;}
 #else
 BoardBatteryStatus boardBattery();
+bool boardPowerButtonDown();
+// Releases the battery latch and sleeps if USB still supplies power. Returns
+// false only if wake configuration failed; otherwise does not return.
+bool boardPowerOff();
 #endif
 void noteTouch(bool pressed);
 

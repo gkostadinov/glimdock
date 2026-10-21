@@ -13,6 +13,7 @@
 #include "display_clock.h"
 #include "audio.h"
 #include "notification_policy.h"
+#include "device_power.h"
 #include "operations_model.h"
 #include "private_chat_network.h"
 #include "flipper_ble.h"
@@ -40,6 +41,11 @@ lv_obj_t*workspaceHighlight=nullptr;int workspaceStep=60;
 constexpr uint8_t OPS_OVERVIEW=22,OPS_AGENTS=23,OPS_TASKS=24,OPS_EVENTS=25,OPS_AGENT=26,OPS_TASK=27,OPS_EVENT=28,OPS_OPERATIONS=29,OPS_SOURCES=30,OPS_SYSTEMS=31;
 constexpr uint8_t PRIVATE_SESSIONS=32,PRIVATE_MESSAGES=33;
 constexpr uint8_t FLIPPER_PAGE=34;
+constexpr uint8_t POWER_OFF_PAGE=35;
+DevicePowerButton powerButton;
+bool powerOffPending=false,poweredOffPreview=false;
+uint32_t powerOffStarted=0;
+lv_obj_t*powerOffOverlay=nullptr;
 flipper::State flipperUi{};
 uint32_t lastFlipperPublish=0,flipperSequence=0;
 char flipperRequestedNode[64]{};uint32_t flipperRequestSequence=0;
@@ -67,7 +73,7 @@ uint32_t notificationStarted=0;
 uint8_t notificationKind=0;
 uint8_t page=ALL_NODES_PAGE,detailOrigin=0,brightness=80,clockZone=0;int selectedGuestId=0;char selectedDiskName[48]{};bool autoRotate=false,idleDim=false,dimmed=false,manualDemo=false,uiReady=false,lightTheme=true;
 bool fleetContext=true;
-bool utilityPage(uint8_t p){return p==7||p==8||(p>=13&&p<=18)||p==FLIPPER_PAGE;}
+bool utilityPage(uint8_t p){return p==7||p==8||(p>=13&&p<=18)||p==FLIPPER_PAGE||p==POWER_OFF_PAGE;}
 bool fleetPage(){return privatePage(page)||page==ALL_NODES_PAGE||page==CLOCK_PAGE||(agentsWorkspace&&(page==OPS_SYSTEMS||(page==OPS_OVERVIEW&&operationsAll())))||(utilityPage(page)&&fleetContext);}
 void setViewPage(uint8_t p){if(privatePage(page)&&!privatePage(p)){setPrivateChatActive(false);privateResetUi();}else if(privatePage(p)&&!privatePage(page))setPrivateChatActive(true);fleetContext=privatePage(p)||p==ALL_NODES_PAGE||p==CLOCK_PAGE||(agentsWorkspace&&(p==OPS_SYSTEMS||(p==OPS_OVERVIEW&&operationsAll())))||(utilityPage(p)&&fleetPage());page=p;}
 char selectedGpuId[64]{},gpuLinkIds[MAX_GPUS][64]{},nodeLinkIds[MAX_NODES][64]{},trackedNodeId[64]{};uint8_t pickerOrigin=0;uint8_t gpuReturnPage=11,gpuListOrigin=5;
@@ -193,7 +199,7 @@ bool applyFlipperNodeSelection(){
 }
 
 void guestGo(lv_event_t*e){int index=uintptr_t(lv_event_get_user_data(e));if(index<snapshot->nGuests){selectedGuestId=snapshot->guests[index].id;openPage(4);}}
-void back(lv_event_t*){if(privatePage(page)){privateBack();return;}if(operationsPage(page)){operationsBack();return;}if(page==18){finishField(true);return;}openPage(page==14||page==15||page==FLIPPER_PAGE?7:page==16?15:page==17?16:page==13?pickerOrigin:page==4?1:page==9?2:page==11?gpuListOrigin:page==12?gpuReturnPage:detailOrigin);}
+void back(lv_event_t*){if(privatePage(page)){privateBack();return;}if(operationsPage(page)){operationsBack();return;}if(page==18){finishField(true);return;}openPage(page==14||page==15||page==FLIPPER_PAGE||page==POWER_OFF_PAGE?7:page==16?15:page==17?16:page==13?pickerOrigin:page==4?1:page==9?2:page==11?gpuListOrigin:page==12?gpuReturnPage:detailOrigin);}
 void diskGo(lv_event_t*e){int index=uintptr_t(lv_event_get_user_data(e));if(index<snapshot->nDisks){strlcpy(selectedDiskName,snapshot->disks[index].name,sizeof(selectedDiskName));openPage(9);}}
 void gpuGo(lv_event_t*e){size_t index=uintptr_t(lv_event_get_user_data(e));if(index<MAX_GPUS&&gpuLinkIds[index][0]){strlcpy(selectedGpuId,gpuLinkIds[index],sizeof(selectedGpuId));gpuReturnPage=page==4?4:11;openPage(12);}}
 void gpuIdentities(){for(size_t i=0;i<MAX_GPUS;i++)strlcpy(gpuLinkIds[i],i<snapshot->nGpus?snapshot->gpus[i].id:"",sizeof(gpuLinkIds[i]));}
@@ -643,6 +649,54 @@ void flipperScreen(){
   y=note(s,y,"Flipper Up/Down selects a node. Left/Right switches System, Alerts, Agents and Printer pages. OK returns to System; Back exits.");
   note(s,y,"System and Alerts follow the selected Glimdock node. Updates arrive once per second; stale readings stay marked.");
 }
+void requestPowerOff(lv_event_t* =nullptr){
+  if(powerOffPending||poweredOffPreview)return;
+  powerOffPending=true;powerOffStarted=millis();dismissNotification();
+  powerOffOverlay=box(lv_screen_active(),0,0,VIEW_W,VIEW_H,BG,0);
+  lv_obj_add_flag(powerOffOverlay,LV_OBJ_FLAG_CLICKABLE);lv_obj_remove_flag(powerOffOverlay,LV_OBJ_FLAG_SCROLLABLE);
+  auto*title=label(powerOffOverlay,"Turning off",16,VIEW_H/2-35,VIEW_W-32,INK,&lv_font_montserrat_24);lv_obj_set_style_text_align(title,LV_TEXT_ALIGN_CENTER,0);
+  auto*body=label(powerOffOverlay,boardPowerButtonDown()?"Release BAT_PWR to finish":"Press BAT_PWR to turn on again",12,VIEW_H/2,VIEW_W-24,MUTED,&lv_font_montserrat_12);lv_obj_set_style_text_align(body,LV_TEXT_ALIGN_CENTER,0);
+#ifdef HOMELAB_NATIVE_PREVIEW
+  clickable(powerOffOverlay,[](lv_event_t*){
+    if(!poweredOffPreview)return;
+    poweredOffPreview=false;nativeDevicePoweredOff=false;powerButton=DevicePowerButton{};
+    lv_obj_delete(powerOffOverlay);powerOffOverlay=nullptr;
+    boardAudioVolume(soundVolume);boardAudioEnable(soundEnabled);boardBacklight(brightness);render();
+  });
+#endif
+  lv_obj_move_foreground(powerOffOverlay);
+}
+bool processDevicePower(uint32_t now){
+  if(poweredOffPreview)return true;
+  if(powerButton.update(boardPowerButtonDown(),now))requestPowerOff();
+  if(!powerOffPending)return false;
+  if(uint32_t(now-powerOffStarted)>=400&&powerButton.released()){
+    powerOffPending=false;boardAudioVolume(0);boardAudioEnable(false);
+    if(!boardPowerOff()){
+      boardAudioVolume(soundVolume);boardAudioEnable(soundEnabled);
+      lv_obj_delete(powerOffOverlay);powerOffOverlay=nullptr;
+      showNotification("Could not turn off","Button wake is unavailable. Try again.",1);
+    }
+#ifdef HOMELAB_NATIVE_PREVIEW
+    else{
+      poweredOffPreview=true;lv_obj_set_style_bg_color(powerOffOverlay,lv_color_hex(0x071017),0);
+      lv_label_set_text(lv_obj_get_child(powerOffOverlay,0),"Device off");
+      lv_label_set_text(lv_obj_get_child(powerOffOverlay,1),"Tap to wake • demo");
+      lv_obj_set_style_text_color(lv_obj_get_child(powerOffOverlay,0),lv_color_hex(0xffffff),0);
+      lv_obj_set_style_text_color(lv_obj_get_child(powerOffOverlay,1),lv_color_hex(0xc2d2e3),0);
+    }
+#endif
+  }
+  return true;
+}
+void confirmPowerOff(lv_event_t*){openPage(POWER_OFF_PAGE);}
+void keepPowerOn(lv_event_t*){openPage(7);}
+void powerOffScreen(){
+  heading("Turn off Glimdock?","",true);auto*s=scroll(28);
+  int y=note(s,0,"Press BAT_PWR to turn it on again. On USB, the display and radios sleep.");
+  smallButton(s,"Turn off",0,y,LIST_W,RED,requestPowerOff);y+=48;
+  smallButton(s,"Keep on",0,y,LIST_W,CYAN,keepPowerOn);
+}
 void settings(){
   auto*s=scroll();int y=0;section(s,y,"DISPLAY SETTINGS");y+=20;smallButton(s,"Private conversations",0,y,LIST_W,LAVENDER,privateOpen);y+=48;
   smallButton(s,"Flipper Bluetooth screen",0,y,LIST_W,CYAN,openFlipper);y+=48;
@@ -651,6 +705,7 @@ void settings(){
   auto*volumeSlider=lv_slider_create(volumeCard);lv_obj_add_flag(volumeSlider,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_set_pos(volumeSlider,14,43);lv_obj_set_size(volumeSlider,LIST_W-30,8);lv_obj_set_ext_click_area(volumeSlider,16);lv_slider_set_range(volumeSlider,0,100);lv_slider_set_value(volumeSlider,soundVolume,LV_ANIM_OFF);lv_obj_set_style_bg_color(volumeSlider,color(EDGE),LV_PART_MAIN);lv_obj_set_style_bg_color(volumeSlider,color(CYAN),LV_PART_INDICATOR);lv_obj_set_style_bg_color(volumeSlider,color(CYAN),LV_PART_KNOB);for(auto part:{LV_PART_MAIN,LV_PART_INDICATOR,LV_PART_KNOB})lv_obj_set_style_border_width(volumeSlider,0,part);lv_obj_add_event_cb(volumeSlider,volumeChanged,LV_EVENT_VALUE_CHANGED,volumeLabel);lv_obj_add_event_cb(volumeSlider,volumeChanged,LV_EVENT_RELEASED,volumeLabel);y+=76;
   if(boardAudioReady()){smallButton(s,"Test speaker",0,y,LIST_W,MUTED,soundTest);y+=46;}else y=note(s,y,"Speaker unavailable",AMBER);
   auto*batteryCard=box(s,0,y,LIST_W,72);label(batteryCard,"Device battery",10,8,LIST_W-20,INK,&lv_font_montserrat_12);deviceBatteryLabel=label(batteryCard,"",10,30,LIST_W-20,MUTED,&lv_font_montserrat_14);label(batteryCard,"3.7 V LiPo • approximate voltage",10,54,LIST_W-20,MUTED,&lv_font_montserrat_8);y+=80;updateBatteryLabels();y=note(s,y,"Level varies with load and charging. Charge status and remaining runtime are unavailable.");
+  smallButton(s,"Turn off Glimdock",0,y,LIST_W,RED,confirmPowerOff);y+=48;y=note(s,y,"Or hold BAT_PWR for 2 seconds, then release.");
   smallButton(s,"Open clock mode",0,y,LIST_W,LAVENDER,clockGo);y+=46;auto*zone=box(s,0,y,LIST_W,40,CARD,7);label(zone,String("Clock time zone: ")+displayClockZoneName(clockZone),9,13,LIST_W-26,INK,&lv_font_montserrat_10);label(zone,">",LIST_W-17,13,10,LAVENDER,&lv_font_montserrat_10);clickable(zone,clockZoneChanged);y+=46;
   auto*c=box(s,0,y,LIST_W,PORTRAIT?76:48);label(c,"Appearance",10,PORTRAIT?8:16,98,INK);const char*choices[]={"White","Dark","Auto"};int choiceW=PORTRAIT?(LIST_W-28)/3:58,choiceX=PORTRAIT?10:110;for(int i=0;i<3;i++){bool active=themeMode==i;auto*b=box(c,choiceX+i*(choiceW+4),PORTRAIT?28:4,choiceW,40,active?(lightTheme?CARD:DARK_SELECTED):CARD,7);if(active)lv_obj_set_style_border_color(b,color(CYAN),0);auto*l=label(b,choices[i],4,13,choiceW-8,active?CYAN:MUTED,&lv_font_montserrat_12);lv_obj_set_style_text_align(l,LV_TEXT_ALIGN_CENTER,0);clickable(b,themeChanged,(void*)(uintptr_t)i);}y+=PORTRAIT?84:56;if(themeMode==THEME_AUTO){struct tm local{};String hint="Auto: light 07:00-19:00 • "+String(displayClockZoneName(clockZone));if(!displayClockTm(time(nullptr),clockZone,local))hint+="\nWaiting for clock sync; keeping current appearance.";y=note(s,y,hint);}
   c=box(s,0,y,LIST_W,68);label(c,"Brightness",10,10,LIST_W-20,INK,&lv_font_montserrat_14);auto*slider=lv_slider_create(c);lv_obj_add_flag(slider,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_set_pos(slider,14,43);lv_obj_set_size(slider,(LIST_W-30),8);lv_obj_set_ext_click_area(slider,16);lv_slider_set_range(slider,10,100);lv_slider_set_value(slider,brightness,LV_ANIM_OFF);lv_obj_set_style_bg_color(slider,color(EDGE),LV_PART_MAIN);lv_obj_set_style_bg_color(slider,color(CYAN),LV_PART_INDICATOR);lv_obj_set_style_bg_color(slider,color(CYAN),LV_PART_KNOB);lv_obj_set_style_border_width(slider,0,LV_PART_MAIN);lv_obj_set_style_border_width(slider,0,LV_PART_INDICATOR);lv_obj_set_style_border_width(slider,0,LV_PART_KNOB);lv_obj_add_event_cb(slider,brightnessChanged,LV_EVENT_RELEASED,nullptr);y+=76;
@@ -678,7 +733,7 @@ void noData(){
 }
 void render(){
   if(!uiReady)return;applyAppearance();struct tm appearanceTime{};appearanceClockSynced=themeMode==THEME_AUTO&&displayClockTm(time(nullptr),clockZone,appearanceTime);readManagement();if(keyboard){lv_obj_delete(keyboard);keyboard=nullptr;fieldArea=nullptr;}if(page==18)lv_obj_add_flag(tabBar,LV_OBJ_FLAG_HIDDEN);else lv_obj_remove_flag(tabBar,LV_OBJ_FLAG_HIDDEN);int oldScroll=privateNewRequest?0:scrollArea?lv_obj_get_scroll_y(scrollArea):0;static uint8_t previousPage=255;feedStatusLabel=nullptr;deviceBatteryLabel=nullptr;privateWipeLabels(content);lv_obj_clean(content);workspaceHighlight=nullptr;scrollArea=nullptr;header();
-  if(page==FLIPPER_PAGE)flipperScreen();else if(privatePage(page))privateRender();else if(operationsPage(page))operationsRender();else if(page==18)fieldEditor();else if(page==17)deleteScreen();else if(page==16)nodeForm();else if(page==15)nodeManager();else if(page==14)connectionForm();else if(page==13)nodePicker();else if(page==8)setupScreen();else if(page==7)settings();else if(page==ALL_NODES_PAGE)nodesOverview();else if(page==CLOCK_PAGE)clockOverview();else if(page==SUBNODES_PAGE)subnodesList();else if(!snapshot->valid)noData();else if(printerNode()){switch(page){case 1:printerJob();break;case 2:printerTemps();break;case 3:case 6:printerHealth();break;default:printerOverview();break;}}else switch(page){case 0:overview();break;case 1:guests();break;case 2:storage();break;case 3:sensors();break;case 4:guestDetail();break;case 5:powerDetail();break;case 6:alerts();break;case 9:diskDetail();break;case 10:memoryDetail();break;case 11:gpuList();break;case 12:gpuDetail();break;}
+  if(page==POWER_OFF_PAGE)powerOffScreen();else if(page==FLIPPER_PAGE)flipperScreen();else if(privatePage(page))privateRender();else if(operationsPage(page))operationsRender();else if(page==18)fieldEditor();else if(page==17)deleteScreen();else if(page==16)nodeForm();else if(page==15)nodeManager();else if(page==14)connectionForm();else if(page==13)nodePicker();else if(page==8)setupScreen();else if(page==7)settings();else if(page==ALL_NODES_PAGE)nodesOverview();else if(page==CLOCK_PAGE)clockOverview();else if(page==SUBNODES_PAGE)subnodesList();else if(!snapshot->valid)noData();else if(printerNode()){switch(page){case 1:printerJob();break;case 2:printerTemps();break;case 3:case 6:printerHealth();break;default:printerOverview();break;}}else switch(page){case 0:overview();break;case 1:guests();break;case 2:storage();break;case 3:sensors();break;case 4:guestDetail();break;case 5:powerDetail();break;case 6:alerts();break;case 9:diskDetail();break;case 10:memoryDetail();break;case 11:gpuList();break;case 12:gpuDetail();break;}
   if(scrollArea&&previousPage==page)lv_obj_scroll_to_y(scrollArea,oldScroll,LV_ANIM_OFF);if(scrollArea&&page==PRIVATE_MESSAGES&&privateScrollToBottom&&privateChat&&privateChat->valid&&!privateState.loading){lv_obj_update_layout(scrollArea);lv_obj_scroll_to_y(scrollArea,lv_obj_get_scroll_y(scrollArea)+lv_obj_get_scroll_bottom(scrollArea),LV_ANIM_OFF);privateScrollToBottom=false;}lv_obj_update_layout(content);lv_obj_stop_scroll_anim(content);lv_obj_scroll_to_x(content,0,LV_ANIM_OFF);lv_obj_scroll_to_y(content,0,LV_ANIM_OFF);lv_obj_invalidate(content);previousPage=page;privateNewRequest=false;lastRender=millis();styleNotification();
 }
 void buildUI(){
@@ -742,7 +797,7 @@ void publishFlipperStatus(uint32_t now,bool urgent=false){
   if(catalog.count||(!net.loading&&net.configured))flipper::publishCatalog(catalog);
 }
 void updateUi(){
-  if(!snapshot)return;uint32_t now=millis();
+  uint32_t now=millis();if(processDevicePower(now)||!snapshot)return;
   if(applyFlipperNodeSelection()){
     publishFlipperStatus(now,true);
     if(page!=18&&!interactionBusy())render();else header();
@@ -782,7 +837,7 @@ void setup(){
 }
 void loop(){
   tickRuntimeHealth();privateChatProvisionTick();int privateView=consumePrivateChatViewRequest();if(privateView==1&&uiReady)privateOpen(nullptr);else if(privateView==2&&uiReady&&privatePage(page))openPage(7);else if(privateView==3&&uiReady&&page==PRIVATE_SESSIONS)privateSelectIndex(0);
-  if(!snapshot){lv_timer_handler();delay(10);return;}updateUi();
+  if(!snapshot){processDevicePower(millis());lv_timer_handler();delay(10);return;}updateUi();
   lv_timer_handler();delay(5);
 }
 

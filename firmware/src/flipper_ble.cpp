@@ -2,6 +2,7 @@
 #ifndef HOMELAB_NATIVE_PREVIEW
 #include "flipper_ble_protocol.h"
 #include "flipper_control_queue.h"
+#include "flipper_scan.h"
 #include <Arduino.h>
 #include <NimBLEDevice.h>
 #include <Preferences.h>
@@ -13,6 +14,7 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
 #include <freertos/task.h>
+#include <nimble/porting/nimble/include/nimble/nimble_port.h>
 
 namespace flipper {
 namespace {
@@ -46,6 +48,23 @@ Preferences prefs;
 char rememberedAddress[18] = {}, rememberedName[40] = {};
 uint8_t rememberedType = 0;
 bool gapListenerInstalled = false;
+ScanMailbox scanCommands;
+ble_npl_event scanEvent{};
+
+void hostScanCommand(ble_npl_event*) {
+    scanCommands.execute(*NimBLEDevice::getScan(), [](NimBLEScanResults) {});
+}
+bool scanCommand(ScanMailbox::Action action, uint32_t seconds = 0) {
+    if(!scanCommands.submit(action, seconds, [] {
+        ble_npl_eventq_put(nimble_port_get_dflt_eventq(), &scanEvent);
+    })) return false;
+    const uint32_t started = millis();
+    while(scanCommands.pending() && millis() - started < 2500)
+        vTaskDelay(pdMS_TO_TICKS(5));
+    // A late host event retains ownership of its command. Never reuse or
+    // rewrite the mailbox on timeout while that event is still queued.
+    return !scanCommands.pending() && scanCommands.result();
+}
 
 void safeText(char* out, size_t cap, const char* text) {
     size_t n = 0;
@@ -203,7 +222,8 @@ class AdvertisedCallbacks final : public NimBLEAdvertisedDeviceCallbacks {
         found.type = device->getAddress().getType();
         portENTER_CRITICAL(&mutex); candidate = found; portEXIT_CRITICAL(&mutex);
         candidateReady = true;
-        NimBLEDevice::getScan()->stop();
+        // Do not stop here: NimBLE still accesses this advertised device after
+        // onResult returns. The transport worker queues a host stop instead.
     }
 } advertisements;
 
@@ -216,8 +236,7 @@ void notifyAck(NimBLERemoteCharacteristic*, uint8_t* bytes, size_t len, bool) {
 void resetLink() {
     clearNodeControls();
     scanning = false;
-    if(NimBLEDevice::getInitialized() && NimBLEDevice::getScan()->isScanning())
-        NimBLEDevice::getScan()->stop();
+    if(NimBLEDevice::getInitialized()) scanCommand(ScanMailbox::Action::Stop);
     if(client && client->isConnected()) {
         client->disconnect();
         const uint32_t start = millis();
@@ -260,6 +279,7 @@ bool initBle() {
     if(!NimBLEDevice::getInitialized()) { message("Bluetooth initialization failed."); return false; }
     if(!gapListenerInstalled) {
         NimBLEDevice::setCustomGapHandler(gapEvents);
+        ble_npl_event_init(&scanEvent, hostScanCommand, nullptr);
         gapListenerInstalled = true;
     }
     NimBLEDevice::setSecurityAuth(true, true, true);
@@ -284,14 +304,16 @@ bool discover(Candidate& found, bool rememberedOnly, uint32_t durationMs) {
     message(rememberedOnly ? "Waiting for Glimdock app on your Flipper..." :
                             "Looking for Glimdock (20s). Open it on Flipper.");
     candidateReady = false; scanRememberedOnly = rememberedOnly; scanning = true;
-    auto* scan = NimBLEDevice::getScan(); scan->clearResults();
-    if(!scan->start(durationMs / 1000, [](NimBLEScanResults) {}, false)) {
+    if(!scanCommand(ScanMailbox::Action::Start, durationMs / 1000)) {
         scanning = false; message("Could not start Bluetooth scan."); return false;
     }
     const uint32_t started = millis();
     while(millis() - started < durationMs && !cancelled() && !candidateReady.load())
         vTaskDelay(pdMS_TO_TICKS(50));
-    scanning = false; scan->stop();
+    scanning = false;
+    const bool stopped = scanCommand(ScanMailbox::Action::Stop);
+    phase("idle");
+    if(!stopped) { message("Bluetooth scan did not finish. Retrying later."); return false; }
     if(!candidateReady.load() || cancelled()) {
         message(!enabled() ? "Bluetooth off." : rememberedOnly ?
             "Open Glimdock on Flipper. Waiting to reconnect." :
