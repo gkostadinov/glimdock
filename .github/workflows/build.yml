@@ -126,6 +126,7 @@ jobs:
           python3 tools/agent-operations/test_api.py
           python3 tools/agent-operations/test_private_transcripts.py
       - run: python3 tools/test-website-firmware.py
+      - run: python3 tools/test-network-recovery.py
       - run: python3 tools/package-public-release.py --check-only
       - name: Retain failed firmware build diagnostics
         if: failure()

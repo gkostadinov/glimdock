@@ -4,6 +4,8 @@
 #include "brand.h"
 #include "brand_portal.h"
 #include "pairing_policy.h"
+#include "network_recovery.h"
+#include <atomic>
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
@@ -30,7 +32,9 @@ Settings cfg;
 ConnectionSettings connectionPublic;ConnectionUpdate pendingConnection;bool connectionPending=false;
 NodeConfiguration configurationPublic;NodeConfigDraft pendingNode;char pendingVersion[65]{},pendingDeleteId[64]{};uint8_t configPending=0;
 WebServer portal(80);DNSServer dns;
-bool portalActive=false,defaultPairingPending=false;uint32_t restartAt=0,lastWifiAttempt=0;
+bool portalActive=false,defaultPairingPending=false;uint32_t restartAt=0;
+glimdock::NetworkRecovery recovery;
+std::atomic<uint32_t> wifiReason{0},wifiDisconnects{0};
 Snapshot *working=nullptr;
 char *body=nullptr;
 char requestedNode[64]{},rememberedNode[64]{};uint32_t selectionGeneration=0,lastSelectionPersist=0;bool forceFetch=false,selectionDirty=false,restoreChecked=false;
@@ -57,6 +61,22 @@ class BoundedBody:public Stream {
  size_t write(const uint8_t *data,size_t n)override{if(n>limit-used){overflow=true;return 0;}memcpy(body+used,data,n);used+=n;body[used]=0;return n;}
  int available()override{return 0;}int read()override{return -1;}int peek()override{return -1;}void flush()override{}
 };
+// HTTP/1.0 requests avoid chunked framing; unknown-size bodies must close.
+void configureHttp(HTTPClient& http){
+  http.useHTTP10(true);const char* headers[]={"Transfer-Encoding"};http.collectHeaders(headers,1);
+}
+void recordHttpCode(int code){if(code<0)recovery.failed(millis());else if(code!=200)recovery.healthy();}
+bool readResponse(HTTPClient& http,BoundedBody& sink){
+  String encoding=http.header("Transfer-Encoding");encoding.trim();
+  if(encoding.length()&&!encoding.equalsIgnoreCase("identity")){Serial.println("HTTP body rejected: unexpected transfer encoding");return false;}
+  auto* client=http.getStreamPtr();if(!client){recovery.failed(millis());return false;}
+  auto result=glimdock::readBoundedBody(*client,sink,http.getSize(),sink.limit,5000,2000,[]{return millis();},[]{vTaskDelay(pdMS_TO_TICKS(5));});
+  if(result==glimdock::BodyRead::Complete){recovery.healthy();return true;}
+  sink.overflow=result==glimdock::BodyRead::TooLarge;
+  if(!sink.overflow)recovery.failed(millis());
+  Serial.printf("HTTP body stopped: %s; received %u bytes\n",sink.overflow?"size limit":result==glimdock::BodyRead::Timeout?"deadline":"incomplete",unsigned(sink.used));
+  return false;
+}
 void status(const char *message,uint32_t generation=UINT32_MAX){xSemaphoreTake(dataMutex,portMAX_DELAY);if(generation!=UINT32_MAX&&generation!=selectionGeneration){xSemaphoreGive(dataMutex);return;}bool changed=strcmp(networkState.message,message)!=0;strlcpy(networkState.message,message,sizeof(networkState.message));networkState.wifi=WiFi.status()==WL_CONNECTED;networkState.setup=portalActive;networkState.revision++;String ip=networkState.wifi?WiFi.localIP().toString():WiFi.softAPIP().toString();strlcpy(networkState.ip,ip.c_str(),sizeof(networkState.ip));xSemaphoreGive(dataMutex);if(changed)Serial.printf("Network: %s\n",message);}
 void copyText(char *to,size_t n,JsonVariantConst value,const char *fallback=""){if(value.is<const char*>())strlcpy(to,value.as<const char*>(),n);else strlcpy(to,fallback,n);}
 template<size_t N>void text(char (&to)[N],JsonVariantConst v,const char *fallback=""){copyText(to,N,v,fallback);}
@@ -124,7 +144,7 @@ void connectionFailure(const char*message){xSemaphoreTake(dataMutex,portMAX_DELA
 void applyConnection(){ConnectionUpdate update;xSemaphoreTake(dataMutex,portMAX_DELAY);bool pending=connectionPending;if(pending){update=pendingConnection;pendingConnection=ConnectionUpdate{};connectionPending=false;}xSemaphoreGive(dataMutex);if(!pending)return;Settings next=cfg;next.ssid=update.ssid;next.ssid.trim();next.endpoint=update.endpoint;next.endpoint.trim();bool sameEndpoint=next.endpoint==cfg.endpoint;next.password=update.clearPassword?String(""):update.password[0]?String(update.password):next.ssid==cfg.ssid?cfg.password:String("");next.token=update.displayToken[0]?String(update.displayToken):sameEndpoint?cfg.token:String("");next.setupToken=update.setupToken[0]?String(update.setupToken):sameEndpoint?cfg.setupToken:String("");next.token.trim();next.setupToken.trim();const char*error=nullptr;
   if(next.ssid.isEmpty()||next.ssid.length()>32)error="Wi-Fi name must be 1-32 bytes.";else if(next.password.length()>64||(next.password.length()>0&&next.password.length()<8))error="Wi-Fi password needs 8-64 characters, or clear it for an open network.";else if(!endpointValid(next.endpoint))error="Enter a valid HTTP or HTTPS snapshot endpoint.";else if(next.token.isEmpty()||next.token.length()>192||next.token.indexOf('\n')>=0||next.token.indexOf('\r')>=0)error="Enter a display token for the new collector endpoint.";else if(next.setupToken.length()>192||next.setupToken.indexOf('\n')>=0||next.setupToken.indexOf('\r')>=0)error="Setup token must be at most 192 characters.";else if(next.endpoint.startsWith("https://")&&next.ca.indexOf("-----BEGIN CERTIFICATE-----")<0)error="HTTPS needs a saved CA certificate. Use advanced browser setup.";if(error){connectionFailure(error);return;}if(!saveSettings(next)){connectionFailure("Settings did not verify; please retry.");return;}cfg=next;
   xSemaphoreTake(dataMutex,portMAX_DELAY);selectionGeneration++;if(!sameEndpoint){requestedNode[0]=0;rememberedNode[0]=0;restoreChecked=true;}NodeDescriptor selected=sameEndpoint?publishedSnapshot->node:NodeDescriptor{};clearForNode(*publishedSnapshot,selected);networkState.configured=true;networkState.loading=true;forceFetch=true;forceOperations=true;operationsNetwork.connected=false;strlcpy(operationsNetwork.message,"Collector connection changed; loading agents...",sizeof(operationsNetwork.message));operationsNetwork.revision++;if(publishedOperations)new(publishedOperations)ops::Snapshot{};configurationPublic=NodeConfiguration{};xSemaphoreGive(dataMutex);
-  defaultPairingPending=false;if(portalActive){portal.stop();dns.stop();WiFi.softAPdisconnect(true);portalActive=false;}WiFi.disconnect();WiFi.mode(WIFI_STA);WiFi.begin(cfg.ssid.c_str(),cfg.password.c_str());lastWifiAttempt=millis();publishConnection("Settings saved. Reconnecting...",true);status("Settings saved; reconnecting");
+  defaultPairingPending=false;if(portalActive){portal.stop();dns.stop();WiFi.softAPdisconnect(true);portalActive=false;}WiFi.disconnect();WiFi.mode(WIFI_STA);WiFi.begin(cfg.ssid.c_str(),cfg.password.c_str());recovery.reset(millis(),false);publishConnection("Settings saved. Reconnecting...",true);status("Settings saved; reconnecting");
 }
 void setupPortal(){
   if(portalActive)return;
@@ -179,9 +199,9 @@ bool parseConfiguration(JsonObjectConst o,NodeConfiguration&out){
   return activeConfiguredNodes(out)<=MAX_NODES&&activeConfiguredRoots(out)<=4;
 }
 void manageNodes(){uint8_t action;NodeConfigDraft draft;char version[65],id[64];xSemaphoreTake(dataMutex,portMAX_DELAY);action=configPending;if(action){draft=pendingNode;strlcpy(version,pendingVersion,sizeof(version));strlcpy(id,pendingDeleteId,sizeof(id));pendingNode=NodeConfigDraft{};pendingVersion[0]=0;pendingDeleteId[0]=0;configPending=0;}xSemaphoreGive(dataMutex);if(!action)return;
-  if(WiFi.status()!=WL_CONNECTED){configStatus("Connect Wi-Fi before managing collector nodes.");return;}if(cfg.setupToken.isEmpty()){configStatus("Pair the separate setup token in Wi-Fi & collector settings.");return;}String endpoint=configEndpoint();if(endpoint.isEmpty()){configStatus("Management needs a collector /api/v1/snapshot endpoint.");return;}WiFiClient plain;WiFiClientSecure secure;HTTPClient http;bool tls=endpoint.startsWith("https://");if(tls){if(cfg.ca.isEmpty()){configStatus("HTTPS needs a CA certificate in browser setup.");return;}secure.setCACert(cfg.ca.c_str());secure.setHandshakeTimeout(8);}http.setConnectTimeout(2500);http.setTimeout(3500);http.setReuse(false);http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);if(!(tls?http.begin(secure,endpoint):http.begin(plain,endpoint))){configStatus("Could not open collector settings.");return;}http.addHeader("Authorization","Bearer "+cfg.setupToken);http.addHeader("Accept","application/json");int code;
+  if(WiFi.status()!=WL_CONNECTED){configStatus("Connect Wi-Fi before managing collector nodes.");return;}if(cfg.setupToken.isEmpty()){configStatus("Pair the separate setup token in Wi-Fi & collector settings.");return;}String endpoint=configEndpoint();if(endpoint.isEmpty()){configStatus("Management needs a collector /api/v1/snapshot endpoint.");return;}WiFiClient plain;WiFiClientSecure secure;HTTPClient http;bool tls=endpoint.startsWith("https://");if(tls){if(cfg.ca.isEmpty()){configStatus("HTTPS needs a CA certificate in browser setup.");return;}secure.setCACert(cfg.ca.c_str());secure.setHandshakeTimeout(8);}http.setConnectTimeout(2500);http.setTimeout(3500);http.setReuse(false);http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);if(!(tls?http.begin(secure,endpoint):http.begin(plain,endpoint))){configStatus("Could not open collector settings.");return;}configureHttp(http);http.addHeader("Authorization","Bearer "+cfg.setupToken);http.addHeader("Accept","application/json");int code;
   if(action==1)code=http.GET();else{PsramAllocator allocator;JsonDocument request(&allocator);request["action"]=action==2?"upsert":"delete";request["version"]=version;if(action==3)request["id"]=id;else{auto node=request["node"].to<JsonObject>();node["id"]=draft.node.id;node["parent_id"]=draft.node.parentId;node["type"]=agentNodeType(draft.node.type)?"server":draft.node.type;node["name"]=draft.node.name;node["enabled"]=draft.node.enabled;if(agentNodeType(draft.node.type))node["origin"]="agent";if(localNodeType(draft.node.type)){if(!deviceNodeType(draft.node.type))node["platform"]="linux";else if(draft.node.platform[0])node["platform"]=draft.node.platform;}else if(deviceNodeType(draft.node.type))node["platform"]=draft.node.platform;if(agentNodeType(draft.node.type)){node["poll_interval_s"]=draft.node.poll;node["ttl_s"]=draft.node.ttl;}else if(!localNodeType(draft.node.type)){node["url"]=draft.node.url;node["poll_interval_s"]=draft.node.poll;node["timeout_s"]=draft.node.timeout;node["ttl_s"]=draft.node.ttl;if(draft.secret[0])node["secret"]=draft.secret;if(draft.clearSecret)node["clear_secret"]=true;}}String payload;if(request.overflowed()||measureJson(request)>4096){http.end();configStatus("Node settings exceed the request limit.");return;}serializeJson(request,payload);http.addHeader("Content-Type","application/json");code=http.POST(payload);}
-  if(http.getSize()>MAX_CONFIG_JSON){http.end();configStatus("Collector settings response is too large.");return;}BoundedBody response(MAX_CONFIG_JSON);int count=http.writeToStream(&response);http.end();if(code<0||count<0||response.overflow||!response.used){configStatus("Collector settings service is unreachable.");return;}PsramAllocator allocator;JsonDocument doc(&allocator);auto error=deserializeJson(doc,body,response.used,DeserializationOption::NestingLimit(8));if(error||doc.overflowed()){configStatus("Collector returned invalid settings data.");return;}if(code!=200&&code!=202){if(code==401||code==403)configStatus("Setup token rejected. Pair the separate configuration token.");else if(code==409){configStatus("Settings changed elsewhere. Refresh before saving again.");xSemaphoreTake(dataMutex,portMAX_DELAY);configPending=1;configurationPublic.busy=true;xSemaphoreGive(dataMutex);}else{const char*message=doc["error"].is<const char*>()?doc["error"].as<const char*>():code==503?"Collector settings temporarily unavailable.":"Node settings were rejected.";configStatus(message);}return;}NodeConfiguration next;if(!parseConfiguration(action==1?doc.as<JsonObjectConst>():doc["config"].as<JsonObjectConst>(),next)){configStatus("Unsupported collector settings schema.");return;}next.applying=code==202;next.saved=code==202;strlcpy(next.message,next.applying?"Saved. Collector is applying node settings...":"",sizeof(next.message));xSemaphoreTake(dataMutex,portMAX_DELAY);next.revision=configurationPublic.revision+1;configurationPublic=next;networkState.revision++;if(next.applying){NodeDescriptor selected=configuredRegistry(*publishedSnapshot,next,requestedNode);bool retained=selected.id[0];if(!retained){requestedNode[0]=0;selectionDirty=true;}selectionGeneration++;clearForNode(*publishedSnapshot,selected);networkState.loading=publishedSnapshot->nNodes>0;strlcpy(networkState.message,publishedSnapshot->nNodes?"Applying node settings...":"No nodes configured; open Settings",sizeof(networkState.message));forceFetch=true;}xSemaphoreGive(dataMutex);
+  recordHttpCode(code);if(http.getSize()>MAX_CONFIG_JSON){http.end();configStatus("Collector settings response is too large.");return;}BoundedBody response(MAX_CONFIG_JSON);bool complete=readResponse(http,response);http.end();if(code<0||!complete||response.overflow||!response.used){configStatus("Collector settings service is unreachable.");return;}PsramAllocator allocator;JsonDocument doc(&allocator);auto error=deserializeJson(doc,body,response.used,DeserializationOption::NestingLimit(8));if(error||doc.overflowed()){configStatus("Collector returned invalid settings data.");return;}if(code!=200&&code!=202){if(code==401||code==403)configStatus("Setup token rejected. Pair the separate configuration token.");else if(code==409){configStatus("Settings changed elsewhere. Refresh before saving again.");xSemaphoreTake(dataMutex,portMAX_DELAY);configPending=1;configurationPublic.busy=true;xSemaphoreGive(dataMutex);}else{const char*message=doc["error"].is<const char*>()?doc["error"].as<const char*>():code==503?"Collector settings temporarily unavailable.":"Node settings were rejected.";configStatus(message);}return;}NodeConfiguration next;if(!parseConfiguration(action==1?doc.as<JsonObjectConst>():doc["config"].as<JsonObjectConst>(),next)){configStatus("Unsupported collector settings schema.");return;}next.applying=code==202;next.saved=code==202;strlcpy(next.message,next.applying?"Saved. Collector is applying node settings...":"",sizeof(next.message));xSemaphoreTake(dataMutex,portMAX_DELAY);next.revision=configurationPublic.revision+1;configurationPublic=next;networkState.revision++;if(next.applying){NodeDescriptor selected=configuredRegistry(*publishedSnapshot,next,requestedNode);bool retained=selected.id[0];if(!retained){requestedNode[0]=0;selectionDirty=true;}selectionGeneration++;clearForNode(*publishedSnapshot,selected);networkState.loading=publishedSnapshot->nNodes>0;strlcpy(networkState.message,publishedSnapshot->nNodes?"Applying node settings...":"No nodes configured; open Settings",sizeof(networkState.message));forceFetch=true;}xSemaphoreGive(dataMutex);
 }
 void chooseLocked(const NodeDescriptor&node){strlcpy(requestedNode,node.id,sizeof(requestedNode));selectionGeneration++;clearForNode(*publishedSnapshot,node);networkState.loading=true;strlcpy(networkState.message,"Loading selected node",sizeof(networkState.message));networkState.revision++;forceFetch=true;selectionDirty=true;}
 void defaultAfterMissing(uint32_t generation){xSemaphoreTake(dataMutex,portMAX_DELAY);if(generation==selectionGeneration){requestedNode[0]=0;selectionGeneration++;NodeDescriptor unknown;clearForNode(*publishedSnapshot,unknown);networkState.loading=true;strlcpy(networkState.message,"Node removed; loading default",sizeof(networkState.message));networkState.revision++;forceFetch=true;selectionDirty=true;}xSemaphoreGive(dataMutex);}
@@ -194,10 +214,10 @@ bool fetch(){
   http.setConnectTimeout(2500);http.setTimeout(3500);http.setReuse(false);http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
   bool begun=endpoint.length()&&(tls?http.begin(secure,endpoint):http.begin(plain,endpoint));
   if(!begun){status("Invalid collector endpoint",generation);return false;}
-  http.addHeader("Authorization","Bearer "+cfg.token);http.addHeader("Accept","application/json");int code=http.GET();
+  configureHttp(http);http.addHeader("Authorization","Bearer "+cfg.token);http.addHeader("Accept","application/json");int code=http.GET();recordHttpCode(code);
   if(code!=200){http.end();if(code==404&&nodeId[0])defaultAfterMissing(generation);else if(code==404){xSemaphoreTake(dataMutex,portMAX_DELAY);if(generation==selectionGeneration){new(publishedSnapshot)Snapshot{};networkState.loading=false;if(configurationPublic.applying){configurationPublic.applying=false;strlcpy(configurationPublic.message,"Node settings saved. No nodes configured.",sizeof(configurationPublic.message));configurationPublic.revision++;}}xSemaphoreGive(dataMutex);status("No nodes configured; open Settings",generation);}else if(code==401||code==403)status("Display token rejected",generation);else if(code<0)status("Collector unreachable",generation);else{char msg[80];snprintf(msg,sizeof(msg),"Collector HTTP %d",code);status(msg,generation);}return false;}
   if(http.getSize()>int(MAX_JSON)){http.end();status("Snapshot exceeds 48 KiB",generation);return false;}
-  BoundedBody sink;int count=http.writeToStream(&sink);http.end();if(count<0||sink.overflow||sink.used==0){status(sink.overflow?"Snapshot exceeds 48 KiB":"Incomplete snapshot response",generation);return false;}
+  BoundedBody sink;bool complete=readResponse(http,sink);http.end();if(!complete||sink.overflow||sink.used==0){status(sink.overflow?"Snapshot exceeds 48 KiB":"Incomplete snapshot response",generation);return false;}
   PsramAllocator allocator;JsonDocument doc(&allocator);DeserializationError error=deserializeJson(doc,body,sink.used,DeserializationOption::NestingLimit(12));if(error||doc.overflowed()){status("Invalid or oversized JSON snapshot",generation);return false;}if(!parse(doc,*working)){status("Unsupported snapshot schema",generation);return false;}
   xSemaphoreTake(dataMutex,portMAX_DELAY);
   if(!nodeReplyMatches(*working,nodeId,generation,selectionGeneration)){bool wrongNode=generation==selectionGeneration;xSemaphoreGive(dataMutex);if(wrongNode)defaultAfterMissing(generation);return false;}
@@ -213,10 +233,10 @@ bool fetchOperations(){
   String endpoint=nodeEndpoint("");const char*suffix="/api/v1/snapshot";if(!endpoint.endsWith(suffix)){operationsStatus("Agents need a central collector /api/v1/snapshot endpoint.",false);return false;}endpoint=endpoint.substring(0,endpoint.length()-strlen(suffix))+"/api/v1/agent-operations";
   WiFiClient plain;WiFiClientSecure secure;HTTPClient http;bool tls=endpoint.startsWith("https://");if(tls){if(cfg.ca.isEmpty()){operationsStatus("Agents HTTPS needs the saved CA certificate.",false);return false;}secure.setCACert(cfg.ca.c_str());secure.setHandshakeTimeout(4);}
   http.setConnectTimeout(1200);http.setTimeout(2000);http.setReuse(false);http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-  if(!(tls?http.begin(secure,endpoint):http.begin(plain,endpoint))){operationsStatus("Could not open agent operations endpoint.",false);return false;}http.addHeader("Authorization","Bearer "+cfg.token);http.addHeader("Accept","application/json");int code=http.GET();
+  if(!(tls?http.begin(secure,endpoint):http.begin(plain,endpoint))){operationsStatus("Could not open agent operations endpoint.",false);return false;}configureHttp(http);http.addHeader("Authorization","Bearer "+cfg.token);http.addHeader("Accept","application/json");int code=http.GET();recordHttpCode(code);
   if(code!=200){http.end();operationsStatus(code==401||code==403?"Collector display key rejected for agents.":code==404||code==503?"Agent source unavailable. Configure agent_operations in the collector.":"Agent operations feed unreachable.",false);return false;}
   if(http.getSize()>int(MAX_JSON)){http.end();operationsStatus("Agent response exceeds 48 KiB.",false);return false;}
-  BoundedBody sink;int count=http.writeToStream(&sink);http.end();if(count<0||sink.overflow||!sink.used){operationsStatus("Invalid or oversized agent response.",false);return false;}
+  BoundedBody sink;bool complete=readResponse(http,sink);http.end();if(!complete||sink.overflow||!sink.used){operationsStatus("Invalid or oversized agent response.",false);return false;}
   PsramAllocator allocator;JsonDocument doc(&allocator);auto error=deserializeJson(doc,body,sink.used,DeserializationOption::NestingLimit(12));if(error||doc.overflowed()||!ops_json::parse(doc,*workingOperations)){operationsStatus("Unsupported agent operations schema.",false);return false;}
   xSemaphoreTake(dataMutex,portMAX_DELAY);if(publishedOperations->valid&&publishedOperations->sequence==workingOperations->sequence&&publishedOperations->generated==workingOperations->generated)workingOperations->received=publishedOperations->received;memcpy(publishedOperations,workingOperations,sizeof(ops::Snapshot));xSemaphoreGive(dataMutex);operationsStatus("Agent operations connected",true);
   static uint32_t lastLog=0;static bool first=true;if(first||millis()-lastLog>60000){first=false;lastLog=millis();Serial.printf("Agent operations: systems %u, agents %u, tasks %u, events %u; demo=%d\n",unsigned(workingOperations->nSystems),unsigned(workingOperations->nAgents),unsigned(workingOperations->nTasks),unsigned(workingOperations->nEvents),int(workingOperations->demo));}return true;
@@ -237,8 +257,9 @@ void worker(void*){
   // ESP32-S3 requires modem sleep for Wi-Fi/BLE coexistence; disabling it
   // makes the controller abort when Bluetooth starts while Wi-Fi is active.
   WiFi.persistent(false);WiFi.mode(WIFI_STA);WiFi.setAutoReconnect(true);WiFi.setSleep(true);
-  if(networkState.configured){WiFi.begin(cfg.ssid.c_str(),cfg.password.c_str());lastWifiAttempt=millis();status("Connecting to Wi-Fi");}else setupPortal();
-  uint32_t nextFetch=0,nextOperations=0;bool clockStarted=false;
+  if(networkState.configured){WiFi.begin(cfg.ssid.c_str(),cfg.password.c_str());recovery.reset(millis(),false);status("Connecting to Wi-Fi");}else setupPortal();
+  WiFi.onEvent([](WiFiEvent_t,WiFiEventInfo_t info){wifiReason.store(info.wifi_sta_disconnected.reason);wifiDisconnects.fetch_add(1);},ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  uint32_t nextFetch=0,nextOperations=0;bool clockStarted=false,offlineReported=false;
   for(;;){
     uint32_t now=millis();
     applyConnection();manageNodes();
@@ -247,11 +268,19 @@ void worker(void*){
     if(portalActive){dns.processNextRequest();portal.handleClient();}
     if(restartAt&&int32_t(now-restartAt)>=0)ESP.restart();
     if(networkState.configured){
-      if(WiFi.status()==WL_CONNECTED){
+      if(WiFi.status()==WL_CONNECTED&&uint32_t(WiFi.localIP())!=0){
+        offlineReported=false;
         if(!clockStarted){configTime(0,0,"pool.ntp.org","time.google.com");clockStarted=true;}
         if(int32_t(now-nextFetch)>=0){fetch();nextFetch=millis()+HOMELAB_POLL_MS;}
         if(int32_t(now-nextOperations)>=0){bool ok=fetchOperations();nextOperations=millis()+(ok?HOMELAB_POLL_MS:30000);}
-      }else if(now-lastWifiAttempt>15000){operationsStatus("Wi-Fi disconnected; agent data unavailable",false);status("Wi-Fi disconnected; reconnecting");WiFi.disconnect();WiFi.begin(cfg.ssid.c_str(),cfg.password.c_str());lastWifiAttempt=now;}
+      }else if(!offlineReported){offlineReported=true;operationsStatus("Wi-Fi disconnected; agent data unavailable",false);status("Wi-Fi disconnected; reconnecting");Serial.printf("Wi-Fi link lost: reason=%lu; disconnects=%lu\n",(unsigned long)wifiReason.load(),(unsigned long)wifiDisconnects.load());}
+      bool linked=WiFi.status()==WL_CONNECTED&&uint32_t(WiFi.localIP())!=0;
+      if(recovery.reconnect(millis(),linked)){
+        status(linked?"Recovering stalled collector connection":"Retrying Wi-Fi connection");
+        Serial.printf("Network recovery: %s; transport failures=%lu\n",linked?"stalled transport":"offline station",(unsigned long)recovery.failures());
+        // Preserve the station and BLE controller while auto-reassociation runs.
+        WiFi.reconnect();nextFetch=nextOperations=millis();
+      }
     }
     vTaskDelay(pdMS_TO_TICKS(20));
   }

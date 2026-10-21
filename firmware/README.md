@@ -351,3 +351,26 @@ renderer accepts only explicitly synthetic private-chat pages.
 ## Install from the public website
 
 Open [glimdock.com/flash/](https://glimdock.com/flash/) in desktop Chrome or Edge to install the verified public Waveshare V1 images directly over USB. No local collector is needed for installation. Confirm the board, select its serial port, and keep the cable connected until verification and restart finish. The updater preserves saved Wi-Fi, pairing and display preferences. New boards require connection setup afterwards; monitoring uses a running collector.
+
+
+### Diagnose resets and dropped connections
+
+The firmware bounds both response size and the total HTTP body read time. A
+stalled or partial reply closes the socket and returns to polling. Wi-Fi gets
+an initial reassociation grace period and retries with backoff; recovery retains
+saved pairing and does not reboot the display. Wi-Fi modem sleep remains enabled
+for ESP32-S3 Bluetooth coexistence.
+
+A USB serial monitor at 115200 baud accepts `GLIMDOCK_DIAGNOSTICS` followed by a
+newline. The response contains uptime, internal heap/free-block sizes, PSRAM,
+UI stack headroom, Wi-Fi status and the last eight boot reasons. It contains no
+network credentials, monitoring keys, conversation text or pairing PINs. Some
+USB serial adapters reset the ESP32 when opened; the recorded ROM reason helps
+distinguish those resets. Boot history is saved once per boot; running uptime
+checkpoints use RTC RAM, with no periodic flash writes.
+
+For a deliberate recovery check over physical USB, send
+`GLIMDOCK_DIAGNOSTICS_WIFI_DROP`. This temporarily disconnects the station without
+erasing its settings. Keep the monitor open and confirm that live data resumes
+without a new boot. The portable regression suite is
+`python3 tools/test-network-recovery.py`.

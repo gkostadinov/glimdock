@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <esp_heap_caps.h>
+#include "runtime_health.h"
 #include <lvgl.h>
 #include <time.h>
 #include <stdlib.h>
@@ -774,12 +775,13 @@ void setup(){
   boardHoldPower();
   size_t privateRx=Serial.setRxBufferSize(privatechat::MAX_CONFIG_JSON+64);Serial.begin(115200);if(!privateRx)Serial.println("Private reader USB receive buffer unavailable.");boardInit();boardLvglInit();Preferences p;p.begin("display",true);brightness=constrain(p.getUChar("brightness",80),10,100);autoRotate=p.getBool("rotate",false);idleDim=p.getBool("dim",false);soundEnabled=p.getBool("sound",true);soundVolume=clampSoundVolume(p.getUChar("volume",DEFAULT_SOUND_VOLUME));loadAppearance(p);agentsWorkspace=p.getBool("agentsMode",false);if(agentsWorkspace)page=OPS_OVERVIEW;p.end();boardAudioVolume(soundVolume);boardAudioInit(soundEnabled);
   Serial.printf("Glimdock boot: reset=%d; power latch=on; gyro/RTC=off; notification audio=%s\n",int(esp_reset_reason()),boardAudioReady()?"ready":"unavailable");
+  startRuntimeHealth();
   snapshot=(Snapshot*)heap_caps_malloc(sizeof(Snapshot),MALLOC_CAP_SPIRAM|MALLOC_CAP_8BIT);
   if(!snapshot){auto*l=lv_label_create(lv_screen_active());lv_label_set_text(l,"PSRAM unavailable\nCheck V1 board configuration");lv_obj_center(l);boardBacklight(80);return;}new(snapshot)Snapshot{};
   for(int i=0;i<32;i++){cpuHistory[i]=NAN;ramHistory[i]=NAN;}initPrivateChat();startNetwork();flipper::begin();lastTouch=lastRotate=millis();buildUI();boardBacklight(brightness);
 }
 void loop(){
-  privateChatProvisionTick();int privateView=consumePrivateChatViewRequest();if(privateView==1&&uiReady)privateOpen(nullptr);else if(privateView==2&&uiReady&&privatePage(page))openPage(7);else if(privateView==3&&uiReady&&page==PRIVATE_SESSIONS)privateSelectIndex(0);
+  tickRuntimeHealth();privateChatProvisionTick();int privateView=consumePrivateChatViewRequest();if(privateView==1&&uiReady)privateOpen(nullptr);else if(privateView==2&&uiReady&&privatePage(page))openPage(7);else if(privateView==3&&uiReady&&page==PRIVATE_SESSIONS)privateSelectIndex(0);
   if(!snapshot){lv_timer_handler();delay(10);return;}updateUi();
   lv_timer_handler();delay(5);
 }

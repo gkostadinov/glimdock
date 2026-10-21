@@ -1,0 +1,46 @@
+{
+  "format": 1,
+  "implementation": "production firmware UI, LVGL software renderer, production snapshot/config parser",
+  "public_build": true,
+  "width": 320,
+  "height": 240,
+  "rotation": 3,
+  "lvgl": "9.3.0",
+  "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
+  "sources": {
+    "firmware/src/main.cpp": "7aa257da920aa4f012253b9338236c6fbcfd60ff582ec03bc8397e12c42913c1",
+    "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
+    "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
+    "firmware/src/operations_ui.inc": "6c725f6671b8ca6ab7cbe8586d8ea840c6b71ae0f71430cc3f2fdd4ecb436df0",
+    "firmware/src/private_chat_model.h": "852ff8416c96c1712a8bddf0715ce5efaf5201ee058ff3990e2e02215ddfe7e0",
+    "firmware/src/private_chat_parse.h": "e622d458dbb4fa78a6d9c2ed1c118c2f07693ba8c0876882e0bedb0a0b31e37f",
+    "firmware/src/private_chat_network.h": "8811120d95532863d047de417670adfdb2481fe5e6b6a0c6037b1ddfd4a4971e",
+    "firmware/src/private_chat_network.cpp": "f3b1f1cd96eea4d95da9804d7a68f1aed82da75e02fc1dfdd665149debfc3ff4",
+    "firmware/src/private_chat_ui.inc": "8b70b596f455061d6fe45b024c85b49e9d63910f86bf6ea24837b593a9324c85",
+    "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
+    "firmware/src/model.h": "4dc405d90023a1c66650f7b4194702fa74acee7b804508a2223732f7dc7d76b5",
+    "firmware/src/network.cpp": "4a89ef3ef8e4f9ac71a7d220b592491413ad23db5b350cb92642f5b41e94a613",
+    "firmware/include/lv_conf.h": "9317f832f88fd084dedb1e896bd860a081f2650ceccf965a1ad0544ab5e5f2d0",
+    "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
+    "tools/web-emulator/emulator.cpp": "3ca051b2dfd42e935e77eefd4502bf1250c5ca59057d0c957e44e0121dd46e93",
+    "firmware/src/flipper_ble.h": "843854fe14edffe62222809b0a01f38613a27c011ff902955d86bdd83d4f8906",
+    "firmware/src/flipper_ble_protocol.h": "9d900efd54e0147404c21dbb1d0537332b137ba61d84c76624bee3e894050c0d",
+    "firmware/src/flipper_cache_protocol.h": "5e337da56544748511086476e842b28840ece043b42adf75a3d51cfa7cd88d44",
+    "firmware/src/flipper_control_queue.h": "a9e56191897b82e81ec20a7be68ed16dee61bb0dacbdd5966d6f7b4485169f34",
+    "firmware/src/flipper_protocol.h": "39e980d415f057fa88ddecbe7824a0dc46c9d54c2988db305c0aefc5dfb53fa0",
+    "firmware/src/flipper_status.h": "e085b9644918f9e3529ca3bdc9fd0e089be8c5021a2e4ab4daadc8e3abd4338c",
+    "firmware/src/flipper_usb.h": "69c581e5d20bb83cdb80f297066deddbbd749aa9e8db25711781af0667e18747",
+    "firmware/src/runtime_health.h": "c474b192de1d43ef90cdc9b3f2599414988e6b12ecabca3076edb1a8281ba9d0"
+  },
+  "assets": {
+    "firmware.js": {
+      "sha256": "3abbaab72f8ec5a67c308caf0a00d08d595868fa57bd545ff8d7e0208ba6aac5",
+      "bytes": 17632
+    },
+    "firmware.wasm": {
+      "sha256": "f0170e948e67ffd830204e4484161a71b1aa97dc6b7be2655b25684250d9b8d0",
+      "bytes": 1235336
+    }
+  },
+  "licenses": "LICENSES.txt"
+}

@@ -64,6 +64,7 @@ def main():
     tracked += [ROOT/"firmware/src"/name for name in (
         "flipper_ble.h", "flipper_ble_protocol.h", "flipper_cache_protocol.h",
         "flipper_control_queue.h", "flipper_protocol.h", "flipper_status.h", "flipper_usb.h",
+        "runtime_health.h",
     )]
     sources = {str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in tracked}
     source = (ROOT/"firmware/src/network.cpp").read_text()

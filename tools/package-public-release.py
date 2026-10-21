@@ -21,7 +21,7 @@ FILES = (
     'deploy/homelab-monitor-config.service','deploy/homelab-monitor-collector.service','deploy/homelab-monitor-http.service',
     'deploy/rust/homelab-monitor-config.service','deploy/rust/homelab-monitor-collector.service','deploy/rust/homelab-monitor-http.service',
     'tools/build-release.sh','tools/build-web-firmware.py','tools/package-public-release.py','tools/package-binaries.py','tools/package-macos-agent.py',
-    'tools/test-website-firmware.py','tools/provision-private-reader.py','tools/test-provision-private-reader.py','tools/test-private-chat-model.cpp','docs/private-conversations.md','tools/cargo-notices.py','tools/test-pairing-policy.py','tools/configure_truenas_ssh.py',
+    'tools/test-website-firmware.py','tools/provision-private-reader.py','tools/test-provision-private-reader.py','tools/test-private-chat-model.cpp','docs/private-conversations.md','tools/cargo-notices.py','tools/test-pairing-policy.py','tools/test-network-recovery.py','tools/test-network-recovery.cpp','tools/configure_truenas_ssh.py',
     'tools/test-flipper-status.py','tools/test-flipper-ble.py','tools/test-flipper-cache.py',
     'tools/flipper-test-status.cpp','tools/flipper-test-ble.c','tools/flipper-test-cache.c','tools/flipper-test-controls.cpp','tools/flipper-test-usb.cpp',
     'tools/flipper-capture-screen.py','tools/flipper-measure-navigation.py',

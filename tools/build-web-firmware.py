@@ -30,7 +30,7 @@ FIRMWARE_FILES = (
     "platformio.ini", "partitions.csv", "build_and_run.sh", "README.md",
     "include/config.h", "include/config.example.h", "include/lv_conf.h", "include/lv_psram.h",
     "src/main.cpp", "src/operations_model.h", "src/operations_parse.h", "src/operations_ui.inc", "src/private_chat_model.h", "src/private_chat_parse.h", "src/private_chat_network.h", "src/private_chat_network.cpp", "src/private_chat_ui.inc", "src/model.h", "src/display_clock.h", "src/network.cpp", "src/board.cpp", "src/board.h",
-    "src/audio.cpp", "src/audio.h", "src/notification_policy.h", "src/battery_status.h", "src/touch_state.h", "src/pairing_policy.h", "src/brand.h", "src/brand_assets.h", "src/brand_portal.h",
+    "src/audio.cpp", "src/audio.h", "src/notification_policy.h", "src/battery_status.h", "src/touch_state.h", "src/pairing_policy.h", "src/network_recovery.h", "src/runtime_health.h", "src/runtime_health.cpp", "src/brand.h", "src/brand_assets.h", "src/brand_portal.h",
     "src/flipper_ble.cpp", "src/flipper_ble.h", "src/flipper_protocol.h", "src/flipper_status.h",
     "src/flipper_usb.cpp", "src/flipper_usb.h", "src/flipper_ble_protocol.h", "src/flipper_control_queue.h", "src/flipper_cache_protocol.h",
 )
