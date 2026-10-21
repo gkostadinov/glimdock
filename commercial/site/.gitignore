@@ -4,3 +4,5 @@ node_modules/
 !.env.example
 output/
 .site-build/
+
+.playwright-cli/

@@ -1,12 +1,13 @@
 # Glimdock website
 
-The public product, setup, source-download and preorder site at https://glimdock.com.
+The public product, setup, source-download and unpaid-interest site at https://glimdock.com.
 It describes one local Rust collector with an integrated node-management console,
 telemetry API, production firmware emulator and browser USB updates. This
 commercial website is separate from the collector UI in `collector-web/`.
 
 The original Sites project and its D1 binding are retained. Publish through its
-source/version workflow; Cloudflare manages DNS only. Product-copy work does not
+source/version workflow; Cloudflare manages DNS, email and the separate operations
+retry scheduler. Product-copy work does not
 activate payments, change accepted terms or attest to hardware readiness.
 
 ## Local development
@@ -32,8 +33,8 @@ Use the same Node version for npm and tests. The production Worker has no npm
 runtime dependencies. HTML, local fonts, reviewed CAD images, the public firmware
 WASM renderer and accepted-terms snapshots are embedded in one roughly 2.1 MB ES
 module, checked against the existing 3 MB budget. Drizzle generates migrations;
-Sites applies them before Worker upload. No schema or commerce behavior changed
-for the central-collector rewrite.
+Sites applies them before Worker upload. The checkout update adds a backward-compatible database migration for durable
+checkout attempts and confirmation retries.
 
 ## Product pages and architecture
 
@@ -45,7 +46,12 @@ for the central-collector rewrite.
 - `/open/`: guides for the current main source, released archives and CAD. The earlier
   v0.1.0 release is explicitly historical; it is not presented as containing
   `glimdock-collector run` or the current integrated web interface.
-- `/order/`: the same €99, destinations, delivery estimate and gated checkout.
+- `/flipper/`: native paired Bluetooth companion, setup, cached navigation and
+  matching-source build requirements.
+- `/interest/`: unpaid availability signup with email confirmation and optional
+  quantity, EU country and colour preferences; it creates no order or reservation.
+- `/order/`: closed historical checkout page; saved checkout and receipt recovery
+  remain separate from the public interest signup.
 
 Windows/macOS/Linux native agents are monitored devices; the central-server
 setup currently targets Linux/macOS. SNMP and JSON API adapters run as configured
@@ -112,14 +118,70 @@ Checkout remains unavailable until actual setup is complete. Configure runtime v
 - `SUPPORT_READY=true`: support inbox receives mail and the returns process is operational.
 - `PRODUCTION_READY=true`: actual board, enclosure and applicable product conformity requirements verified for the sale.
 - `ORDER_CONFIRMATIONS_READY=true`: merchant receipt/order confirmation workflow configured and tested; includes delivery estimate and terms.
-- `RESEND_API_KEY` and `MAIL_FROM`: verified sending domain for durable withdrawal acknowledgements.
+- `MAIL_PROVIDER=cloudflare`, `CLOUDFLARE_EMAIL_ACCOUNT_ID`, `CLOUDFLARE_EMAIL_API_TOKEN` and `MAIL_FROM`: Cloudflare Email Sending with an onboarded domain; a restricted account-scoped Email Sending token belongs in Sites secrets. `MAIL_PROVIDER=resend` and `RESEND_API_KEY` remain supported for existing installations.
 - `OPERATIONS_TOKEN`: secret with at least 32 characters for the existing retry endpoint.
 - `OPERATIONS_READY=true`: authenticated retry schedule and pending-count monitoring verified independently of site visits.
 - `CHECKOUT_ENABLED=true`: final activation after all above prerequisites are verified.
 
-`DB` is a Sites-provisioned D1 binding. Schema source and immutable generated SQL/snapshots are in `db/` and `drizzle/`. Session verification and signed webhooks record matching orders; a success URL does not prove payment. The verified paid-order workflow sends an idempotent confirmation through Resend with price, shipping, delivery estimate and an attached standalone copy of the accepted terms. Append-only snapshots in `worker/accepted-terms.js` are selected by the Checkout Session terms version; the public seller address is captured in session metadata when checkout starts. Keep every issued snapshot when adding a new terms version. Webhook failures request a safe Stripe retry; the status page distinguishes verified payment from pending email confirmation. Configure Stripe events `checkout.session.completed`, `checkout.session.async_payment_succeeded` and `checkout.session.async_payment_failed`. Price/currency/product metadata are verified before recording. Do not enable live checkout merely to test it; use isolated mocked tests or a separate Stripe sandbox. The public shop deliberately rejects test keys to avoid presenting simulated purchases as real orders.
+`DB` is a Sites-provisioned D1 binding. Schema source and immutable generated SQL/snapshots are in `db/` and `drizzle/`. Session verification and signed webhooks record matching orders; a success URL does not prove payment. The verified paid-order workflow sends a confirmation through the configured email provider with price, shipping, delivery estimate and an attached standalone copy of the accepted terms. Append-only snapshots in `worker/accepted-terms.js` are selected by the Checkout Session terms version; the public seller address is captured in session metadata when checkout starts. Keep every issued snapshot when adding a new terms version. Webhook failures request a safe Stripe retry; the status page distinguishes verified payment from pending email confirmation. Configure Stripe events `checkout.session.completed`, `checkout.session.async_payment_succeeded` and `checkout.session.async_payment_failed`. Price/currency/product metadata are verified before recording. Do not enable live checkout merely to test it; use isolated mocked tests or a separate Stripe sandbox. The public shop deliberately rejects test keys to avoid presenting simulated purchases as real orders.
 
-The withdrawal form stays available when order storage is available, including after new sales are disabled. It matches a SHA-256 of the checkout email retained from the verified order, durably stores notice with timestamp, and sends an idempotent acknowledgement through Resend. Email failure is labelled accurately; never claim delivery when it failed. Unacknowledged withdrawal notices form a durable outbox with bounded exponential backoff and a five-minute claim lease. Shop GET requests attempt due acknowledgements opportunistically. For reliable recovery even when the site receives no visits, configure an authenticated scheduled POST to `/api/admin/retry-withdrawals` with `Authorization: Bearer <OPERATIONS_TOKEN>` from the chosen operations scheduler, and monitor pending counts. Configure this before activating payments; `OPERATIONS_READY` remains false until scheduling and monitoring are verified. The endpoint returns `sent`, total unacknowledged `pending` and currently eligible `due` counts only, never purchaser details. Support handles cancellations/refunds/returns through Stripe and the operational process. Customer withdrawal submissions are not analytics events.
+The withdrawal form stays available when order storage is available, including after new sales are disabled. It matches a SHA-256 of the checkout email retained from the verified order, durably stores notice with timestamp, and sends an acknowledgement through the configured email provider. Email failure is labelled accurately; never claim delivery when it failed. Unacknowledged withdrawal notices form a durable outbox with bounded exponential backoff and a five-minute claim lease. Shop GET requests attempt due acknowledgements opportunistically. For reliable recovery even when the site receives no visits, configure an authenticated scheduled POST to `/api/admin/retry-withdrawals` with `Authorization: Bearer <OPERATIONS_TOKEN>` from the chosen operations scheduler, and monitor pending counts. Configure this before activating payments; `OPERATIONS_READY` remains false until scheduling and monitoring are verified. The endpoint returns `sent`, total unacknowledged `pending` and currently eligible `due` counts only, never purchaser details. Support handles cancellations/refunds/returns through Stripe and the operational process. Customer withdrawal submissions are not analytics events.
+
+## Unpaid interest
+
+Paid checkout stays closed. The public form records interest in availability,
+not a sale, reservation, guaranteed price or delivery date. Its approximately
+€99 monitor price plus shipping is an estimate. The form collects an email,
+quantity, EU country, body/stand colour preferences and explicit unchecked
+consent to Glimdock availability emails. The browser stores none of these fields.
+
+The legacy `/order/` form also has `data-checkout-closed="true"`. Reopening sales
+requires a deliberate storefront update as well as the merchant readiness flags;
+changing an environment variable alone does not reopen the public form.
+
+Interest availability requires `DB`, a configured mail provider and a dedicated
+secret `WAITLIST_TOKEN_SECRET` of at least 32 characters. Set this secret through
+Sites; never put it in source or frontend configuration. `INTEREST_ENABLED=false`
+pauses new signups and confirmation email retries while preserving unsubscribe
+actions and retention cleanup. With the prerequisites present, the default is
+enabled. Interest does not require Stripe, a public seller address or payment
+launch flags. Keep `CHECKOUT_ENABLED=false` until the separate sales setup is
+complete. `GET /api/interest-config` exposes only availability and the email
+confirmation requirement.
+
+`POST /api/interest` requires the site origin, JSON, valid bounded fields and
+`consent: true`. Accepted submissions return the same HTTP 202 response for new,
+pending, confirmed, honeypot and rate-limited requests. Email work is deferred
+through a durable queue so provider latency does not expose list membership.
+Repeated public submissions do not change saved preferences or extend retention;
+an unconfirmed address can receive a resend after one hour. A keyed hourly IP
+hash limits submissions to ten per hour; raw IPs are not stored and rate rows
+expire within 24 hours. Request bodies, email addresses and action tokens must
+not be logged.
+
+Confirmation links contain an opaque signup ID and action-bound HMAC token only
+in the URL fragment. The action script removes the fragment before other page
+scripts run; token pages load no analytics or consent script. Opening either
+link changes nothing: a user must choose the button to POST to
+`/api/interest/confirm` or `/api/interest/unsubscribe`. Confirmation is valid for
+seven days. Unconfirmed records expire after seven days; confirmation retains
+the record for twelve calendar months from confirmation. Unsubscribe deletes
+the signup, its email and its preferences. Cleanup runs before submissions,
+actions and scheduled retries, including while new signups are paused. Rotating
+the signing secret invalidates existing links, so plan migration or support
+before changing it.
+
+Migration `drizzle/0005_unpaid_interest.sql` adds `interest_signups` and
+`interest_rate_limits`; Sites must apply it before the updated Worker. The
+five-minute operations scheduler retries unsent confirmation emails using an
+atomic five-minute lease and bounded backoff. `/api/admin/retry-commerce`
+includes `interest: {sent, pending, due}` for this outbox. `pending` counts
+unconfirmed rows still awaiting their first accepted confirmation email, not all
+unconfirmed signups. An authenticated `GET /api/admin/interest-summary` returns
+confirmed and unconfirmed signup totals, confirmed requested-unit totals and
+country aggregates only; it exposes no emails or colour preferences. No bulk
+availability-mail sender or customer export is implemented. Future availability
+messages must use the confirmed, unexpired list and include an unsubscribe link.
 
 ## Analytics and consent
 
@@ -146,8 +208,97 @@ validation does not confirm that a public Site version has been deployed.
 
 ## Public USB installer
 
-`/flash/` installs the supported Waveshare V1 public firmware directly with Web Serial. Run `python3 scripts/sync-flash-assets.py --release v0.5.6` after building or selecting an audited public firmware bundle. Use an existing immutable release whose source-relink archive matches the local manifest. The script copies only four verified images, the shared USB updater, flash safeguards and notices; the larger corresponding source archive is linked from GitHub. It never copies local Wi-Fi settings, monitoring keys, device backups or private builds.
+`/flash/` installs the supported Waveshare V1 public firmware directly with Web Serial. Run `python3 scripts/sync-flash-assets.py --release v0.5.7` after building or selecting an audited public firmware bundle. Use an existing immutable release whose source-relink archive matches the local manifest. The script copies only four verified images, the shared USB updater, flash safeguards and notices; the larger corresponding source archive is linked from GitHub. It never copies local Wi-Fi settings, monitoring keys, device backups or private builds.
 
 The website worker permits Serial only on the installer page. Firmware manifest and image hashes must match `collector-web`; tests and the public export enforce this. The worker budget is checked both uncompressed and gzip compressed. To update the UI, run `node scripts/build.mjs`, `node --test tests/*.test.mjs` and `node scripts/check.mjs`. The local collector remains an alternative installer and live monitoring console.
 
 The public installer stays pinned to its published release manifest and corresponding source archive. CI may rebuild the collector firmware and produce different binary or relink hashes; that rebuild must not silently replace the website release. `tools/test-website-firmware.py` verifies this separation while retaining strict image hashes, write ranges and shared updater checks.
+
+
+## Checkout completion — 17 October 2026
+
+Checkout selections and request identity survive reloads and cancellation in the
+same tab. No contact details, address or card data are stored in browser storage.
+Consent remains explicit. Returning with the browser Back button restores usable
+controls. Network failures can be retried without changing the request identity.
+The database retains each intent, first cart, origin, accepted terms/address and
+Stripe Session ID. Replays retrieve the existing session; completed sessions go
+to their verified receipt and expired sessions require an explicit retry. An
+unresolved attempt older than 23 hours is held for support rather than creating
+another session after Stripe may have discarded its idempotency key.
+
+The receipt page handles processing, payment verification, expired checkout and
+pending confirmation email separately. It retries a bounded number of times and
+offers a manual status check. Only the matching verified receipt clears the
+saved cart. A redirect alone never proves payment or triggers a purchase event.
+
+Migration `drizzle/0003_durable_checkout.sql` creates `checkout_attempts` and adds
+accepted snapshot and confirmation outbox fields to `orders`. Sites applies
+tracked Drizzle migrations when deploying; do not skip the migration. Existing
+orders and withdrawal records remain intact. Webhooks and status requests use
+an atomic five-minute confirmation lease and exponential backoff. Resend supports
+an idempotency key within its retention window; Cloudflare has no documented
+provider idempotency contract. An ambiguous send or a crash after sending can
+produce a duplicate confirmation on retry; it never creates another charge.
+
+Configure an authenticated operations scheduler to POST
+`/api/admin/retry-commerce` with the runtime `OPERATIONS_TOKEN` at least every
+five minutes. It retries order confirmations, withdrawal acknowledgements and
+interest confirmations and returns separate `confirmations`, `withdrawals` and
+`interest` objects, each with `sent`, `pending` and `due` counts. Alert on
+sustained pending notices. `/api/admin/retry-confirmations` retries just orders;
+the existing `/api/admin/retry-withdrawals` response stays compatible. A
+`scheduled()` Worker handler is also provided for hosts that explicitly attach
+a cron trigger; its presence does not configure a Sites schedule. Background
+GET retries remain a fallback. Set `OPERATIONS_READY=true` only after the actual
+scheduler and monitoring work without website visits.
+
+The supporting Worker is `scripts/commerce-retries-worker.js`, configured by
+`scripts/commerce-retries.wrangler.jsonc` as `glimdock-commerce-retries` in the
+user-owned Cloudflare account. Its `*/5 * * * *` trigger calls only
+`https://glimdock.com/api/admin/retry-commerce` using the secret
+`OPERATIONS_TOKEN`, which must match the storefront secret. The request has a
+20-second timeout covering headers and JSON, uses manual redirect handling and
+rejects redirects. Explicit `global_fetch_strictly_public` routing reaches the
+Sites Worker. HTTP requests to the scheduler return 404; workers.dev and preview
+URLs are disabled. Logs contain normalized queue counts or fixed diagnostic
+categories, never tokens, email addresses, customer preferences or raw responses.
+For a staggered rollout, an older storefront's missing `interest` object is
+treated as zero counts; a present malformed object fails the scheduled run.
+Pending queues produce warnings, including rows waiting for a later backoff;
+configuration, HTTP, network and invalid-response failures fail the invocation.
+
+Runtime credentials are managed through Sites, with secrets marked secret.
+Use a dedicated Stripe key with Checkout Sessions read/write access and only
+add dependencies if Stripe reports a required permission. Register
+`https://glimdock.com/api/stripe-webhook` for the three Checkout Session events
+listed above. An onboarded Cloudflare sending domain and sender, public seller/returns
+address, support, production readiness and a working retry schedule are still
+required before setting the launch flags. The implementation does not set those
+attestations or substitute a private account address for a public returns address.
+
+
+### Cloudflare email and colour requests
+
+Cloudflare Email Routing receives or forwards incoming support messages; it does
+not by itself configure transactional sending. Onboard `glimdock.com` in Email
+Sending on the existing Workers Paid account, then set `MAIL_PROVIDER=cloudflare`,
+`CLOUDFLARE_EMAIL_ACCOUNT_ID`, secret `CLOUDFLARE_EMAIL_API_TOKEN`, and
+`MAIL_FROM=Glimdock <support@glimdock.com>`. The token needs only account Email
+Sending edit permission. The site sends through the documented HTTPS API, so no
+cross-account native Worker binding or hosting migration is needed.
+
+Cloudflare returns accepted recipients in `delivered` or `queued`; bounced,
+suppressed, or missing recipients remain pending. Provider acceptance is not
+proof of inbox delivery. Cloudflare documents no idempotency contract: the local
+outbox lease prevents simultaneous sends, but an ambiguous successful send or a
+crash before storage can cause a duplicate email on retry. The stable
+`X-Glimdock-Message-Key` header supports correlation, not provider deduplication.
+This never creates another payment. Keep support and delivery monitoring active.
+
+Body and stand colour requests form part of the persisted cart and order. They
+are recorded in Stripe metadata and the order confirmation; changes create a
+new request identity. The current terms version is `2026-10-17.1`; older issued
+snapshots stay immutable. The made-to-order policy offers no additional voluntary
+returns and retains mandatory consumer rights. It does not treat a colour
+selection or acknowledgement checkbox as an automatic statutory-rights waiver.

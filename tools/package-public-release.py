@@ -28,7 +28,8 @@ FILES = (
     'integrations/truenas/probe.py','integrations/truenas/README.md',
     'examples/README.md','examples/collector.json','examples/nodes/proxmox.json',
     'commercial/site/package.json','commercial/site/package-lock.json','commercial/site/.gitignore',
-    'commercial/site/README.md','commercial/site/drizzle.config.ts',
+    'commercial/site/README.md','commercial/site/VALIDATION.md','commercial/site/drizzle.config.ts',
+    'commercial/site/scripts/commerce-retries-worker.js','commercial/site/scripts/commerce-retries.wrangler.jsonc',
     'examples/agents/host.json','examples/agents/snmp.json','examples/agents/snmp-credentials.json','examples/agents/json.json',
     'examples/snapshots/host.json','examples/snapshots/all-nodes.json','examples/snapshots/firmware-inventory.json',
     'enclosure/README.md','enclosure/requirements.txt',
@@ -78,6 +79,10 @@ def private_address(value):
     return any(address in ipaddress.ip_network(n) for n in networks) and value!='192.168.4.1'
 def private_values():
     values=[]
+    deployment=ROOT/'commercial/site/scripts/commerce-retries.wrangler.jsonc'
+    if deployment.is_file():
+        account=re.search(r'"account_id"\s*:\s*"([a-f0-9]{32})"',deployment.read_text())
+        if account:values.append(account.group(1).encode())
     pattern=re.compile(r'^\s*#define\s+HOMELAB_DEFAULT_(?:SSID|PASSWORD|TOKEN|SETUP_TOKEN|ENDPOINT)\s+("(?:[^"\\]|\\.)*")',re.M)
     for name in ['local_credentials.h','private_defaults.h','secrets.h']:
         p=ROOT/'firmware/include'/name
@@ -124,7 +129,7 @@ def candidate():
             if '__pycache__' in p.parts or p.name.startswith('.'): continue
             if p.is_symlink(): raise ValueError(f'Symlink rejected in {folder}')
             if p.is_file():
-                if p.suffix not in suffixes: raise ValueError(f'Unexpected public source type: {p.relative_to(ROOT)}')
+                if p.suffix not in suffixes and p.relative_to(ROOT).as_posix() not in FILES: raise ValueError(f'Unexpected public source type: {p.relative_to(ROOT)}')
                 selected.append(p.relative_to(ROOT).as_posix())
     sources={}; counts={'private_addresses_replaced':0,'personal_paths_replaced':0}
     for name in dict.fromkeys(selected):
@@ -151,6 +156,10 @@ def candidate():
                     counts['personal_paths_replaced']+=1
                     return '/EXTERNAL/REFERENCE'
                 text=PERSONAL.sub(replace_personal,text)
+            if name=='commercial/site/scripts/commerce-retries.wrangler.jsonc':
+                deployment=json.loads(text)
+                deployment.pop('account_id',None)
+                text=json.dumps(deployment,indent=2)+'\n'
             data=text.encode()
         sources[name]=data
     sources['firmware/include/config.h']=sources['firmware/include/config.example.h']
