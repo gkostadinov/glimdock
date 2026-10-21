@@ -8,7 +8,7 @@
   "lvgl": "9.3.0",
   "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
   "sources": {
-    "firmware/src/main.cpp": "6bd950379fbed5cfeb937966f114bf56e84533ceab1cd23b87e36d42a79f6826",
+    "firmware/src/main.cpp": "024aaab2396e976f705b38950c943ee40bd54ff6dd27db4bf396382c2d307953",
     "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
     "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
     "firmware/src/operations_ui.inc": "6c725f6671b8ca6ab7cbe8586d8ea840c6b71ae0f71430cc3f2fdd4ecb436df0",
@@ -31,7 +31,7 @@
     "firmware/src/flipper_status.h": "e085b9644918f9e3529ca3bdc9fd0e089be8c5021a2e4ab4daadc8e3abd4338c",
     "firmware/src/flipper_usb.h": "69c581e5d20bb83cdb80f297066deddbbd749aa9e8db25711781af0667e18747",
     "firmware/src/runtime_health.h": "c474b192de1d43ef90cdc9b3f2599414988e6b12ecabca3076edb1a8281ba9d0",
-    "firmware/src/device_power.h": "6834d25b5e955317d145283783e65b555e833a682b1a426aa0de792a4b2bbfcc"
+    "firmware/src/device_power.h": "773831ed11ef1aaca253404c551aa4cfdee824dea9299e95cad532f29c4ffd66"
   },
   "assets": {
     "firmware.js": {
@@ -39,8 +39,8 @@
       "bytes": 17860
     },
     "firmware.wasm": {
-      "sha256": "7047f757e2255d05a496d67b82c535f2e611181e4b85ba661c9248160393fee9",
-      "bytes": 1265806
+      "sha256": "986236334b4c4d0323618584354d4a13663a3fc892c6690d3c7ef95e5aa842f5",
+      "bytes": 1265855
     }
   },
   "licenses": "LICENSES.txt"

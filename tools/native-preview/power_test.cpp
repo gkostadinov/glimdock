@@ -5,7 +5,7 @@
 static void exercise(uint32_t base){
   DevicePowerButton key;
   const auto at=[&](bool down,uint32_t elapsed){return key.update(down,base+elapsed);};
-  // Holding BAT_PWR to boot must never immediately shut down the device.
+  // Holding Power button to boot must never immediately shut down the device.
   assert(!at(true,0));assert(!at(true,40));assert(!at(true,8000));
   assert(!key.released());assert(!at(false,8001));assert(!key.released());
   assert(!at(false,8041));assert(key.released());

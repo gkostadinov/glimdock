@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the production BAT_PWR gesture policy without powering down hardware."""
+"""Check the production Power button gesture policy without powering down hardware."""
 from pathlib import Path
 import shutil
 import subprocess

@@ -384,7 +384,7 @@ without a new boot. The portable regression suite is
 
 ### Turn off and wake
 
-Hold **BAT_PWR** for two seconds, then release it, or use
+Hold the **Power button** for two seconds, then release it, or use
 **Settings → Turn off Glimdock → Turn off**. The startup button press is ignored
 until its first release, and short presses do not turn off the device. The
 display shows a brief shutdown message and waits for button release before
@@ -392,7 +392,7 @@ sleeping. Saved Wi-Fi, pairing and display preferences remain intact.
 
 On battery, shutdown releases the board's GPIO 7 power latch. USB bypasses that
 battery switch, so a USB-powered display instead enters deep sleep with its
-screen and radios off. Press **BAT_PWR** to start again in either case. USB
+screen and radios off. Press the **Power button** to start again in either case. USB
 reconnection or a programmer reset can also wake/restart a sleeping device.
 This uses the V1 schematic's active-low GPIO 6 key and GPIO 7 battery control,
 as described in [Waveshare's power-control FAQ](https://docs.waveshare.com/ESP32-S3-Touch-LCD-2.8/FAQ).

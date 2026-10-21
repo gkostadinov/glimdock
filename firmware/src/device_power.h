@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-// Active-low BAT_PWR, sampled without blocking the display task. Ignore the
+// Active-low Power button, sampled without blocking the display task. Ignore the
 // power-on press until the button has first been released and debounced.
 class DevicePowerButton {
 public:

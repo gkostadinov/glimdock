@@ -91,7 +91,7 @@ bool boardPowerOff(){
     rtc_gpio_deinit(POWER_KEY);pinMode(POWER_KEY,INPUT_PULLUP);
     Serial.println("Power off: button wake unavailable; keeping power on.");return false;
   }
-  Serial.println("Power off: display sleeping; battery latch released; BAT_PWR wakes USB sleep.");
+  Serial.println("Power off: display sleeping; battery latch released; Power button wakes USB sleep.");
   Serial.flush();boardBacklight(0);command(0x28);command(0x10);delay(120);
   // Hold low across USB-powered sleep; boardHoldPower releases the RTC hold
   // and reasserts the latch on wake. Battery-only power drops here.

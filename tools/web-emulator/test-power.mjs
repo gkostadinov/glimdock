@@ -38,7 +38,7 @@ try{
  f._glimdock_power_button(0);tick();tick(40);
  assert.equal(f._glimdock_powered_off(),0);
  f._glimdock_power_button(1);tick();tick(40);tick(2000);
- assert(texts().includes('Release BAT_PWR to finish'));
+ assert(texts().includes('Release the Power button to finish'));
  tick(1500);assert.equal(f._glimdock_powered_off(),0,'held button cannot cause an immediate wake loop');
  f._glimdock_power_button(0);tick();assert.equal(f._glimdock_powered_off(),0,'release is debounced');
  tick(40);assert.equal(f._glimdock_powered_off(),1);

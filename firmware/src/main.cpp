@@ -655,7 +655,7 @@ void requestPowerOff(lv_event_t* =nullptr){
   powerOffOverlay=box(lv_screen_active(),0,0,VIEW_W,VIEW_H,BG,0);
   lv_obj_add_flag(powerOffOverlay,LV_OBJ_FLAG_CLICKABLE);lv_obj_remove_flag(powerOffOverlay,LV_OBJ_FLAG_SCROLLABLE);
   auto*title=label(powerOffOverlay,"Turning off",16,VIEW_H/2-35,VIEW_W-32,INK,&lv_font_montserrat_24);lv_obj_set_style_text_align(title,LV_TEXT_ALIGN_CENTER,0);
-  auto*body=label(powerOffOverlay,boardPowerButtonDown()?"Release BAT_PWR to finish":"Press BAT_PWR to turn on again",12,VIEW_H/2,VIEW_W-24,MUTED,&lv_font_montserrat_12);lv_obj_set_style_text_align(body,LV_TEXT_ALIGN_CENTER,0);
+  auto*body=label(powerOffOverlay,boardPowerButtonDown()?"Release the Power button to finish":"Press the Power button to turn on again",12,VIEW_H/2,VIEW_W-24,MUTED,&lv_font_montserrat_12);lv_obj_set_style_text_align(body,LV_TEXT_ALIGN_CENTER,0);
 #ifdef HOMELAB_NATIVE_PREVIEW
   clickable(powerOffOverlay,[](lv_event_t*){
     if(!poweredOffPreview)return;
@@ -693,7 +693,7 @@ void confirmPowerOff(lv_event_t*){openPage(POWER_OFF_PAGE);}
 void keepPowerOn(lv_event_t*){openPage(7);}
 void powerOffScreen(){
   heading("Turn off Glimdock?","",true);auto*s=scroll(28);
-  int y=note(s,0,"Press BAT_PWR to turn it on again. On USB, the display and radios sleep.");
+  int y=note(s,0,"Press the Power button to turn it on again. On USB, the display and radios sleep.");
   smallButton(s,"Turn off",0,y,LIST_W,RED,requestPowerOff);y+=48;
   smallButton(s,"Keep on",0,y,LIST_W,CYAN,keepPowerOn);
 }
@@ -705,7 +705,7 @@ void settings(){
   auto*volumeSlider=lv_slider_create(volumeCard);lv_obj_add_flag(volumeSlider,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_set_pos(volumeSlider,14,43);lv_obj_set_size(volumeSlider,LIST_W-30,8);lv_obj_set_ext_click_area(volumeSlider,16);lv_slider_set_range(volumeSlider,0,100);lv_slider_set_value(volumeSlider,soundVolume,LV_ANIM_OFF);lv_obj_set_style_bg_color(volumeSlider,color(EDGE),LV_PART_MAIN);lv_obj_set_style_bg_color(volumeSlider,color(CYAN),LV_PART_INDICATOR);lv_obj_set_style_bg_color(volumeSlider,color(CYAN),LV_PART_KNOB);for(auto part:{LV_PART_MAIN,LV_PART_INDICATOR,LV_PART_KNOB})lv_obj_set_style_border_width(volumeSlider,0,part);lv_obj_add_event_cb(volumeSlider,volumeChanged,LV_EVENT_VALUE_CHANGED,volumeLabel);lv_obj_add_event_cb(volumeSlider,volumeChanged,LV_EVENT_RELEASED,volumeLabel);y+=76;
   if(boardAudioReady()){smallButton(s,"Test speaker",0,y,LIST_W,MUTED,soundTest);y+=46;}else y=note(s,y,"Speaker unavailable",AMBER);
   auto*batteryCard=box(s,0,y,LIST_W,72);label(batteryCard,"Device battery",10,8,LIST_W-20,INK,&lv_font_montserrat_12);deviceBatteryLabel=label(batteryCard,"",10,30,LIST_W-20,MUTED,&lv_font_montserrat_14);label(batteryCard,"3.7 V LiPo • approximate voltage",10,54,LIST_W-20,MUTED,&lv_font_montserrat_8);y+=80;updateBatteryLabels();y=note(s,y,"Level varies with load and charging. Charge status and remaining runtime are unavailable.");
-  smallButton(s,"Turn off Glimdock",0,y,LIST_W,RED,confirmPowerOff);y+=48;y=note(s,y,"Or hold BAT_PWR for 2 seconds, then release.");
+  smallButton(s,"Turn off Glimdock",0,y,LIST_W,RED,confirmPowerOff);y+=48;y=note(s,y,"Or hold the Power button for 2 seconds, then release.");
   smallButton(s,"Open clock mode",0,y,LIST_W,LAVENDER,clockGo);y+=46;auto*zone=box(s,0,y,LIST_W,40,CARD,7);label(zone,String("Clock time zone: ")+displayClockZoneName(clockZone),9,13,LIST_W-26,INK,&lv_font_montserrat_10);label(zone,">",LIST_W-17,13,10,LAVENDER,&lv_font_montserrat_10);clickable(zone,clockZoneChanged);y+=46;
   auto*c=box(s,0,y,LIST_W,PORTRAIT?76:48);label(c,"Appearance",10,PORTRAIT?8:16,98,INK);const char*choices[]={"White","Dark","Auto"};int choiceW=PORTRAIT?(LIST_W-28)/3:58,choiceX=PORTRAIT?10:110;for(int i=0;i<3;i++){bool active=themeMode==i;auto*b=box(c,choiceX+i*(choiceW+4),PORTRAIT?28:4,choiceW,40,active?(lightTheme?CARD:DARK_SELECTED):CARD,7);if(active)lv_obj_set_style_border_color(b,color(CYAN),0);auto*l=label(b,choices[i],4,13,choiceW-8,active?CYAN:MUTED,&lv_font_montserrat_12);lv_obj_set_style_text_align(l,LV_TEXT_ALIGN_CENTER,0);clickable(b,themeChanged,(void*)(uintptr_t)i);}y+=PORTRAIT?84:56;if(themeMode==THEME_AUTO){struct tm local{};String hint="Auto: light 07:00-19:00 • "+String(displayClockZoneName(clockZone));if(!displayClockTm(time(nullptr),clockZone,local))hint+="\nWaiting for clock sync; keeping current appearance.";y=note(s,y,hint);}
   c=box(s,0,y,LIST_W,68);label(c,"Brightness",10,10,LIST_W-20,INK,&lv_font_montserrat_14);auto*slider=lv_slider_create(c);lv_obj_add_flag(slider,LV_OBJ_FLAG_PRESS_LOCK);lv_obj_set_pos(slider,14,43);lv_obj_set_size(slider,(LIST_W-30),8);lv_obj_set_ext_click_area(slider,16);lv_slider_set_range(slider,10,100);lv_slider_set_value(slider,brightness,LV_ANIM_OFF);lv_obj_set_style_bg_color(slider,color(EDGE),LV_PART_MAIN);lv_obj_set_style_bg_color(slider,color(CYAN),LV_PART_INDICATOR);lv_obj_set_style_bg_color(slider,color(CYAN),LV_PART_KNOB);lv_obj_set_style_border_width(slider,0,LV_PART_MAIN);lv_obj_set_style_border_width(slider,0,LV_PART_INDICATOR);lv_obj_set_style_border_width(slider,0,LV_PART_KNOB);lv_obj_add_event_cb(slider,brightnessChanged,LV_EVENT_RELEASED,nullptr);y+=76;
