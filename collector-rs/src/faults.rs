@@ -1,5 +1,5 @@
 //! Bounded seven-day journal/kernel fault history with duplicate suppression.
-use crate::probes::{command, num, text, wall};
+use crate::probes::{command, num, text, wall, CommandOutput};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -54,6 +54,19 @@ pub fn parse_journal(input: &str) -> Vec<Value> {
             )
         })
         .collect()
+}
+fn journal_events(output: &CommandOutput) -> Option<Vec<Value>> {
+    if output.status == 0 {
+        return Some(parse_journal(&output.stdout));
+    }
+    // journalctl --grep returns 1 when no entries match, including with JSON
+    // output. Some systemd versions also print this non-JSON empty marker.
+    let no_entries = matches!(output.stdout.trim(), "" | "-- No entries --");
+    if output.status == 1 && no_entries && output.stderr.trim().is_empty() {
+        Some(vec![])
+    } else {
+        None
+    }
 }
 pub fn parse_dmesg(input: &str, now: f64, uptime: f64, boot: &str) -> Vec<Value> {
     let re = regex::Regex::new(r"^\[\s*(\d+(?:\.\d+)?)\]\s*(.*)").unwrap();
@@ -118,9 +131,12 @@ pub fn read_faults() -> anyhow::Result<Value> {
         ],
         8.,
         true,
-    ) {
-        Ok(r) if r.status == 0 => parse_journal(&r.stdout),
-        _ => {
+    )
+    .ok()
+    .and_then(|r| journal_events(&r))
+    {
+        Some(events) => events,
+        None => {
             errors.push("journal unavailable");
             vec![]
         }
@@ -153,6 +169,52 @@ pub fn read_faults() -> anyhow::Result<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn journal_no_matches_is_available_with_zero_faults() {
+        for stdout in ["", "\n", "-- No entries --\n"] {
+            let output = CommandOutput {
+                stdout: stdout.into(),
+                stderr: String::new(),
+                status: 1,
+            };
+            let events = journal_events(&output).expect("no matches is a successful read");
+            let faults = merge_events(events, vec![], 1000000.);
+            assert_eq!(faults["segfault_count_24h"], 0);
+            assert_eq!(faults["event_count_24h"], 0);
+        }
+    }
+    #[test]
+    fn journal_read_failures_remain_unavailable() {
+        for (status, stdout, stderr) in [
+            (1, "", "Failed to open journal: Permission denied"),
+            (
+                1,
+                "-- No entries --\n",
+                "No journal files were opened due to insufficient permissions.",
+            ),
+            (1, "unexpected output", ""),
+            (2, "", ""),
+        ] {
+            assert!(journal_events(&CommandOutput {
+                stdout: stdout.into(),
+                stderr: stderr.into(),
+                status,
+            })
+            .is_none());
+        }
+    }
+    #[test]
+    fn journal_success_keeps_real_fault_entries() {
+        let output = CommandOutput {
+            stdout: json!({"__REALTIME_TIMESTAMP":"999990000000","MESSAGE":"app segfault at 0","_BOOT_ID":"ab","__MONOTONIC_TIMESTAMP":"80000000"}).to_string(),
+            stderr: String::new(),
+            status: 0,
+        };
+        let events = journal_events(&output).unwrap();
+        let faults = merge_events(events, vec![], 1000000.);
+        assert_eq!(faults["segfault_count_24h"], 1);
+        assert_eq!(faults["event_count_24h"], 1);
+    }
     #[test]
     fn benign_and_classifications() {
         assert_eq!(classify("PCI device error correction enabled"), None);

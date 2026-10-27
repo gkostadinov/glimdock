@@ -817,7 +817,7 @@
     "collector-rs/docs/TELEMETRY.md": "b28a5503ba56cb8beb9baee95120fe1c81228f8a704c9b2b2e063d49d82f9f9f",
     "collector-rs/helpers/qga-bridge.pl": "a52894b997deed5909b89ced7e646617f6b7f0c29e0e061a9caca5380b5ab1b2",
     "collector-rs/src/config.rs": "39d2d0caffe95a137dbece157812dc8ef1e84fc48942572aa0c3adee66c360e8",
-    "collector-rs/src/faults.rs": "b1d934c94ec3f1537a25604c92437fdba0804cd4b64aa90f32d6fa5350c483a2",
+    "collector-rs/src/faults.rs": "8e996108967aff934ddcede833bf38835c421c41effc092450dab7bdcd9cfb8f",
     "collector-rs/src/gpus.rs": "455710a257ec41f489d8f29f21cbf4858c3281b26f8e60b7c8b8faf2fac2e89a",
     "collector-rs/src/guest_feeds.rs": "e5f0c6636d19864780ba758e7212b2bcebbd31d0339097c297cd5d7c5997af8c",
     "collector-rs/src/guests.rs": "93b8ca6ba17523dada6d4bd97654ca9d033fe4fc77c45e0327792060ea9fd9cd",
