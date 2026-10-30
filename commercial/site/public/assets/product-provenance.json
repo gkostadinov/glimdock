@@ -1,49 +1,106 @@
 {
-  "schema": 2,
-  "case_revision": "r25 body and cradle / r24 internals / r26 print trial",
-  "design_sha256": "9ac10ade6dc6b5b2357a4eb25e14554cf3e0bf81aca5fddd2e38585de24ec17a",
-  "geometry": "CAD_PROTOTYPE_PHYSICAL_VALIDATION_PENDING",
-  "screen_artwork": "Synthetic illustration on nominal CAD, not current installed firmware or a physical product photo",
+  "schema": 3,
+  "case_revision": "Portable r45 \u2014 matching portable shells, passive stands and retained accessories",
+  "release_commit": "115aa457c2c804d5e48c1b866748d57f49429dc8",
+  "geometry_source": "https://github.com/gkostadinov/glimdock/tree/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45",
+  "design_sha256": "19712441524f0bb0cbfe80598af4715b44e1173f2c69195da89946255f51ba70",
+  "parts_sha256": "0a08d9a025a57d8e199f40e8ddb6f81e79631ec3c2dfaaa4ff98bd74699cfd61",
+  "geometry": null,
+  "screen_artwork": "Synthetic dashboard illustration; not installed firmware or a physical product photo. Portrait artwork does not establish portrait firmware support.",
+  "reference_hardware": "Generic display, glass, battery and speaker envelopes; no manufacturer PCB CAD",
+  "render_recipe": "commercial/site/scripts/render-product-r45.py",
+  "render_recipe_sha256": "db6c795f2bd7d19e2a1a675643c1244f763834b95cb66cf55e3493f6ff1b5e19",
+  "source_files": {
+    "assembly/accessory-cap-landscape-left.stl": "a0f384c6aae8cd84cc72b1071edd4762ee034312853c16ee7a575a2d215b261e",
+    "assembly/accessory-cap-landscape-right.stl": "c2bbf48f2101996578685546d8ecb7dca1c81461569e67c6b420b5f676be97da",
+    "assembly/accessory-cap-portrait-left.stl": "d791de4ebc8fe0fb23ef6db1924b7a0769c68f8a0512c39fe7f28268eadb9d28",
+    "assembly/accessory-cap-portrait-right.stl": "08a33ea9758fcff572b4f52f387301b98bb2a6d16226bb8df04d98dec7cb1ae1",
+    "assembly/battery-tray.stl": "82792cc04916c08ac3aef3c6d4e216877c0c70bf51ac516ca415610ecbefa614",
+    "assembly/bunny-ear-left-portrait.stl": "8e35ab8a28b6c2721176e438c39db72ac7ed1a0f8d5b33dfc91f5b3ff2a7a9d0",
+    "assembly/bunny-ear-left.stl": "ad645f0707f78b485403f8b373d3cb7c6b2d11b05013d72e0ffde6edefea8dd3",
+    "assembly/bunny-ear-right-portrait.stl": "996854ab8dc0bb86c899b211ad7f1d99f5b49d7c49f474f8f05e4e6432a2d91f",
+    "assembly/bunny-ear-right.stl": "2afab991147eca3c75c60fcca92c55ba902116910a2201728902534979f3a012",
+    "assembly/button-compact.stl": "0b19d517a69893f409885a5f6f3d0c9adfb900c403b62607f7984f659a25970b",
+    "assembly/display-carrier-left.stl": "7de65dec6c73cfda466a3acac63b53274fb1ab1e46f6c9400bdb8542f479df6f",
+    "assembly/display-carrier-right.stl": "dcd2d9f4da47d1d74e25ffaa7150123ab33c5d380db4167e46550f58b776ad79",
+    "assembly/eye-left-portrait.stl": "4f8d46162bae26c8fd12e491b4647a9af163dbf6e39cb420c7f66e450487fb11",
+    "assembly/eye-left.stl": "32159125f7488a3e1c399f9923743b850461cc84d4b4e329c5279ad5b75df9c2",
+    "assembly/eye-right-portrait.stl": "7aa4287d3b1ede3db732b70593ad979b36214dd8fc187b0104c5b951b0f6a7d1",
+    "assembly/eye-right.stl": "e2fa8b2df44f33cf444b07da7e92855cc9ca31f30a7eba2b43c02226e893b910",
+    "assembly/landscape-stand.stl": "a96325030d32af8a9741fb28bcb15399af6d9b1407184574a604224776e8cafa",
+    "assembly/portrait-stand.stl": "f8c8733587324d82ee636b85e7a7ea49d89af2a3ec2272ef026ed675177f03c9",
+    "assembly/purple-body.stl": "da08b7334bfb9d6ad54bde33a645c03e9f30e80077dc5e461405ce76114e6526",
+    "assembly/purple-rear-cover.stl": "0e74897d319247ebf695fd106c7fe3b67b91bc3814ee4c9de35ae4cb754c6e7a",
+    "assembly/rear-screw-cap-1.stl": "3ba8e83b2de87dea4f93ab1c992a8e00dee2eb64ea70eb20d92cee197591cd0d",
+    "assembly/rear-screw-cap-2.stl": "5658fc79d1f7077fea1c55893732b78c6dae0e857d95e1946313d2554fa9030e",
+    "assembly/rear-screw-cap-3.stl": "129733c01e258d9ed2b2497cc0b073c337cf9740b5e18b814605a1d36197252f",
+    "assembly/rear-screw-cap-4.stl": "2fff292406707b40d220ddcfe560ae8a8eb12d5e062e1f1f64006b8611d3681e",
+    "assembly/tv-antenna-left-portrait.stl": "eeff094b3f3c323a94703c85a56e32b6c1325ed4b0df6aa9e54e088fa08ca3af",
+    "assembly/tv-antenna-left.stl": "4bdaf9d87b3d3b72df3a38e6a310ede406f652c881eff1ea5581cea426600903",
+    "assembly/tv-antenna-right-portrait.stl": "cf0e1ac577a1be4f680266b5014db1b03408670dbf8261c8756cbeef5248d24d",
+    "assembly/tv-antenna-right.stl": "fc9372ec98602d433cfd1bd3a3355a1e57c419ccdc322c2e1b9549a48c21eb90",
+    "assembly/usb-tunnel.stl": "4fed2cd4145b5a3d3f7610fec7cd9b722c1601d326c0cf7c941a9123139880c4",
+    "viewer/reference/battery-envelope.stl": "4a1f2b5cc378b7eed4622720f22b6a08963c53be55b8f9ea73be86267caf9c9a",
+    "viewer/reference/display-envelope.stl": "b58fafdc349f45e19df3edc2098fced3aa0c9013ede1ce17e460bb163da79c82",
+    "viewer/reference/glass-envelope.stl": "f0b4320b591547c366a495cb4af20a18d64b0f6e4d4cc8c02413b3db851b7789",
+    "viewer/reference/speaker-left-envelope.stl": "e75780695abfa8494f1a2e294ae822bbaf71b5319b687873d3f3e1f1a9d911ce",
+    "viewer/reference/speaker-right-envelope.stl": "4dc366e72b284569dd29ff859708f5cb7485d8bb9fd46311bf55eb911c3e38fe",
+    "viewer/scene.json": "721688939037eb852ae2670a7ad374d61d438f5b2d6ceccdb91b4ecfce1eb6f1"
+  },
   "renders": {
     "hero": {
-      "source": "enclosure/public/pebble-r26-prototype-v2/assets/hero.png",
-      "source_sha256": "8f084f417e72c0416749f91a72fc0d90eeab52fe0b6eab3f4e41836d85f0fe66",
+      "source": "Released CAD rendered with scripts/render-product-r45.py",
+      "source_sha256": "0180bd4c4d8ea9b73d7c9c5738797cde4235063cad3cd213c500a15b7aa93aa8",
       "public": "commercial/site/public/assets/hero.webp",
-      "sha256": "ed9245343227155d3851e4ca6733a12c6be0c89ef6200d0f94811b8744f814d4",
-      "width": 1100,
-      "height": 968
+      "sha256": "abcb52d6928978312c4e3bbe8821c684e0ad09213c7543014d302dd6e392e9af",
+      "bytes": 20652,
+      "width": 1200,
+      "height": 1056
     },
     "side": {
-      "source": "enclosure/public/pebble-r26-prototype-v2/assets/side.png",
-      "source_sha256": "e99f464f35a4c6c759a2ba7f224cb964b1228f251a0c5d6bb834f4767fe2f9db",
+      "source": "Released CAD rendered with scripts/render-product-r45.py",
+      "source_sha256": "11281881d6668b5b6b91c0d61fa8bb18b58cd82a8481428a86991f8a99ea86ff",
       "public": "commercial/site/public/assets/side.webp",
-      "sha256": "e8b3570d77746a21dc875e036a7a41592325bc41e8074cd8ad90934858e081b8",
-      "width": 1100,
-      "height": 968
+      "sha256": "43848c5e00b4b5555a42effb7af73cb225af9159fbe6692fccbdac9f00e5fe33",
+      "bytes": 12932,
+      "width": 1200,
+      "height": 1056
     },
     "usb-detail": {
-      "source": "enclosure/public/pebble-r26-prototype-v2/assets/usb-detail.png",
-      "source_sha256": "20af9659113cc8d6ad177c0a61cae9530c4fb86689a4a36b0b80d3576ee51b75",
+      "source": "Released CAD rendered with scripts/render-product-r45.py",
+      "source_sha256": "5bd059b3604182b77a01a2820ab8f8c202edd4bdf7099c2610d607c0ea284c87",
       "public": "commercial/site/public/assets/usb-detail.webp",
-      "sha256": "378698de6f312ce0e1b8bfa9da7536ad33f4002e272cb410fca28b69fdebc4dd",
-      "width": 1100,
-      "height": 850
+      "sha256": "0e01b8dca6a44a0840c6dbb82188f96ddd14ac303aa617a27cc5dacfb34bd6d2",
+      "bytes": 21108,
+      "width": 1200,
+      "height": 1056
     },
     "cradle-detail": {
-      "source": "enclosure/public/pebble-r26-prototype-v2/assets/cradle-detail.png",
-      "source_sha256": "ed6fa3aeaaf38240329d9a856d908ac48a828379aed757ea887be9dfd428e545",
+      "source": "Released CAD rendered with scripts/render-product-r45.py",
+      "source_sha256": "ffe809acaa0ebbfcc96091745e7362f347ae1d0c99bb6fe68a0f2bdde134ff14",
       "public": "commercial/site/public/assets/cradle-detail.webp",
-      "sha256": "23d63cda1fad28c2dd5c090cef9b16c31abc4acd7bc00f885faf96ef13f4dfa6",
-      "width": 1000,
-      "height": 850
+      "sha256": "cf2d4f0e0d41170412dbe022406424ad0820ce09cfcbb301830cdc3d7e9b4043",
+      "bytes": 25008,
+      "width": 1200,
+      "height": 1056
     },
     "exploded": {
-      "source": "enclosure/public/pebble-r26-prototype-v2/assets/exploded.png",
-      "source_sha256": "d83b5aa95b431a40472076481dff1ee0e12c0250bc7ad7c4fac6012153013cf4",
+      "source": "Released CAD rendered with scripts/render-product-r45.py",
+      "source_sha256": "7ec4a99956ab6af27e1c7052c34e4da730df7cea47b56ed261d7f2860fe08ec3",
       "public": "commercial/site/public/assets/exploded.webp",
-      "sha256": "1ffdde2ad9ae9336ba65e7db05275aaa0ef203c8f676d951cf121701d3807037",
-      "width": 1400,
-      "height": 1232
+      "sha256": "6b709a7caf38cd1515fb16e6fb5399f67f2625013fa27b667bd8d542169c4bcf",
+      "bytes": 22388,
+      "width": 1200,
+      "height": 1056
+    },
+    "portrait": {
+      "source": "Released CAD rendered with scripts/render-product-r45.py",
+      "source_sha256": "d597afdd37e98a80b1b292844cd419318057bcb66c73d6504258ea7a4dcb9018",
+      "public": "commercial/site/public/assets/portrait.webp",
+      "sha256": "dbad2095ca6255adfb29d52a9c2a6de5935b798102e032a822e967969ecf36b6",
+      "bytes": 17420,
+      "width": 1200,
+      "height": 1056
     }
   },
   "renderer": {
@@ -56,47 +113,46 @@
     "lvgl": "9.3.0",
     "toolchain": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.12 (5488e0871d46d19a3209988190fa6a653126256f)",
     "sources": {
-      "firmware/src/main.cpp": "e91231c9fd8142d6a54250c43ed1d9a0f3d7bda8313b22a80242507edda7fe0e",
+      "firmware/src/main.cpp": "024aaab2396e976f705b38950c943ee40bd54ff6dd27db4bf396382c2d307953",
       "firmware/src/operations_model.h": "420644cc6f948cc375b585135c3b968beac36121fa5e1e576fe4c1121b7179f8",
       "firmware/src/operations_parse.h": "747d02a7a30931ca4d730c487ae7e54967c0ef05e06506541eb9e4e08c4e0762",
       "firmware/src/operations_ui.inc": "6c725f6671b8ca6ab7cbe8586d8ea840c6b71ae0f71430cc3f2fdd4ecb436df0",
       "firmware/src/private_chat_model.h": "852ff8416c96c1712a8bddf0715ce5efaf5201ee058ff3990e2e02215ddfe7e0",
       "firmware/src/private_chat_parse.h": "e622d458dbb4fa78a6d9c2ed1c118c2f07693ba8c0876882e0bedb0a0b31e37f",
       "firmware/src/private_chat_network.h": "8811120d95532863d047de417670adfdb2481fe5e6b6a0c6037b1ddfd4a4971e",
-      "firmware/src/private_chat_network.cpp": "945c5ee576943ea423d16794c89927c66240bbf42ba38a38eb32a022ad785d8b",
+      "firmware/src/private_chat_network.cpp": "f3b1f1cd96eea4d95da9804d7a68f1aed82da75e02fc1dfdd665149debfc3ff4",
       "firmware/src/private_chat_ui.inc": "8b70b596f455061d6fe45b024c85b49e9d63910f86bf6ea24837b593a9324c85",
       "firmware/src/display_clock.h": "504d3a2d43bb31a5dd0d46982c7fec55777c9e36e4d9a43c6fc02a48a37f63a1",
       "firmware/src/model.h": "4dc405d90023a1c66650f7b4194702fa74acee7b804508a2223732f7dc7d76b5",
-      "firmware/src/network.cpp": "0deef4b60f1298520a8535975b7a82f3a8396cd69d2cd05a0e3dcf228a66daa3",
+      "firmware/src/network.cpp": "4a89ef3ef8e4f9ac71a7d220b592491413ad23db5b350cb92642f5b41e94a613",
       "firmware/include/lv_conf.h": "9317f832f88fd084dedb1e896bd860a081f2650ceccf965a1ad0544ab5e5f2d0",
       "firmware/src/brand_assets.h": "e0b5c1bead3a48d2e769188f2b811b9d8880e6d32dd3e3cbc7b150da93142534",
-      "tools/web-emulator/emulator.cpp": "3ca051b2dfd42e935e77eefd4502bf1250c5ca59057d0c957e44e0121dd46e93",
+      "tools/web-emulator/emulator.cpp": "a52c0af3321a344023d8723aac815925a93c68f9d1e6a5becf5fee7d1c498a7f",
       "firmware/src/flipper_ble.h": "843854fe14edffe62222809b0a01f38613a27c011ff902955d86bdd83d4f8906",
       "firmware/src/flipper_ble_protocol.h": "9d900efd54e0147404c21dbb1d0537332b137ba61d84c76624bee3e894050c0d",
       "firmware/src/flipper_cache_protocol.h": "5e337da56544748511086476e842b28840ece043b42adf75a3d51cfa7cd88d44",
       "firmware/src/flipper_control_queue.h": "a9e56191897b82e81ec20a7be68ed16dee61bb0dacbdd5966d6f7b4485169f34",
       "firmware/src/flipper_protocol.h": "39e980d415f057fa88ddecbe7824a0dc46c9d54c2988db305c0aefc5dfb53fa0",
       "firmware/src/flipper_status.h": "e085b9644918f9e3529ca3bdc9fd0e089be8c5021a2e4ab4daadc8e3abd4338c",
-      "firmware/src/flipper_usb.h": "69c581e5d20bb83cdb80f297066deddbbd749aa9e8db25711781af0667e18747"
+      "firmware/src/flipper_usb.h": "69c581e5d20bb83cdb80f297066deddbbd749aa9e8db25711781af0667e18747",
+      "firmware/src/runtime_health.h": "c474b192de1d43ef90cdc9b3f2599414988e6b12ecabca3076edb1a8281ba9d0",
+      "firmware/src/device_power.h": "773831ed11ef1aaca253404c551aa4cfdee824dea9299e95cad532f29c4ffd66"
     },
     "assets": {
       "firmware.js": {
-        "sha256": "3abbaab72f8ec5a67c308caf0a00d08d595868fa57bd545ff8d7e0208ba6aac5",
-        "bytes": 17632
+        "sha256": "098dc1bdc181327a6ac7a2d0b4f094fe5426e624faabc5eb0fac1ed7c5d39744",
+        "bytes": 17860
       },
       "firmware.wasm": {
-        "sha256": "f0170e948e67ffd830204e4484161a71b1aa97dc6b7be2655b25684250d9b8d0",
-        "bytes": 1235336
+        "sha256": "986236334b4c4d0323618584354d4a13663a3fc892c6690d3c7ef95e5aa842f5",
+        "bytes": 1265855
       }
     },
     "licenses": "LICENSES.txt"
   },
   "fallback": {
-    "renderer_sha256": "f0170e948e67ffd830204e4484161a71b1aa97dc6b7be2655b25684250d9b8d0",
-    "transport": "commercial/site/public/demo/data.js",
-    "transport_sha256": "85bc7485e485a69429bca303426417b0b0784c4c0d525a0c9e5f1aa0280fa718",
     "sha256": "7c3be2a6dbdea19bf592fc3311ef69956fa86fb5d27d67292213c7e5c0ea396c",
-    "data": "Four synthetic nodes; no live collector or LAN telemetry",
+    "data": "Existing synthetic firmware capture, unchanged by this enclosure refresh",
     "width": 320,
     "height": 240
   }

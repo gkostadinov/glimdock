@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "release": "portable-r45",
+  "source_commit": "115aa457c2c804d5e48c1b866748d57f49429dc8",
+  "source_repository": "https://github.com/gkostadinov/glimdock",
+  "geometry_origin": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/",
+  "geometry_embedded_in_worker": false,
+  "source_assets": {
+    "enclosure/public/portable-r45/viewer/index.html": "9f1fc4c16554ce876d732c4e17428c721e2472d1ee8ce9ad6f316d551dd66ad8",
+    "enclosure/public/portable-r45/viewer/files.html": "52a13fb28d9ac190ebbfe2e32fcde71fe777fc256e99c9e000718c44a0088aa9",
+    "enclosure/public/portable-r45/viewer/style.css": "6730a299863e936f740611153967e6e357a4497a1c11c16ddad24f16c8cb7cb8",
+    "enclosure/public/portable-r45/viewer/app.js": "815f3379e396459208e185f20a2f98895deeaed1d2e727ccd011b1f9623cce4c",
+    "enclosure/public/portable-r45/viewer/scene.json": "721688939037eb852ae2670a7ad374d61d438f5b2d6ceccdb91b4ecfce1eb6f1",
+    "enclosure/public/portable-r45/viewer/vendor/three.module.js": "7d8a8113afd346464aa1854c1f47aaa0aca4c9a07f0a709f8b417f16d0b6b5fd",
+    "enclosure/public/portable-r45/viewer/vendor/THREE-LICENSE.txt": "4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454"
+  },
+  "adaptations": [
+    "Hosted navigation and canonical metadata",
+    "Immutable public GitHub geometry URLs",
+    "Four bounded mesh-load workers",
+    "Minified runtime bundle; editable source in viewer-src/"
+  ],
+  "runtime_assets": {
+    "index.html": "43834dc0d4f19fccfa025c0cbf7efee1042154d4d9ab0033b044e851fc93c30e",
+    "files.html": "30a6281991d610760d785aec70556f72c3ba37e01f85819264c9bae6add4a4fd",
+    "app.js": "c469e934d1fa70b131228de900641b01003bcb0a72f1fb72bfffdc984b9b2100",
+    "style.css": "30d112a45de7f86823aefaba85a07d3a155a5802742b3bbc1f2b0684588e59ec",
+    "scene.json": "f81818306988e3b10999aceeb289727af6c8ca72a1d5d1c096ffd3aae1800c6e",
+    "THREE-LICENSE.txt": "4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454"
+  }
+}

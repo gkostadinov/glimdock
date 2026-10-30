@@ -29,10 +29,12 @@ npm test
 npm run check
 ```
 
-Use the same Node version for npm and tests. The production Worker has no npm
+Use the same Node version for npm and tests. In a standalone Sites checkout,
+set `COLLECTOR_RENDERER_ROOT` to the matching `collector-web/emulator` directory
+when running tests; the demo comparison checks those exact release bytes. The production Worker has no npm
 runtime dependencies. HTML, local fonts, reviewed CAD images, the public firmware
-WASM renderer and accepted-terms snapshots are embedded in one roughly 2.1 MB ES
-module, checked against the existing 3 MB budget. Drizzle generates migrations;
+WASM renderer and accepted-terms snapshots are embedded in one ES
+module (checked against raw and compressed deployment budgets), checked against the existing 3 MB budget. Drizzle generates migrations;
 Sites applies them before Worker upload. The checkout update adds a backward-compatible database migration for durable
 checkout attempts and confirmation retries.
 
@@ -40,7 +42,7 @@ checkout attempts and confirmation retries.
 
 - `/`: devices → central collector → browser and Glimdock; native OS telemetry,
   optional Proxmox and Klipper capabilities, node management, All nodes bento,
-  real firmware demo, USB updates and the current Pebble landscape case.
+  real firmware demo, USB updates and the current Portable r45 case.
 - `/setup/`: one Linux/macOS collector, Rust push agents, single-use enrollment,
   keys and Wi-Fi pairing, production emulator and Chrome/Edge update steps.
 - `/open/`: guides for the current main source, released archives and CAD. The earlier
@@ -83,28 +85,31 @@ disabled. The main site's existing CSP, consent and commerce rules stay intact.
 Third-party renderer notices are in `public/demo/emulator/LICENSES.txt`; transport
 and site code are MIT.
 
-## CAD images and asset refresh
+## Current enclosure and product assets
 
-`enclosure/pebble-landscape/` is the current case source. Hero, rear, exploded and
-accessory images come from its actual r19 printable CAD renders. The renderer
-uses an older synthetic Proxmox screen texture; captions do not identify it as
-the new All nodes view. Full hardware fit, assembly and USB-extension power/data
-validation remain unfinished. The main case is USB-powered; its battery variant
-is a future concept. A printed body or a visual critique does not prove assembly
-fit or product conformity.
+The current public mechanical snapshot is
+[`enclosure/public/portable-r45/`](https://github.com/gkostadinov/glimdock/tree/main/enclosure/public/portable-r45).
+It includes 23 printable parts, direct-edit STEP/BREP CAD, eight portable
+OrcaSlicer layouts, an assembly guide and a self-contained interactive viewer.
+The removable purple pod holds the display, battery space and twin speakers;
+separate white landscape and portrait stands are passive supports. The current
+body closes with a full rear shell, without a separate battery hatch.
 
-After the public firmware renderer or approved case renders change, regenerate
-site assets with Python + Pillow and Node (optional asset tooling only):
+The product pages and `/hardware/viewer/` present that same released geometry.
+Product renders use synthetic screen artwork and generic hardware envelopes;
+they are not assembled-product photographs or manufacturer PCB CAD. Source and
+output hashes are recorded in `public/assets/product-provenance.json`.
 
-```sh
-python scripts/sync-product-assets.py
-```
+Printed fit, support removal, spring life, accessory retention, battery electrical
+configuration and the portrait firmware layout remain separate checks. The
+portable print layouts exclude personal printer profiles, connection information,
+macros and G-code; select a local printer and filament before slicing.
 
-The script copies the public WASM files, encodes the reviewed CAD PNGs as WebP,
-renders a fresh synthetic All nodes fallback and writes
-`public/assets/product-provenance.json` with source and destination hashes.
-It does not rebuild firmware, flash hardware or publish. Normal site builds and
-its runtime require no Python. Rebuild and test the Worker after refreshing.
+Regenerate reviewed product assets using [the rendering recipe](scripts/product-artwork/README.md)
+and `scripts/sync-product-assets.py` when the released geometry changes. Rebuild and test the Worker after refreshing assets.
+Normal website builds and the runtime require no Python. Refreshing geometry
+renders does not rebuild or change the firmware demo, flash hardware or publish
+by itself.
 
 ## Payments
 

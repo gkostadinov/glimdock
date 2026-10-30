@@ -7,13 +7,14 @@ import createFirmware from '../public/demo/emulator/firmware.js';
 import {createDemoTransport,demoNodes} from '../public/demo/data.js';
 import worker from '../dist/server/index.js';
 const assets=path.resolve('public/demo/emulator');
+const collectorAssets=path.resolve(process.env.COLLECTOR_RENDERER_ROOT||'../../collector-web/emulator');
 const sha=value=>createHash('sha256').update(value).digest('hex');
 test('website renderer is byte-identical to the collector public renderer',()=>{
   const manifest=JSON.parse(readFileSync(path.join(assets,'manifest.json'),'utf8'));
   assert.equal(manifest.public_build,true);assert.equal(manifest.width,320);assert.equal(manifest.height,240);
   for(const name of ['firmware.wasm','firmware.js','emulator.js','manifest.json','LICENSES.txt']){
     const value=readFileSync(path.join(assets,name));
-    assert.equal(sha(value),sha(readFileSync(path.resolve('../../collector-web/emulator',name))),name);
+    assert.equal(sha(value),sha(readFileSync(path.join(collectorAssets,name))),name);
     if(manifest.assets[name])assert.equal(sha(value),manifest.assets[name].sha256,name);
   }
 });

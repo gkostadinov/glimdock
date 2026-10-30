@@ -1,0 +1,865 @@
+{
+  "revision": "portable-r45-public",
+  "parts": [
+    {
+      "name": "purple-body",
+      "label": "Front shell \u00b7 symmetric insert receivers",
+      "color": "#8251aa",
+      "role": "body",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        -18
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/purple-body.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/purple-body.stl",
+      "description": "Sculpted front shell with the glass seat, USB opening and accessory sockets.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/purple-body.step"
+    },
+    {
+      "name": "purple-rear-cover",
+      "label": "Rear shell \u00b7 symmetric screw seats",
+      "color": "#8251aa",
+      "role": "rear",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        26
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/purple-rear-cover.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/purple-rear-cover.stl",
+      "description": "Matching full-width rear shell with four symmetric countersunk screw seats.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/purple-rear-cover.step"
+    },
+    {
+      "name": "battery-tray",
+      "label": "Fixed internal battery tray",
+      "color": "#e8e5df",
+      "role": "carrier",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        26
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/battery-tray.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/battery-tray.stl",
+      "description": "Separate printable component.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/battery-tray.step"
+    },
+    {
+      "name": "usb-tunnel",
+      "label": "Internal USB-C tunnel",
+      "color": "#8251aa",
+      "role": "mechanism",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        13,
+        0,
+        0
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/usb-tunnel.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/usb-tunnel.stl",
+      "description": "Matching internal USB-C surround for the front shell.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/usb-tunnel.step"
+    },
+    {
+      "name": "display-carrier-left",
+      "label": "White display carrier \u00b7 left rail",
+      "color": "#f4f1eb",
+      "role": "carrier",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        7
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/display-carrier-left.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/display-carrier-left.stl",
+      "description": "Display carrier rail; fit with the matching front shell.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/display-carrier-left.step"
+    },
+    {
+      "name": "display-carrier-right",
+      "label": "White display carrier \u00b7 right rail",
+      "color": "#f4f1eb",
+      "role": "carrier",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        7
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/display-carrier-right.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/display-carrier-right.stl",
+      "description": "Display carrier rail; fit with the matching front shell.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/display-carrier-right.step"
+    },
+    {
+      "name": "rear-screw-cap-1",
+      "label": "Symmetric rear screw cap 1",
+      "color": "#8251aa",
+      "role": "rear",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        32
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/rear-screw-cap-1.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/rear-screw-cap-1.stl",
+      "description": "Separate printable component.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/rear-screw-cap-1.step"
+    },
+    {
+      "name": "rear-screw-cap-2",
+      "label": "Symmetric rear screw cap 2",
+      "color": "#8251aa",
+      "role": "rear",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        32
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/rear-screw-cap-2.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/rear-screw-cap-2.stl",
+      "description": "Separate printable component.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/rear-screw-cap-2.step"
+    },
+    {
+      "name": "rear-screw-cap-3",
+      "label": "Symmetric rear screw cap 3",
+      "color": "#8251aa",
+      "role": "rear",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        32
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/rear-screw-cap-3.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/rear-screw-cap-3.stl",
+      "description": "Separate printable component.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/rear-screw-cap-3.step"
+    },
+    {
+      "name": "rear-screw-cap-4",
+      "label": "Symmetric rear screw cap 4",
+      "color": "#8251aa",
+      "role": "rear",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        32
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/rear-screw-cap-4.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/rear-screw-cap-4.stl",
+      "description": "Separate printable component.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/rear-screw-cap-4.step"
+    },
+    {
+      "name": "glass",
+      "label": "Glass envelope \u00b7 R2 corners",
+      "color": "#090b0d",
+      "role": "glass",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        -25
+      ],
+      "printable": false,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/viewer/reference/glass-envelope.stl",
+      "reference": true,
+      "description": "Simple authored envelope for illustration. Not manufacturer CAD and not a printable component."
+    },
+    {
+      "name": "display",
+      "label": "Illustrative display",
+      "color": "#ffffff",
+      "role": "display",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        -25
+      ],
+      "printable": false,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/viewer/reference/display-envelope.stl",
+      "reference": true,
+      "description": "Simple authored envelope for illustration. Not manufacturer CAD and not a printable component."
+    },
+    {
+      "name": "battery",
+      "label": "Battery envelope \u00b7 60.5 \u00d7 50.2 \u00d7 7.4",
+      "color": "#aeb5bc",
+      "role": "battery",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        26
+      ],
+      "printable": false,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/viewer/reference/battery-envelope.stl",
+      "reference": true,
+      "description": "Simple authored envelope for illustration. Not manufacturer CAD and not a printable component."
+    },
+    {
+      "name": "speaker-left",
+      "label": "Speaker envelope \u00b7 left",
+      "color": "#242b30",
+      "role": "speaker",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        26
+      ],
+      "printable": false,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/viewer/reference/speaker-left-envelope.stl",
+      "reference": true,
+      "description": "Simple authored envelope for illustration. Not manufacturer CAD and not a printable component."
+    },
+    {
+      "name": "speaker-right",
+      "label": "Speaker envelope \u00b7 right",
+      "color": "#242b30",
+      "role": "speaker",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        26
+      ],
+      "printable": false,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/viewer/reference/speaker-right-envelope.stl",
+      "reference": true,
+      "description": "Simple authored envelope for illustration. Not manufacturer CAD and not a printable component."
+    },
+    {
+      "name": "accessory-cap-landscape-left",
+      "label": "Landscape socket cap \u00b7 left",
+      "color": "#F3F1EC",
+      "role": "accessory-cap",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        8,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "cap",
+      "mount_orientation": "landscape",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/accessory-cap-landscape-left.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/accessory-cap-landscape-left.stl",
+      "description": "Curved plug for an unused accessory socket.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/accessory-cap-landscape-left.step"
+    },
+    {
+      "name": "bunny-ear-left",
+      "label": "Thicker bunny ear \u00b7 left",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        12,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "ears",
+      "mount_orientation": "landscape",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/bunny-ear-left.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/bunny-ear-left.stl",
+      "description": "6 mm ear with a broad shoulder and keyed grip stem.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/bunny-ear-left.step"
+    },
+    {
+      "name": "accessory-cap-landscape-right",
+      "label": "Landscape socket cap \u00b7 right",
+      "color": "#F3F1EC",
+      "role": "accessory-cap",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        8,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "cap",
+      "mount_orientation": "landscape",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/accessory-cap-landscape-right.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/accessory-cap-landscape-right.stl",
+      "description": "Curved plug for an unused accessory socket.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/accessory-cap-landscape-right.step"
+    },
+    {
+      "name": "bunny-ear-right",
+      "label": "Thicker bunny ear \u00b7 right",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        12,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "ears",
+      "mount_orientation": "landscape",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/bunny-ear-right.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/bunny-ear-right.stl",
+      "description": "6 mm ear with a broad shoulder and keyed grip stem.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/bunny-ear-right.step"
+    },
+    {
+      "name": "accessory-cap-portrait-left",
+      "label": "Portrait socket cap \u00b7 left",
+      "color": "#F3F1EC",
+      "role": "accessory-cap",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        -8,
+        0,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "cap",
+      "mount_orientation": "portrait",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/accessory-cap-portrait-left.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/accessory-cap-portrait-left.stl",
+      "description": "Curved plug for an unused accessory socket.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/accessory-cap-portrait-left.step"
+    },
+    {
+      "name": "bunny-ear-left-portrait",
+      "label": "Thicker bunny ear \u00b7 left",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        -12,
+        0,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "ears",
+      "mount_orientation": "portrait",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/bunny-ear-left-portrait.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/bunny-ear-left.stl",
+      "description": "6 mm ear with a broad shoulder and keyed grip stem.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/bunny-ear-left.step"
+    },
+    {
+      "name": "accessory-cap-portrait-right",
+      "label": "Portrait socket cap \u00b7 right",
+      "color": "#F3F1EC",
+      "role": "accessory-cap",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        -8,
+        0,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "cap",
+      "mount_orientation": "portrait",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/accessory-cap-portrait-right.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/accessory-cap-portrait-right.stl",
+      "description": "Curved plug for an unused accessory socket.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/accessory-cap-portrait-right.step"
+    },
+    {
+      "name": "bunny-ear-right-portrait",
+      "label": "Thicker bunny ear \u00b7 right",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        -12,
+        0,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "ears",
+      "mount_orientation": "portrait",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/bunny-ear-right-portrait.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/bunny-ear-right.stl",
+      "description": "6 mm ear with a broad shoulder and keyed grip stem.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/bunny-ear-right.step"
+    },
+    {
+      "name": "landscape-stand",
+      "label": "Closed-front landscape stand",
+      "color": "#eeece6",
+      "role": "stand",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        -8,
+        0
+      ],
+      "printable": true,
+      "view": "landscape",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/landscape-stand.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/landscape-stand.stl",
+      "description": "Passive landscape cradle with a continuous front edge.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/landscape-stand.step"
+    },
+    {
+      "name": "portrait-stand",
+      "label": "Portrait stand",
+      "color": "#eeece6",
+      "role": "stand",
+      "explode": [
+        0,
+        -8,
+        0
+      ],
+      "printable": true,
+      "view": "portrait",
+      "fixed": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/portrait-stand.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/portrait-stand.stl",
+      "description": "Separate passive portrait cradle.",
+      "coordinate_frame": "stand-world-Z-up",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/portrait-stand.step"
+    },
+    {
+      "name": "button-compact",
+      "label": "Compact BAT_PWR button with small springs",
+      "color": "#8251aa",
+      "role": "mechanism",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        0,
+        20
+      ],
+      "printable": true,
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/button-compact.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/button-compact.stl",
+      "description": "One-piece BAT_PWR button with return arms and inside glue tabs.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/button-compact.step"
+    },
+    {
+      "name": "tv-antenna-left",
+      "label": "TV antenna \u00b7 left",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        12,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "antennas",
+      "mount_orientation": "landscape",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/tv-antenna-left.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/tv-antenna-left.stl",
+      "description": "Rounded TV antenna with the same interchangeable keyed fitting.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/tv-antenna-left.step"
+    },
+    {
+      "name": "tv-antenna-left-portrait",
+      "label": "TV antenna \u00b7 left",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        -12,
+        0,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "antennas",
+      "mount_orientation": "portrait",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/tv-antenna-left-portrait.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/tv-antenna-left.stl",
+      "description": "Rounded TV antenna with the same interchangeable keyed fitting.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/tv-antenna-left.step"
+    },
+    {
+      "name": "tv-antenna-right",
+      "label": "TV antenna \u00b7 right",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        12,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "antennas",
+      "mount_orientation": "landscape",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/tv-antenna-right.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/tv-antenna-right.stl",
+      "description": "Rounded TV antenna with the same interchangeable keyed fitting.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/tv-antenna-right.step"
+    },
+    {
+      "name": "tv-antenna-right-portrait",
+      "label": "TV antenna \u00b7 right",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        -12,
+        0,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "antennas",
+      "mount_orientation": "portrait",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/tv-antenna-right-portrait.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/tv-antenna-right.stl",
+      "description": "Rounded TV antenna with the same interchangeable keyed fitting.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/tv-antenna-right.step"
+    },
+    {
+      "name": "eye-left",
+      "label": "Eye \u00b7 left",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        12,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "eyes",
+      "mount_orientation": "landscape",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/eye-left.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/eye-left.stl",
+      "description": "Eye ornament with a recessed pupil and interchangeable keyed fitting.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/eye-left.step"
+    },
+    {
+      "name": "eye-left-portrait",
+      "label": "Eye \u00b7 left",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        -12,
+        0,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "eyes",
+      "mount_orientation": "portrait",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/eye-left-portrait.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/eye-left.stl",
+      "description": "Eye ornament with a recessed pupil and interchangeable keyed fitting.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/eye-left.step"
+    },
+    {
+      "name": "eye-right",
+      "label": "Eye \u00b7 right",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        0,
+        12,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "eyes",
+      "mount_orientation": "landscape",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/eye-right.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/eye-right.stl",
+      "description": "Eye ornament with a recessed pupil and interchangeable keyed fitting.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/eye-right.step"
+    },
+    {
+      "name": "eye-right-portrait",
+      "label": "Eye \u00b7 right",
+      "color": "#F3F1EC",
+      "role": "accessory",
+      "group": "portable",
+      "translation": [
+        -3,
+        0,
+        0
+      ],
+      "explode": [
+        -12,
+        0,
+        0
+      ],
+      "printable": true,
+      "accessory_config": "eyes",
+      "mount_orientation": "portrait",
+      "file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/assembly/eye-right-portrait.stl",
+      "print_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/stl/eye-right.stl",
+      "description": "Eye ornament with a recessed pupil and interchangeable keyed fitting.",
+      "step_file": "https://raw.githubusercontent.com/gkostadinov/glimdock/115aa457c2c804d5e48c1b866748d57f49429dc8/enclosure/public/portable-r45/cad/eye-right.step"
+    }
+  ],
+  "views": {
+    "landscape": {
+      "pose": {
+        "rotation": [
+          18,
+          0,
+          0
+        ],
+        "translation": [
+          0,
+          42.172964614616184,
+          0
+        ]
+      }
+    },
+    "portrait": {
+      "pose": {
+        "rotation": [
+          18,
+          0,
+          -90
+        ],
+        "translation": [
+          0,
+          52.88186098809961,
+          0
+        ]
+      }
+    },
+    "handheld": {
+      "pose": {
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "translation": [
+          0,
+          39,
+          0
+        ]
+      }
+    }
+  },
+  "dimensions": {
+    "Purple body": [
+      89,
+      66.48,
+      32
+    ],
+    "Measured battery": [
+      60.5,
+      50.2,
+      7.4
+    ],
+    "Each measured speaker": [
+      30,
+      20,
+      4.7
+    ],
+    "Glass corner": "R2 mm",
+    "Landscape stand": [
+      101.0,
+      54.000000000000014,
+      19.251222321444423
+    ],
+    "Portrait stand": [
+      78.48000000000002,
+      54.000000000000014,
+      19.251222321444423
+    ],
+    "Rear closure screws": "4 \u00d7 M3\u00d712 countersunk",
+    "Rear seam gap": "0.25 mm",
+    "Screw pattern": "71 \u00d7 50 mm \u00b7 centered on display"
+  },
+  "fitNote": "The viewer shows the exported enclosure parts and simple illustrative hardware envelopes. CAD checks do not establish complete physical fit, printed strength or surface finish.",
+  "notes": [
+    "The front, rear, USB tunnel and two carrier rails form a matched set.",
+    "The portable unit holds the display, battery and both speakers; each white stand is a separate passive cradle.",
+    "The four accessory sockets accept the same removable ornaments in landscape or portrait.",
+    "The dashboard is synthetic demonstration artwork. It does not connect to a device or a live service.",
+    "Hardware envelopes are illustrative primitives. Manufacturer board CAD is not included.",
+    "This preview downloads the released geometry from public GitHub; the screen is illustrative.",
+    "Portrait is a mechanical stand view, not confirmation of a portrait firmware layout.",
+    "Battery and speaker volumes show mechanical space only; battery charging and electrical compatibility require separate verification."
+  ],
+  "source_commit": "115aa457c2c804d5e48c1b866748d57f49429dc8"
+}

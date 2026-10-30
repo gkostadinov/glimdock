@@ -1,5 +1,29 @@
 # Website validation
 
+## Portable r45 enclosure — 30 October 2026
+
+Product, hardware, source and updates pages now use the public r45 snapshot at
+commit `115aa457c2c804d5e48c1b866748d57f49429dc8`. Six actual CAD renders replace
+the older r25/r26 images; source mesh and image hashes are recorded in
+`public/assets/product-provenance.json`. Screen artwork and hardware envelopes
+are illustrative. Versioned image and stylesheet URLs refresh cached pages.
+
+The hosted `/hardware/viewer/` loads immutable public GitHub geometry, with
+34 scene records and 23 unique printable parts. Landscape, portrait, accessories,
+inspection and part downloads use the released model. Only this page may connect
+to the public GitHub geometry origin; the remaining page policies are preserved.
+
+Using Node.js 22.20.0, all 117 tests pass, including the existing firmware,
+commerce and consent checks plus four viewer integration checks. The website's
+firmware assets remain byte-identical to the collector's public renderer.
+Desktop and mobile browser checks cover the refreshed pages, model loading,
+portrait stand selection, images, overflow and console errors. The Worker stays
+within the existing 8 MB raw / 3 MB compressed deployment budgets.
+
+These checks cover the website presentation and released file references.
+They do not certify printed fit, accessory wear, battery charging or portrait
+firmware. Publication is confirmed separately by the Sites deployment result.
+
 ## Push-agent enrollment — 10 October 2026
 
 Homepage, setup and open-source copy now describe explicit one-time pairing,
