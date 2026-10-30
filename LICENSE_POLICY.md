@@ -9,7 +9,11 @@ CERN Open Hardware Licence Version 2 – Permissive (CERN-OHL-P-2.0), reproduced
 in `LICENSES/CERN-OHL-P-2.0.txt`. Their copyright is held by the 2026 Glimdock
 contributors. This applies to the authored case and keeper geometry and its
 design scripts; it does not grant rights to the manufacturer's PCB/drawings.
-Manufacturer STEP files, slicer profiles and G-code are excluded from this release.
+Manufacturer STEP files, vendor printer/filament profiles and G-code are excluded
+from this release. The current r45 enclosure snapshot includes portable 3MF
+layouts containing original geometry and authored process settings, with printer
+connections and macros removed. Geometry inside these layouts retains
+CERN-OHL-P-2.0; original process metadata and generic tooling use MIT.
 Follow the enclosure license's notice requirements when distributing that hardware.
 
 The original Glimdock graphic mark and logotype paths are MIT licensed. The

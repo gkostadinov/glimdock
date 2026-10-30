@@ -270,3 +270,11 @@ workspace lockfile discovered through Cargo metadata.
 Apple silicon hardware sampling uses macmon 0.9.0 (MIT), by vladkens. Its complete
 notice is retained in `LICENSES/Rust/macmon-0.9.0/`. Glimdock uses only its library
 feature; the TUI and application dependencies are disabled.
+
+## Portable r45 enclosure viewer
+
+The self-contained enclosure viewer includes Three.js r166 under MIT,
+Copyright © 2010–2024 three.js authors. The unchanged license is retained at
+`enclosure/public/portable-r45/viewer/vendor/THREE-LICENSE.txt` beside the
+library. The viewer's hardware envelopes are original dimensional illustrations;
+manufacturer PCB CAD is not redistributed.

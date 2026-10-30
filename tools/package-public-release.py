@@ -6,7 +6,7 @@ manufacturer geometry and personal slicer projects. Only the independently built
 credential-free public firmware images are included, with their source/relink bundle.
 """
 from __future__ import annotations
-import argparse, ast, hashlib, io, ipaddress, json, os, re, shutil, tarfile, tempfile, tomllib
+import argparse, ast, hashlib, importlib.util, io, ipaddress, json, os, re, shutil, tarfile, tempfile, tomllib
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FILES = (
@@ -20,7 +20,7 @@ FILES = (
     'deploy/install.sh','deploy/install-rust.sh','deploy/config.example.json',
     'deploy/homelab-monitor-config.service','deploy/homelab-monitor-collector.service','deploy/homelab-monitor-http.service',
     'deploy/rust/homelab-monitor-config.service','deploy/rust/homelab-monitor-collector.service','deploy/rust/homelab-monitor-http.service',
-    'tools/build-release.sh','tools/build-web-firmware.py','tools/package-public-release.py','tools/package-binaries.py','tools/package-macos-agent.py',
+    'tools/build-release.sh','tools/build-web-firmware.py','tools/package-public-release.py','tools/package-binaries.py','tools/package-macos-agent.py','tools/validate-public-enclosure.py',
     'tools/test-website-firmware.py','tools/provision-private-reader.py','tools/test-provision-private-reader.py','tools/test-private-chat-model.cpp','docs/private-conversations.md','tools/cargo-notices.py','tools/test-pairing-policy.py','tools/test-network-recovery.py','tools/test-network-recovery.cpp','tools/configure_truenas_ssh.py',
     'tools/test-flipper-status.py','tools/test-flipper-ble.py','tools/test-flipper-cache.py',
     'tools/flipper-test-status.cpp','tools/flipper-test-ble.c','tools/flipper-test-cache.c','tools/flipper-test-controls.cpp','tools/flipper-test-usb.cpp',
@@ -64,13 +64,14 @@ TREES = {
     'commercial/site/db':{'.ts'},
     'commercial/site/drizzle':{'.sql','.json'},
     'enclosure/public/pebble-r26-prototype-v2':{'','.py','.md','.json','.txt','.license','.step','.brep','.stl','.png'},
+    'enclosure/public/portable-r45':{'','.py','.md','.json','.txt','.license','.step','.brep','.stl','.3mf','.html','.js','.css','.png','.jpg'},
 }
 IPV4 = re.compile(r'(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])')
 PERSONAL = re.compile(r'/(?:Users|home)/[^\s\"\'`<>]+')
-BINARY = {'.woff2','.wasm','.bin','.gz','.png','.webp','.stl'}
+BINARY = {'.woff2','.wasm','.bin','.gz','.png','.jpg','.webp','.stl','.3mf'}
 # Emscripten's browser libc deliberately exposes this synthetic home directory.
 VIRTUAL_PATHS = {'/home/web_user'}
-ASSET_TREES = ('collector-web/assets/', 'collector-web/emulator/', 'collector-web/firmware/', 'commercial/site/public/', 'enclosure/public/pebble-r26-prototype-v2/')
+ASSET_TREES = ('collector-web/assets/', 'collector-web/emulator/', 'collector-web/firmware/', 'commercial/site/public/', 'enclosure/public/pebble-r26-prototype-v2/', 'enclosure/public/portable-r45/')
 def private_address(value):
     try: address=ipaddress.ip_address(value)
     except ValueError: return False
@@ -123,6 +124,10 @@ def verify_website_firmware(sources):
     assert sources[prefix+'/flash/flash-plan.js']==sources['collector-web/src/flash-plan.js'], 'Website flash safeguards differ from shared source'
 
 def candidate():
+    # Portable 3MF archives need inspection inside the ZIP, not byte redaction.
+    spec=importlib.util.spec_from_file_location('public_enclosure_validator',ROOT/'tools/validate-public-enclosure.py')
+    validator=importlib.util.module_from_spec(spec);spec.loader.exec_module(validator)
+    validator.validate(ROOT)
     selected=list(FILES)
     for folder, suffixes in TREES.items():
         for p in sorted((ROOT/folder).rglob('*')):
@@ -166,7 +171,7 @@ def candidate():
     # Public summaries replace private prototype records and their local links.
     sources['docs/validation.md']=sources['public-docs/VALIDATION.md']
     sources['enclosure/pebble-landscape/README.md']=b'# Historical r19 enclosure source\n\nThis folder preserves the earlier parametric model. Current fitted CAD and validation caveats are in [the Pebble public prototype](../public/pebble-r26-prototype-v2/README.md) and [the enclosure guide](../../public-docs/ENCLOSURE.md). Do not treat this historical model as the current assembled product.\n'
-    sources['enclosure/reference/README.md']=b'''# Manufacturer fitting reference\n\nThe current Pebble Landscape CAD expects the V1 manufacturer STEP at\n`esp32-s3-touch-lcd-2_8.stp` here. Obtain it from the official Waveshare\nresources; manufacturer geometry, personal fit files and Orca projects are\nnot redistributed. The authored design parameters are in\n`enclosure/pebble-landscape/design.json`. Nominal CAD checks do not establish\nphysical fit. The current main design is USB-only.\n'''
+    sources['enclosure/reference/README.md']=b"# Historical manufacturer fitting reference\n\nThe archived r19 parametric model expects the V1 manufacturer STEP named\nesp32-s3-touch-lcd-2_8.stp here. Obtain it from the official Waveshare resources;\nmanufacturer geometry and personal printer-linked projects are not redistributed.\n\nThe current [Portable r45 snapshot](../public/portable-r45/README.md) provides\noriginal direct-edit enclosure CAD and sanitized portable 3MF layouts. Its\nmanufacturer PCB fitting references and printer connections are excluded.\nThe earlier parametric parameters in enclosure/pebble-landscape/design.json\nare historical source, not the current portable housing. Follow the current\npackage's assembly and validation notes.\n"
     literals=private_values()
     for name,data in sources.items():
         if any(value in data for value in literals): raise ValueError(f'Private build default rejected in {name}')

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" href="data:,">
+<title>Glimdock Portable r45 · enclosure preview</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<header><div><p class="eyebrow">GLIMDOCK / PORTABLE R45</p><h1>A softer shape for your desk.</h1><p class="subtitle">A removable display, two stands and interchangeable accessories.</p></div><a class="guide-link" href="../README.md">Assembly guide ↗</a></header>
+<div class="workspace">
+<section class="viewer" aria-label="Interactive enclosure assembly">
+<div class="toolbar"><div class="segment" aria-label="Stand selection"><button data-mode="landscape" aria-pressed="true">Landscape</button><button data-mode="portrait" aria-pressed="false">Portrait</button><button data-mode="handheld" aria-pressed="false">Handheld</button></div><div class="camera-controls"><button data-camera="bezel" aria-pressed="false">Front detail</button><button data-camera="back-detail" aria-pressed="false">Back detail</button><button data-camera="front">Front</button><button data-camera="rear">Rear</button><button data-camera="side">Side</button><button data-camera="reset" aria-label="Reset camera">↺</button></div></div>
+<div id="stage" tabindex="0" aria-label="3D model. Drag to orbit. Scroll to zoom. Arrow keys orbit."><div id="loading" role="status">Loading enclosure…</div><div class="stage-label"><span class="dot"></span><span id="view-label">Landscape cradle</span></div><p class="gesture">Drag to orbit · Scroll to zoom · Click a part</p><p id="status" class="status"></p></div>
+<div class="selection"><div><strong id="part-name">Portable enclosure assembly</strong><span id="part-description">Exported enclosure geometry</span></div><div class="part-downloads"><a id="selected-download" hidden download>STL ↓</a><a id="selected-step" hidden download>STEP ↓</a></div></div>
+</section>
+<aside>
+<section><h2>Two matching shells</h2><p class="muted small">A continuous rear cover and four screws keep the portable body together. Each stand supports it without permanent mounting.</p></section>
+<section class="accessories"><h2>Make it yours</h2><div class="segment" aria-label="Accessory selection"><button data-accessories="ears" aria-pressed="false">Bunny ears</button><button data-accessories="antennas" aria-pressed="false">TV antennas</button><button data-accessories="eyes" aria-pressed="false">Eyes</button><button data-accessories="capped" aria-pressed="true">Capped</button></div><p class="muted small">Use the same ornaments in either orientation. Curved plugs close the unused sockets.</p></section>
+<section><div class="section-head"><h2>Inside the design</h2><button id="inspect" aria-pressed="false">Inspect</button></div><p class="muted small">Explore the carrier, button and illustrative hardware envelopes.</p><label class="slider-label" for="explode">Exploded assembly <output id="explode-value">0%</output></label><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Exploded assembly separation"><label class="check"><input id="cutaway" type="checkbox"> Half cutaway</label></section>
+<section><h2>Parts</h2><div id="part-list" class="part-list"></div></section>
+<section><h2>Dimensions</h2><dl id="dimensions"></dl><p id="fit-note" class="muted small">The hardware envelopes are illustrative and separate from the printable parts.</p></section>
+<section class="downloads"><h2>Files</h2><a href="../cad/portable-r45-landscape-assembly.step" download>Editable enclosure assembly<span>↓</span></a><a href="files.html">Individual CAD and STL files<span>→</span></a><a href="../print-projects/README.md">Portable Orca project layouts<span>→</span></a><a href="../README.md">Assembly and print notes<span>→</span></a></section>
+</aside>
+</div>
+<footer><span id="mesh-stats">Preparing geometry</span><span>Millimetres · illustrative dashboard</span></footer>
+<details class="construction"><summary>Assembly and fit notes</summary><div id="notes"></div></details>
+</main>
+<script type="module" src="app.js"></script>
+</body></html>

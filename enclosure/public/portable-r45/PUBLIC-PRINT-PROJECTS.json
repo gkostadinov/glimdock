@@ -1,0 +1,274 @@
+{
+  "schema": 1,
+  "revision": "portable-r45",
+  "status": "Portable layouts only; recipients must configure, slice and review on their own printer.",
+  "files": [
+    {
+      "path": "print-projects/portable-r45-front-and-usb-tunnel.3mf",
+      "parts": [
+        "purple-body",
+        "usb-tunnel"
+      ],
+      "purpose": "Portable Orca geometry and authored process layout; select your own printer and filament and re-slice.",
+      "machine_profile_included": false,
+      "filament_profile_included": false,
+      "gcode_included": false,
+      "source_geometry_and_pose_preserved": true,
+      "sha256": "46b2029d99034d0ad0c59b8356cc565fed147d9b7c60ed06c655595d4f754587",
+      "part_sources": {
+        "purple-body": {
+          "stl": "stl/purple-body.stl",
+          "stl_sha256": "c57b3c6e3bd9d63051a403f27ba8deee8a5f87caa6f0563441162f9aa7ef9622"
+        },
+        "usb-tunnel": {
+          "stl": "stl/usb-tunnel.stl",
+          "stl_sha256": "18cd83923aeac343e43b4cb24f36b02fb87d2bf6df8e45e344e4b8a6f8b699ae"
+        }
+      },
+      "native_import_verified": true,
+      "native_roundtrip_verified": true,
+      "maximum_native_roundtrip_deviation_mm": 4.026832561179809e-06,
+      "retained_support_modifier_count": 23
+    },
+    {
+      "path": "print-projects/portable-r45-rear-cover.3mf",
+      "parts": [
+        "purple-rear-cover"
+      ],
+      "purpose": "Portable Orca geometry and authored process layout; select your own printer and filament and re-slice.",
+      "machine_profile_included": false,
+      "filament_profile_included": false,
+      "gcode_included": false,
+      "source_geometry_and_pose_preserved": true,
+      "sha256": "244e93d1c24bf20176d64cf9359db447ce8a18f8f1a0296dd648696e4ca80edc",
+      "part_sources": {
+        "purple-rear-cover": {
+          "stl": "stl/purple-rear-cover.stl",
+          "stl_sha256": "6de3968730bfb92323840422524665e0a725ac7390b144beee66da6dada15f52"
+        }
+      },
+      "native_import_verified": true,
+      "native_roundtrip_verified": true,
+      "maximum_native_roundtrip_deviation_mm": 3.897613365991843e-06,
+      "retained_support_modifier_count": 80
+    },
+    {
+      "path": "print-projects/portable-r45-display-carrier-rails.3mf",
+      "parts": [
+        "display-carrier-left",
+        "display-carrier-right"
+      ],
+      "purpose": "Portable Orca geometry and authored process layout; select your own printer and filament and re-slice.",
+      "machine_profile_included": false,
+      "filament_profile_included": false,
+      "gcode_included": false,
+      "source_geometry_and_pose_preserved": true,
+      "sha256": "b4f2e9430c1d2ec9e87abff7498540e61696cd37774552b15da2f9d7c373f191",
+      "part_sources": {
+        "display-carrier-left": {
+          "stl": "stl/display-carrier-left.stl",
+          "stl_sha256": "0f2438e1e36a5dc35a13d4dd75ad5f2fb5c1e6176c7c2061870ea26f2225f602"
+        },
+        "display-carrier-right": {
+          "stl": "stl/display-carrier-right.stl",
+          "stl_sha256": "3f8ab11ba8f20da18eb5b72d5f05cc2b6fc92f30fdf29e2abf872a583d4c45f0"
+        }
+      },
+      "native_import_verified": true,
+      "native_roundtrip_verified": true,
+      "maximum_native_roundtrip_deviation_mm": 1.9690372182313516e-06,
+      "retained_support_modifier_count": 8
+    },
+    {
+      "path": "print-projects/portable-r45-landscape-stand.3mf",
+      "parts": [
+        "landscape-stand"
+      ],
+      "purpose": "Portable Orca geometry and authored process layout; select your own printer and filament and re-slice.",
+      "machine_profile_included": false,
+      "filament_profile_included": false,
+      "gcode_included": false,
+      "source_geometry_and_pose_preserved": true,
+      "sha256": "59c88910e02c71d14d53ed6069db7d45dae227e70cce517813a67eb067141653",
+      "part_sources": {
+        "landscape-stand": {
+          "stl": "stl/landscape-stand.stl",
+          "stl_sha256": "706473e432563cc39f0ea6b253523ffeb4e6ea8e81b986ad8c45dd508ee5b01a"
+        }
+      },
+      "native_import_verified": true,
+      "native_roundtrip_verified": true,
+      "maximum_native_roundtrip_deviation_mm": 1.0710201403825717e-06,
+      "retained_support_modifier_count": 0
+    },
+    {
+      "path": "print-projects/portable-r45-power-button.3mf",
+      "parts": [
+        "button-compact"
+      ],
+      "purpose": "Portable Orca geometry and authored process layout; select your own printer and filament and re-slice.",
+      "machine_profile_included": false,
+      "filament_profile_included": false,
+      "gcode_included": false,
+      "source_geometry_and_pose_preserved": true,
+      "sha256": "a8b65ab0994bb6e628c2468cc2f5b800dc9bc4b95341cd87c3c0e8340a7c193e",
+      "part_sources": {
+        "button-compact": {
+          "stl": "stl/button-compact.stl",
+          "stl_sha256": "448cdb140fde1cad3f728564eb904260271292e97db6a71de4a34d7977bc92e7"
+        }
+      },
+      "native_import_verified": true,
+      "native_roundtrip_verified": true,
+      "maximum_native_roundtrip_deviation_mm": 2.3773099872309526e-07,
+      "retained_support_modifier_count": 0
+    },
+    {
+      "path": "print-projects/portable-r45-accessories-and-plugs.3mf",
+      "parts": [
+        "bunny-ear-left",
+        "tv-antenna-left",
+        "eye-left",
+        "bunny-ear-right",
+        "tv-antenna-right",
+        "eye-right",
+        "accessory-cap-landscape-left",
+        "accessory-cap-landscape-right",
+        "accessory-cap-portrait-left",
+        "accessory-cap-portrait-right"
+      ],
+      "purpose": "Portable Orca geometry and authored process layout; select your own printer and filament and re-slice.",
+      "machine_profile_included": false,
+      "filament_profile_included": false,
+      "gcode_included": false,
+      "source_geometry_and_pose_preserved": true,
+      "sha256": "2a24fe0d7213f8c680716f247544f1f04242a155f267f8ea7386ce07294e1f82",
+      "part_sources": {
+        "bunny-ear-left": {
+          "stl": "stl/bunny-ear-left.stl",
+          "stl_sha256": "9ca8cad5a2971e482b995adab6a0a1b60e17a9b1ec03348ff1c0f09be2243bea"
+        },
+        "tv-antenna-left": {
+          "stl": "stl/tv-antenna-left.stl",
+          "stl_sha256": "3dfec722b5254ee09ee7d154129edf20f6dcd1a79b7509a8571b73cd0648386f"
+        },
+        "eye-left": {
+          "stl": "stl/eye-left.stl",
+          "stl_sha256": "db7febdad0808abf3efd6eb378820514744e6807962a96030671deb768b2c7ce"
+        },
+        "bunny-ear-right": {
+          "stl": "stl/bunny-ear-right.stl",
+          "stl_sha256": "f99325d65d54963ab758e13314ba7fa81cb8bbd88f210a3ce4d1cdf9a8c2e85f"
+        },
+        "tv-antenna-right": {
+          "stl": "stl/tv-antenna-right.stl",
+          "stl_sha256": "e070684a95a90fc049601f3f482656b4caa09774c3140ab1cb4c3b9d8bfedd35"
+        },
+        "eye-right": {
+          "stl": "stl/eye-right.stl",
+          "stl_sha256": "c39f516a0549085ccbe89540277ed61cec0d0b969a04196c8b8776dc7cca00f8"
+        },
+        "accessory-cap-landscape-left": {
+          "stl": "stl/accessory-cap-landscape-left.stl",
+          "stl_sha256": "bc5f9125ef1844550a3b67863d8c0068c005f3e7c14007b9eb5949dcb97a0510"
+        },
+        "accessory-cap-landscape-right": {
+          "stl": "stl/accessory-cap-landscape-right.stl",
+          "stl_sha256": "31ca4a8d49d442fe3e10d9fcbe296b4a489b9b83a93db33fc0fffd5b2738360d"
+        },
+        "accessory-cap-portrait-left": {
+          "stl": "stl/accessory-cap-portrait-left.stl",
+          "stl_sha256": "903c37c0c10daa69e51bf0100edcf5a82286c3b9f1c4bb6aa7f3390a3d841e59"
+        },
+        "accessory-cap-portrait-right": {
+          "stl": "stl/accessory-cap-portrait-right.stl",
+          "stl_sha256": "789425bef27f87277d6c9298d7acfce2c7f7e4fd1ebeb050824070a4b09da37f"
+        }
+      },
+      "native_import_verified": true,
+      "native_roundtrip_verified": true,
+      "maximum_native_roundtrip_deviation_mm": 6.643235151999695e-08,
+      "retained_support_modifier_count": 0
+    },
+    {
+      "path": "print-projects/portable-r45-rear-internals.3mf",
+      "parts": [
+        "battery-tray",
+        "rear-screw-cap-1",
+        "rear-screw-cap-2",
+        "rear-screw-cap-3",
+        "rear-screw-cap-4"
+      ],
+      "purpose": "Portable Orca geometry and authored process layout; select your own printer and filament and re-slice.",
+      "machine_profile_included": false,
+      "filament_profile_included": false,
+      "gcode_included": false,
+      "source_geometry_and_pose_preserved": true,
+      "sha256": "913a1d897702a1e50a5176f295422fa70a7f3e354e48747a0971b83aba2deea2",
+      "part_sources": {
+        "battery-tray": {
+          "stl": "stl/battery-tray.stl",
+          "stl_sha256": "f40f266e52bf91c1ab3a822052cf8f1fa63d613284fc6d77fbb2c41ce3d975f2"
+        },
+        "rear-screw-cap-1": {
+          "stl": "stl/rear-screw-cap-1.stl",
+          "stl_sha256": "827bd7840d460a21bd48c74ef92032b8eccaec791c003013713686e0aadd8f63"
+        },
+        "rear-screw-cap-2": {
+          "stl": "stl/rear-screw-cap-2.stl",
+          "stl_sha256": "827bd7840d460a21bd48c74ef92032b8eccaec791c003013713686e0aadd8f63"
+        },
+        "rear-screw-cap-3": {
+          "stl": "stl/rear-screw-cap-3.stl",
+          "stl_sha256": "827bd7840d460a21bd48c74ef92032b8eccaec791c003013713686e0aadd8f63"
+        },
+        "rear-screw-cap-4": {
+          "stl": "stl/rear-screw-cap-4.stl",
+          "stl_sha256": "827bd7840d460a21bd48c74ef92032b8eccaec791c003013713686e0aadd8f63"
+        }
+      },
+      "native_import_verified": true,
+      "native_roundtrip_verified": true,
+      "maximum_native_roundtrip_deviation_mm": 1.317048683481763e-06,
+      "retained_support_modifier_count": 0
+    },
+    {
+      "path": "print-projects/portable-r45-portrait-stand-layout.3mf",
+      "parts": [
+        "portrait-stand"
+      ],
+      "purpose": "Model-only initial bed layout for the retained portrait stand. Choose all process settings, review supports, slice and verify before printing.",
+      "machine_profile_included": false,
+      "filament_profile_included": false,
+      "gcode_included": false,
+      "source_geometry_and_pose_preserved": true,
+      "sha256": "b0ec1961610888ba3a23401d468a1c17466b821feacf74cd91cfef92ba6f32d0",
+      "process_reviewed": false,
+      "part_sources": {
+        "portrait-stand": {
+          "stl": "stl/portrait-stand.stl",
+          "stl_sha256": "f8c8733587324d82ee636b85e7a7ea49d89af2a3ec2272ef026ed675177f03c9"
+        }
+      },
+      "native_import_verified": true,
+      "native_roundtrip_verified": true,
+      "maximum_native_roundtrip_deviation_mm": 1.0754764577589849e-06,
+      "retained_support_modifier_count": 0
+    }
+  ],
+  "neutral_compatibility_context": {
+    "printer_label": "Portable layout - select your printer",
+    "filament_label": "Select your filament",
+    "nominal_nozzle_marker_mm": 0.4,
+    "height_marker_mm": 250,
+    "meaning": "Minimum compatibility fields required by OrcaSlicer; not a machine or filament preset. Select real local profiles before slicing."
+  },
+  "validation": {
+    "orca_version": "2.4.2",
+    "project_count": 8,
+    "normal_model_parts": 23,
+    "native_import_and_roundtrip": true,
+    "source_geometry_preserved": true,
+    "print_recipe_or_physical_fit_claim": false
+  }
+}

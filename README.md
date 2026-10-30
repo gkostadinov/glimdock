@@ -82,9 +82,9 @@ for the measurements and tested configuration.
 
 ## Hardware and enclosure
 
-The supported board has an ST7789 display, CST328 touch, 16 MiB flash and 8 MiB PSRAM. The current **[Pebble public prototype](enclosure/public/pebble-r26-prototype-v2/README.md)** combines the r25 fitted purple body and continuous white cradle with compatible r24 internal parts. The r26 print trial changes supports and orientation; body CAD is unchanged. USB is to the right, rotation 3, at 320 × 240. The fitted body uses the native board USB opening.
+The supported board has an ST7789 display, CST328 touch, 16 MiB flash and 8 MiB PSRAM. The current **[Portable r45 enclosure](enclosure/public/portable-r45/README.md)** is a removable sculpted pod with a matching rear shell, battery space, two speakers and separate passive landscape and portrait stands. The native USB opening is on the right in the supported 320 × 240 landscape layout, rotation 3.
 
-The public package includes editable analytic STEP/BREP, regenerated meshes, actual CAD renders, a portable exporter and per-asset notices. Complete assembly and physical print validation remain unfinished; the cradle is unsliced/unprinted. This is a USB-powered prototype. See [the current enclosure guide](public-docs/ENCLOSURE.md) for source and fit boundaries. The older r19 parametric model is retained as historical source.
+The curated public package includes 23 print parts, editable STEP/BREP, an original-parts assembly, an interactive viewer and portable OrcaSlicer layouts. It contains the repaired front/tunnel pair, two carrier rails, compact spring button, closed-front stand and stronger accessories. Printer connections, vendor presets, G-code and development trials are excluded. Physical fit, print finish and battery configuration need their own checks. See [the current enclosure guide](public-docs/ENCLOSURE.md) for source and validation boundaries. The r26 snapshot and r19 parametric model remain historical references.
 
 ## Build and contribute
 
@@ -114,7 +114,7 @@ The executables are `target/release/glimdock-collector` and `target/release/glim
 | `deploy/` | Linux service installation and compatibility wrappers |
 | `integrations/truenas/` | Optional restricted NAS compatibility helper |
 | `tools/native-preview/`, `tools/web-emulator/` | Shared firmware rendering and behavioral verification |
-| `enclosure/public/pebble-r26-prototype-v2/` | Current editable prototype CAD, meshes and assembly notes |
+| `enclosure/public/portable-r45/` | Current editable enclosure CAD, print parts, portable layouts and viewer |
 | `commercial/site/` | Product website |
 | `legacy/python/` | Archived Python collector and former design preview |
 

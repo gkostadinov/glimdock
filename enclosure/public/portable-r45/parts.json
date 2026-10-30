@@ -1,0 +1,2233 @@
+{
+  "schema": 1,
+  "revision": "Portable r45",
+  "status": "curated current enclosure geometry",
+  "units": "millimetres",
+  "part_count": 23,
+  "parts": {
+    "purple-body": {
+      "name": "purple-body",
+      "label": "Front shell \u00b7 symmetric insert receivers",
+      "role": "body",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/purple-body.step",
+        "brep": "cad/purple-body.brep"
+      },
+      "stl": "stl/purple-body.stl",
+      "assembly": "assembly/purple-body.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          41.49929333998302
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          33.23999770394782
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          24.52499990458753
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -41.50000010066067,
+          -33.2400001,
+          0.14999989999999985
+        ],
+        [
+          47.50000010000001,
+          33.2400001005479,
+          24.525000100000156
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          88.9980697631836,
+          66.47998809814453,
+          24.375
+        ]
+      ],
+      "volume_cad_mm3": 32207.49723875675,
+      "volume_print_mesh_mm3": 32159.368219068216,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 2.9991504178769413e-06
+      },
+      "sha256": {
+        "brep": "fa1e880670c324343a46047ed6e39bc6c01d5cdf9a22502ab1858d3d13ca17ce",
+        "step": "8dff06b53b2c1eec92609bc217edfa8eb5a87d5318812472cce4af437bb034f7",
+        "stl": "c57b3c6e3bd9d63051a403f27ba8deee8a5f87caa6f0563441162f9aa7ef9622",
+        "assembly": "da08b7334bfb9d6ad54bde33a645c03e9f30e80077dc5e461405ce76114e6526"
+      },
+      "notes": [
+        "Use with the matching USB tunnel. The published print mesh preserves checked facets and is the canonical print asset; re-tessellating CAD may differ."
+      ]
+    },
+    "purple-rear-cover": {
+      "name": "purple-rear-cover",
+      "label": "Rear shell \u00b7 symmetric screw seats",
+      "role": "rear",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/purple-rear-cover.step",
+        "brep": "cad/purple-rear-cover.brep"
+      },
+      "stl": "stl/purple-rear-cover.stl",
+      "assembly": "assembly/purple-rear-cover.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          40.38210056438115
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          32.12210058907376
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          32.15000057542521
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -40.38210067196311,
+          -32.1221006719631,
+          24.3
+        ],
+        [
+          46.38210067196312,
+          32.1221006719631,
+          32.15000010000003
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          86.76419830322266,
+          64.24420166015625,
+          7.849999904632568
+        ]
+      ],
+      "volume_cad_mm3": 20140.37274831436,
+      "volume_print_mesh_mm3": 20132.246890058672,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 6.404165913190773e-06
+      },
+      "sha256": {
+        "brep": "1232146e4ee3e05c32a6f6faf22b6ff86368f37c32192b0178b5614a6dfb1d7a",
+        "step": "f3963640a0b0bb8ef8a3db454f96add049a5079c333734c18d7714eda087e1bc",
+        "stl": "6de3968730bfb92323840422524665e0a725ac7390b144beee66da6dada15f52",
+        "assembly": "0e74897d319247ebf695fd106c7fe3b67b91bc3814ee4c9de35ae4cb754c6e7a"
+      },
+      "notes": []
+    },
+    "battery-tray": {
+      "name": "battery-tray",
+      "label": "Fixed internal battery tray",
+      "role": "carrier",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/battery-tray.step",
+        "brep": "cad/battery-tray.brep"
+      },
+      "stl": "stl/battery-tray.stl",
+      "assembly": "assembly/battery-tray.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          28.099999880035764
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          26.99999997265583
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          24.099999753569882
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -28.1,
+          -27.25,
+          20.3
+        ],
+        [
+          34.100000000000016,
+          27.0,
+          24.1
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          62.20000076293945,
+          54.25,
+          3.799999952316284
+        ]
+      ],
+      "volume_cad_mm3": 6115.847657014046,
+      "volume_print_mesh_mm3": 6115.8484272895,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 2.8575112030180497e-06
+      },
+      "sha256": {
+        "brep": "fc55e159c00a6ff55d05ce72fe873d7c282e9d74f08ac231378277af01ae5dcd",
+        "step": "25eb28eebdb44f60d245a77d1636e3d2235617d7e6d210c64d77d0b18af43cbf",
+        "stl": "f40f266e52bf91c1ab3a822052cf8f1fa63d613284fc6d77fbb2c41ce3d975f2",
+        "assembly": "82792cc04916c08ac3aef3c6d4e216877c0c70bf51ac516ca415610ecbefa614"
+      },
+      "notes": [
+        "Bond to the rear central land, retain padding and a soft strap, and leave lead slack. Electrical battery/charger compatibility is separate from mechanical space."
+      ]
+    },
+    "usb-tunnel": {
+      "name": "usb-tunnel",
+      "label": "Internal USB-C tunnel",
+      "role": "mechanism",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/usb-tunnel.step",
+        "brep": "cad/usb-tunnel.brep"
+      },
+      "stl": "stl/usb-tunnel.stl",
+      "assembly": "assembly/usb-tunnel.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          -3.479467555196265e-08,
+          0.0,
+          -1.0,
+          13.519522937946494
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          8.140034486462175
+        ],
+        [
+          1.0,
+          0.0,
+          -3.4794675862759306e-08,
+          -38.62999954223557
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          38.6299999,
+          -8.140034582165683,
+          2.1695213949999967
+        ],
+        [
+          47.38393648012082,
+          8.259965624391677,
+          13.519521595000002
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          11.350000381469727,
+          16.399999618530273,
+          8.753936767578125
+        ]
+      ],
+      "volume_cad_mm3": 668.494855372862,
+      "volume_print_mesh_mm3": 668.1904657667018,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 2.4169788233315196e-06
+      },
+      "sha256": {
+        "brep": "3bc1df3aa76f47f8b63b7637116c8224fc16e923cdb8aec683d2a6b3b06b088e",
+        "step": "b4a2f3d18e52ff09fbe3ea852be11760a151331d189ab659ef07580607d6c9b9",
+        "stl": "18cd83923aeac343e43b4cb24f36b02fb87d2bf6df8e45e344e4b8a6f8b699ae",
+        "assembly": "4fed2cd4145b5a3d3f7610fec7cd9b722c1601d326c0cf7c941a9123139880c4"
+      },
+      "notes": [
+        "Matching receiver-relieved tunnel for the current front; do not substitute an older tunnel."
+      ]
+    },
+    "display-carrier-left": {
+      "name": "display-carrier-left",
+      "label": "White display carrier \u00b7 left rail",
+      "role": "carrier",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/display-carrier-left.step",
+        "brep": "cad/display-carrier-left.brep"
+      },
+      "stl": "stl/display-carrier-left.stl",
+      "assembly": "assembly/display-carrier-left.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          29.700980006346523
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          -10.149999618530273
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -36.3,
+          -25.5,
+          10.149999999999999
+        ],
+        [
+          -23.1,
+          25.5,
+          20.55000000000002
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -6.5990190505981445,
+          -25.5,
+          0.0
+        ],
+        [
+          6.600979804992676,
+          25.5,
+          10.399999618530273
+        ]
+      ],
+      "volume_cad_mm3": 1678.4208101401562,
+      "volume_print_mesh_mm3": 1678.416973211443,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 1.801158795444735e-07
+      },
+      "sha256": {
+        "brep": "088fd352e2e3daca35b4dd263ea437134d0d983162c01e4aea2254092b52a132",
+        "step": "8976046f5517c9ccf8949853659c78860fcc159c53b0bcf20627aee4f8b3bc45",
+        "stl": "0f2438e1e36a5dc35a13d4dd75ad5f2fb5c1e6176c7c2061870ea26f2225f602",
+        "assembly": "7de65dec6c73cfda466a3acac63b53274fb1ab1e46f6c9400bdb8542f479df6f"
+      },
+      "notes": [
+        "Rail names follow the screen/front view; install 10 mm inward, lower to the factory posts, then slide outward."
+      ]
+    },
+    "display-carrier-right": {
+      "name": "display-carrier-right",
+      "label": "White display carrier \u00b7 right rail",
+      "role": "carrier",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/display-carrier-right.step",
+        "brep": "cad/display-carrier-right.brep"
+      },
+      "stl": "stl/display-carrier-right.stl",
+      "assembly": "assembly/display-carrier-right.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          -35.60089920974269
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          -0.0010412968683644053
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          -10.149999618530273
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          28.9,
+          -25.5,
+          10.149999999999999
+        ],
+        [
+          42.3,
+          25.5,
+          20.55000000000002
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -6.700899600982666,
+          -25.501041412353516,
+          0.0
+        ],
+        [
+          6.699100017547607,
+          25.498958587646484,
+          10.399999618530273
+        ]
+      ],
+      "volume_cad_mm3": 1657.6252023166494,
+      "volume_print_mesh_mm3": 1657.6377356336943,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 8.396693071341837e-07
+      },
+      "sha256": {
+        "brep": "6b55d084703000eb4dcfc07babf11e5a37d1b34ceed689bf4f7dbf000a36f8b9",
+        "step": "a122fc1ceaabc15a3f5692dab0eed6a7f7089c77a4afb4dfd25a6e2a1e2b73ab",
+        "stl": "3f8ab11ba8f20da18eb5b72d5f05cc2b6fc92f30fdf29e2abf872a583d4c45f0",
+        "assembly": "dcd2d9f4da47d1d74e25ffaa7150123ab33c5d380db4167e46550f58b776ad79"
+      },
+      "notes": [
+        "Rail names follow the screen/front view; install 10 mm inward, lower to the factory posts, then slide outward."
+      ]
+    },
+    "rear-screw-cap-1": {
+      "name": "rear-screw-cap-1",
+      "label": "Symmetric rear screw cap 1",
+      "role": "rear",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/rear-screw-cap-1.step",
+        "brep": "cad/rear-screw-cap-1.brep"
+      },
+      "stl": "stl/rear-screw-cap-1.stl",
+      "assembly": "assembly/rear-screw-cap-1.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          1.005296613863779e-08,
+          0.0,
+          35.39999978426604
+        ],
+        [
+          1.0052966304200392e-08,
+          -1.0,
+          0.0,
+          27.90000031381468
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          32.150000393390656
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -35.4,
+          22.1,
+          31.55
+        ],
+        [
+          -29.6,
+          27.9,
+          32.15
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          5.800000190734863,
+          5.800000190734863,
+          0.6000000238418579
+        ]
+      ],
+      "volume_cad_mm3": 15.852476530014085,
+      "volume_print_mesh_mm3": 15.851146788199166,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 2.2390316963917556e-06
+      },
+      "sha256": {
+        "brep": "b008c7fcdef153874acbf57a8a2107440981ea28d7db135d35e5b40fcdcf8a39",
+        "step": "198f9ac1fd8681103b94f19126a1f2dbc5a9b13fea4596b3226f05be4362c774",
+        "stl": "827bd7840d460a21bd48c74ef92032b8eccaec791c003013713686e0aadd8f63",
+        "assembly": "3ba8e83b2de87dea4f93ab1c992a8e00dee2eb64ea70eb20d92cee197591cd0d"
+      },
+      "notes": []
+    },
+    "rear-screw-cap-2": {
+      "name": "rear-screw-cap-2",
+      "label": "Symmetric rear screw cap 2",
+      "role": "rear",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/rear-screw-cap-2.step",
+        "brep": "cad/rear-screw-cap-2.brep"
+      },
+      "stl": "stl/rear-screw-cap-2.stl",
+      "assembly": "assembly/rear-screw-cap-2.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          -35.5999999746429
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          27.899999987115265
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          32.150000393390656
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          35.6,
+          22.1,
+          31.55
+        ],
+        [
+          41.4,
+          27.9,
+          32.15
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          5.800000190734863,
+          5.800000190734863,
+          0.6000000238418579
+        ]
+      ],
+      "volume_cad_mm3": 15.852476530014089,
+      "volume_print_mesh_mm3": 15.851146788199166,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 2.3208791478587283e-06
+      },
+      "sha256": {
+        "brep": "0616cc58a402721805567c7524a413d7dde8c937a972b74df8b3b79aa60e7f80",
+        "step": "9348138d153bf14b73168bd96ce8f88cbbc0ad78225c0b2c2a857e40c7400e4f",
+        "stl": "827bd7840d460a21bd48c74ef92032b8eccaec791c003013713686e0aadd8f63",
+        "assembly": "5658fc79d1f7077fea1c55893732b78c6dae0e857d95e1946313d2554fa9030e"
+      },
+      "notes": []
+    },
+    "rear-screw-cap-3": {
+      "name": "rear-screw-cap-3",
+      "label": "Symmetric rear screw cap 3",
+      "role": "rear",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/rear-screw-cap-3.step",
+        "brep": "cad/rear-screw-cap-3.brep"
+      },
+      "stl": "stl/rear-screw-cap-3.stl",
+      "assembly": "assembly/rear-screw-cap-3.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          1.005296613863779e-08,
+          0.0,
+          35.40000028691435
+        ],
+        [
+          1.0052966304200392e-08,
+          -1.0,
+          0.0,
+          -22.09999968618532
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          32.150000393390656
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -35.4,
+          -27.9,
+          31.55
+        ],
+        [
+          -29.6,
+          -22.1,
+          32.15
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          5.800000190734863,
+          5.800000190734863,
+          0.6000000238418579
+        ]
+      ],
+      "volume_cad_mm3": 15.852476530014085,
+      "volume_print_mesh_mm3": 15.851146788199166,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 2.2390316963917556e-06
+      },
+      "sha256": {
+        "brep": "1c457a4cec08d572e036614a57ebd538280af50d1353e53c717d4e65b721b573",
+        "step": "5159fd9777abb2880fe6d3efdcf0bedfb9bd74b5ef46724ec046d206761226a2",
+        "stl": "827bd7840d460a21bd48c74ef92032b8eccaec791c003013713686e0aadd8f63",
+        "assembly": "129733c01e258d9ed2b2497cc0b073c337cf9740b5e18b814605a1d36197252f"
+      },
+      "notes": []
+    },
+    "rear-screw-cap-4": {
+      "name": "rear-screw-cap-4",
+      "label": "Symmetric rear screw cap 4",
+      "role": "rear",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/rear-screw-cap-4.step",
+        "brep": "cad/rear-screw-cap-4.brep"
+      },
+      "stl": "stl/rear-screw-cap-4.stl",
+      "assembly": "assembly/rear-screw-cap-4.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          -35.5999999746429
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          -22.100000012884735
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          32.150000393390656
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          35.6,
+          -27.9,
+          31.55
+        ],
+        [
+          41.4,
+          -22.1,
+          32.15
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          5.800000190734863,
+          5.800000190734863,
+          0.6000000238418579
+        ]
+      ],
+      "volume_cad_mm3": 15.852476530014089,
+      "volume_print_mesh_mm3": 15.851146788199166,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 2.3208791478587283e-06
+      },
+      "sha256": {
+        "brep": "346ca4db590493a80e403df96b088b5e1c0f9d2caa45d26277a275052a504ddc",
+        "step": "f5ca13fe8c8a777ad708ad1f775b14c4512f3066d2fae66cba13a8f44a1efc18",
+        "stl": "827bd7840d460a21bd48c74ef92032b8eccaec791c003013713686e0aadd8f63",
+        "assembly": "2fff292406707b40d220ddcfe560ae8a8eb12d5e062e1f1f64006b8611d3681e"
+      },
+      "notes": []
+    },
+    "accessory-cap-landscape-left": {
+      "name": "accessory-cap-landscape-left",
+      "label": "Landscape socket cap \u00b7 left",
+      "role": "accessory-cap",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/accessory-cap-landscape-left.step",
+        "brep": "cad/accessory-cap-landscape-left.brep"
+      },
+      "stl": "stl/accessory-cap-landscape-left.stl",
+      "assembly": "assembly/accessory-cap-landscape-left.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          11.999999523162842
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          -16.15000009536743
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          33.23944091796875
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -16.050000100000005,
+          29.84,
+          13.049999899999998
+        ],
+        [
+          -7.9499999,
+          33.24000010035337,
+          19.2500001
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -4.049999713897705,
+          -3.0999999046325684,
+          0.0
+        ],
+        [
+          4.049999713897705,
+          3.0999999046325684,
+          3.3994407653808594
+        ]
+      ],
+      "volume_cad_mm3": 110.60176984968405,
+      "volume_print_mesh_mm3": 110.11040632984964,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 0.0
+      },
+      "sha256": {
+        "brep": "42a5323ef096bd891c02583c9f03f6c65c855511bab20a9af34754ce1c7f65a5",
+        "step": "e1178a75e0b5408785f9202efad6f64eb2a452b48d8fa905fbdfe1f556180213",
+        "stl": "bc5f9125ef1844550a3b67863d8c0068c005f3e7c14007b9eb5949dcb97a0510",
+        "assembly": "a0f384c6aae8cd84cc72b1071edd4762ee034312853c16ee7a575a2d215b261e"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured."
+      ],
+      "accessory_configuration": "cap",
+      "socket_orientation": "landscape"
+    },
+    "bunny-ear-left": {
+      "name": "bunny-ear-left",
+      "label": "Thicker bunny ear \u00b7 left",
+      "role": "accessory",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/bunny-ear-left.step",
+        "brep": "cad/bunny-ear-left.brep"
+      },
+      "stl": "stl/bunny-ear-left.stl",
+      "assembly": "assembly/bunny-ear-left.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          14.187179565429688
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          48.54941749572754
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          18.270000457763672
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -21.673604248372424,
+          29.84,
+          12.0699999
+        ],
+        [
+          -6.7012140331159085,
+          67.25898625461338,
+          18.2700001
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -7.485963821411133,
+          -18.70941734313965,
+          0.0
+        ],
+        [
+          7.485963821411133,
+          18.70941734313965,
+          6.200000762939453
+        ]
+      ],
+      "volume_cad_mm3": 1844.4563057071896,
+      "volume_print_mesh_mm3": 1842.2379282011073,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 3.552713678800501e-15
+      },
+      "sha256": {
+        "brep": "0f4206b39f18eeb40ffcd83c1a65046c6dc3cc33488bd28dc194e3ebf4091d83",
+        "step": "f36cfda111071c871061514f61e24e02a78d6883f8c84de90955093efb76e4cc",
+        "stl": "9ca8cad5a2971e482b995adab6a0a1b60e17a9b1ec03348ff1c0f09be2243bea",
+        "assembly": "ad645f0707f78b485403f8b373d3cb7c6b2d11b05013d72e0ffde6edefea8dd3"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured.",
+        "The broad shoulder covers the functional shaft opening; a 1.13 mm rear cosmetic seat clearance remains."
+      ],
+      "accessory_configuration": "ears",
+      "socket_orientation": "landscape"
+    },
+    "accessory-cap-landscape-right": {
+      "name": "accessory-cap-landscape-right",
+      "label": "Landscape socket cap \u00b7 right",
+      "role": "accessory-cap",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/accessory-cap-landscape-right.step",
+        "brep": "cad/accessory-cap-landscape-right.brep"
+      },
+      "stl": "stl/accessory-cap-landscape-right.stl",
+      "assembly": "assembly/accessory-cap-landscape-right.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          -17.999999523162842
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          -16.15000009536743
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          33.23944091796875
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          13.949999899999996,
+          29.84,
+          13.049999899999998
+        ],
+        [
+          22.050000100000002,
+          33.24000010035337,
+          19.2500001
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -4.049999713897705,
+          -3.0999999046325684,
+          0.0
+        ],
+        [
+          4.049999713897705,
+          3.0999999046325684,
+          3.3994407653808594
+        ]
+      ],
+      "volume_cad_mm3": 110.601769849684,
+      "volume_print_mesh_mm3": 110.11041165104257,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 0.0
+      },
+      "sha256": {
+        "brep": "167ca7a87aa386dc57ca5aa7a130c590f26f71a6016cbfb9e46ed2fc06c2eb95",
+        "step": "25f94655cb1c1d54c8d247134a2bff0f4ea13d9dcdd9821f5f3a80070d8be16b",
+        "stl": "31ca4a8d49d442fe3e10d9fcbe296b4a489b9b83a93db33fc0fffd5b2738360d",
+        "assembly": "c2bbf48f2101996578685546d8ecb7dca1c81461569e67c6b420b5f676be97da"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured."
+      ],
+      "accessory_configuration": "cap",
+      "socket_orientation": "landscape"
+    },
+    "bunny-ear-right": {
+      "name": "bunny-ear-right",
+      "label": "Thicker bunny ear \u00b7 right",
+      "role": "accessory",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/bunny-ear-right.step",
+        "brep": "cad/bunny-ear-right.brep"
+      },
+      "stl": "stl/bunny-ear-right.stl",
+      "assembly": "assembly/bunny-ear-right.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          -20.187225341796875
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          48.54949378967285
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          18.270000457763672
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          12.701214033115908,
+          29.84,
+          12.0699999
+        ],
+        [
+          27.67360424837242,
+          67.25898625461336,
+          18.2700001
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -7.48600959777832,
+          -18.70949363708496,
+          0.0
+        ],
+        [
+          7.48600959777832,
+          18.70949363708496,
+          6.200000762939453
+        ]
+      ],
+      "volume_cad_mm3": 1843.640893536741,
+      "volume_print_mesh_mm3": 1842.4907405193198,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 3.552713678800501e-15
+      },
+      "sha256": {
+        "brep": "cd3260bff1e8b8c9a927af9056126baf3e413d42d89710630b18c493e54b2de2",
+        "step": "26c2dd182ef8f86fe531f90f7e5104fbf22d325e60ffb1e1a91ff24dc34768df",
+        "stl": "f99325d65d54963ab758e13314ba7fa81cb8bbd88f210a3ce4d1cdf9a8c2e85f",
+        "assembly": "2afab991147eca3c75c60fcca92c55ba902116910a2201728902534979f3a012"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured.",
+        "The broad shoulder covers the functional shaft opening; a 1.13 mm rear cosmetic seat clearance remains."
+      ],
+      "accessory_configuration": "ears",
+      "socket_orientation": "landscape"
+    },
+    "accessory-cap-portrait-left": {
+      "name": "accessory-cap-portrait-left",
+      "label": "Portrait socket cap \u00b7 left",
+      "role": "accessory-cap",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/accessory-cap-portrait-left.step",
+        "brep": "cad/accessory-cap-portrait-left.brep"
+      },
+      "stl": "stl/accessory-cap-portrait-left.stl",
+      "assembly": "assembly/accessory-cap-portrait-left.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          0.0,
+          1.0,
+          0.0,
+          14.999999523162842
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          -16.15000009536743
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          41.49944305419922
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -41.50000010035337,
+          -19.050000100000005,
+          13.049999899999998
+        ],
+        [
+          -38.1,
+          -10.9499999,
+          19.2500001
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -4.049999713897705,
+          -3.0999999046325684,
+          0.0
+        ],
+        [
+          4.049999713897705,
+          3.0999999046325684,
+          3.399444580078125
+        ]
+      ],
+      "volume_cad_mm3": 110.60176984968405,
+      "volume_print_mesh_mm3": 110.11038409045578,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 0.0
+      },
+      "sha256": {
+        "brep": "effb26583476df3576d1e4aa635c4befe9e68194a5c8e65f3790661a49c6ac59",
+        "step": "01d7ffda6e3f922f96e548f4c1bdebb253b0c8bd1826578dd93b0fe6b88de9c8",
+        "stl": "903c37c0c10daa69e51bf0100edcf5a82286c3b9f1c4bb6aa7f3390a3d841e59",
+        "assembly": "d791de4ebc8fe0fb23ef6db1924b7a0769c68f8a0512c39fe7f28268eadb9d28"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured."
+      ],
+      "accessory_configuration": "cap",
+      "socket_orientation": "portrait"
+    },
+    "accessory-cap-portrait-right": {
+      "name": "accessory-cap-portrait-right",
+      "label": "Portrait socket cap \u00b7 right",
+      "role": "accessory-cap",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/accessory-cap-portrait-right.step",
+        "brep": "cad/accessory-cap-portrait-right.brep"
+      },
+      "stl": "stl/accessory-cap-portrait-right.stl",
+      "assembly": "assembly/accessory-cap-portrait-right.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          0.0,
+          1.0,
+          0.0,
+          -14.999999523162842
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          -16.15000009536743
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          41.49944305419922
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -41.50000010035337,
+          10.949999899999996,
+          13.049999899999998
+        ],
+        [
+          -38.1,
+          19.050000100000002,
+          19.2500001
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -4.049999713897705,
+          -3.0999999046325684,
+          0.0
+        ],
+        [
+          4.049999713897705,
+          3.0999999046325684,
+          3.399444580078125
+        ]
+      ],
+      "volume_cad_mm3": 110.601769849684,
+      "volume_print_mesh_mm3": 110.11038287433848,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 0.0
+      },
+      "sha256": {
+        "brep": "904136ef46833b5b7f5c366ce3f774c22cd2e3b0dffa629183a8eb06311c8c08",
+        "step": "650e712abca7ec204c266732404075ea599f1dc1ea4273b57833783cb42f44df",
+        "stl": "789425bef27f87277d6c9298d7acfce2c7f7e4fd1ebeb050824070a4b09da37f",
+        "assembly": "08a33ea9758fcff572b4f52f387301b98bb2a6d16226bb8df04d98dec7cb1ae1"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured."
+      ],
+      "accessory_configuration": "cap",
+      "socket_orientation": "portrait"
+    },
+    "landscape-stand": {
+      "name": "landscape-stand",
+      "label": "Closed-front landscape stand",
+      "role": "stand",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/landscape-stand.step",
+        "brep": "cad/landscape-stand.brep"
+      },
+      "stl": "stl/landscape-stand.stl",
+      "assembly": "assembly/landscape-stand.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          -1.0,
+          0.0,
+          0.0,
+          2.999999986421632
+        ],
+        [
+          0.0,
+          0.30901699350547385,
+          0.9510565165776624,
+          -4.222060212555334e-08
+        ],
+        [
+          0.0,
+          0.9510565165776623,
+          -0.30901699350547407,
+          42.172964595207105
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -50.5000001,
+          -16.0000001,
+          -8.407545596479281e-15
+        ],
+        [
+          50.500000100000015,
+          38.000000100000015,
+          19.251237875454272
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -50.5,
+          -16.0,
+          0.0
+        ],
+        [
+          50.5,
+          38.0,
+          19.251081466674805
+        ]
+      ],
+      "volume_cad_mm3": 56687.22725889331,
+      "volume_print_mesh_mm3": 56695.411712909445,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 3.7489480684510862e-06
+      },
+      "sha256": {
+        "brep": "0ba5a71c031f529ac1c24a362ff93f4fb6be9459a543083730fc6c60bb2ed9f2",
+        "step": "e63932018b079fcb95e1341d6c24fc3c0ebac9296353f66be4ea42805767ce66",
+        "stl": "706473e432563cc39f0ea6b253523ffeb4e6ea8e81b986ad8c45dd508ee5b01a",
+        "assembly": "a96325030d32af8a9741fb28bcb15399af6d9b1407184574a604224776e8cafa"
+      },
+      "notes": [
+        "Continuous exterior front with an upward-open hidden button well. Lift the portable body to reach the switch if needed."
+      ]
+    },
+    "portrait-stand": {
+      "name": "portrait-stand",
+      "label": "Portrait stand",
+      "role": "stand",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/portrait-stand.step",
+        "brep": "cad/portrait-stand.brep"
+      },
+      "stl": "stl/portrait-stand.stl",
+      "assembly": "assembly/portrait-stand.stl",
+      "coordinate_frame": "stand-world-Z-up",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -39.2400001,
+          -16.0000001,
+          -1e-07
+        ],
+        [
+          39.24000010000002,
+          38.000000100000015,
+          19.25123787545427
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -39.2400016784668,
+          -16.0,
+          0.0
+        ],
+        [
+          39.2400016784668,
+          38.0,
+          19.250995635986328
+        ]
+      ],
+      "volume_cad_mm3": 42999.958911531576,
+      "volume_print_mesh_mm3": 43002.91579594295,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 0.0
+      },
+      "sha256": {
+        "brep": "5451a98aaf9754660c2478fcb69a9a388397519a6f1fe9ac7478cab42465bc03",
+        "step": "60c0746730c1dfc1d4991897b97f79caa4b642a6f9d72dcd46cea6f70c0bb249",
+        "stl": "f8c8733587324d82ee636b85e7a7ea49d89af2a3ec2272ef026ed675177f03c9",
+        "assembly": "f8c8733587324d82ee636b85e7a7ea49d89af2a3ec2272ef026ed675177f03c9"
+      },
+      "notes": [
+        "Retained authored stand in its original Z-up CAD/print frame. No reviewed printer recipe is supplied; slice and check its seating and switch clearance before use."
+      ]
+    },
+    "button-compact": {
+      "name": "button-compact",
+      "label": "Compact BAT_PWR button with small springs",
+      "role": "mechanism",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/button-compact.step",
+        "brep": "cad/button-compact.brep"
+      },
+      "stl": "stl/button-compact.stl",
+      "assembly": "assembly/button-compact.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          15.623344528986026
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          -25.07667525816655
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          8.350000200582587
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -15.623344630000018,
+          -32.65002975126716,
+          6.749970248732839
+        ],
+        [
+          8.376655570000008,
+          -25.07667503999999,
+          8.350029751267162
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ],
+        [
+          24.0,
+          7.573324680328369,
+          1.600000023841858
+        ]
+      ],
+      "volume_cad_mm3": 84.4691248308675,
+      "volume_print_mesh_mm3": 84.46900627720237,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 1.8543065509410051e-06
+      },
+      "sha256": {
+        "brep": "a2627da038ef76817bb7419f7f10b59514f9fe70b109c75f9b08de5af9b5b780",
+        "step": "cc9086b41d366045e361e0c35221869e086f6af51bff14e9b580e574546602ab",
+        "stl": "448cdb140fde1cad3f728564eb904260271292e97db6a71de4a34d7977bc92e7",
+        "assembly": "0b19d517a69893f409885a5f6f3d0c9adfb900c403b62607f7984f659a25970b"
+      },
+      "notes": [
+        "One piece with small return springs and inside glue tabs. Hold the pad outward during installation; glue fixed edges only after confirming free click and return."
+      ]
+    },
+    "tv-antenna-left": {
+      "name": "tv-antenna-left",
+      "label": "TV antenna \u00b7 left",
+      "role": "accessory",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/tv-antenna-left.step",
+        "brep": "cad/tv-antenna-left.brep"
+      },
+      "stl": "stl/tv-antenna-left.stl",
+      "assembly": "assembly/tv-antenna-left.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          18.855839218477346
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          50.08908271789551
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          18.270000457763672
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -29.761686189858494,
+          29.84,
+          12.069999999999999
+        ],
+        [
+          -7.95,
+          70.33842715101407,
+          18.27
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -10.905839920043945,
+          -20.249082565307617,
+          0.0
+        ],
+        [
+          10.905839920043945,
+          20.249082565307617,
+          6.200000762939453
+        ]
+      ],
+      "volume_cad_mm3": 1322.9911120337192,
+      "volume_print_mesh_mm3": 1322.9638966068508,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 5.108317360225101e-07
+      },
+      "sha256": {
+        "brep": "0b6958aa97d67553ed439e3c53c4c94152dab69f8be88ad31f596c784fda590f",
+        "step": "6a777d5b314bcdf1313bbbf2c8834522305f5915cef65acd0171e961a2e9023a",
+        "stl": "3dfec722b5254ee09ee7d154129edf20f6dcd1a79b7509a8571b73cd0648386f",
+        "assembly": "4bdaf9d87b3d3b72df3a38e6a310ede406f652c881eff1ea5581cea426600903"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured.",
+        "The broad shoulder covers the functional shaft opening; a 1.13 mm rear cosmetic seat clearance remains."
+      ],
+      "accessory_configuration": "antennas",
+      "socket_orientation": "landscape"
+    },
+    "tv-antenna-right": {
+      "name": "tv-antenna-right",
+      "label": "TV antenna \u00b7 right",
+      "role": "accessory",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/tv-antenna-right.step",
+        "brep": "cad/tv-antenna-right.brep"
+      },
+      "stl": "stl/tv-antenna-right.stl",
+      "assembly": "assembly/tv-antenna-right.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          -24.85584023192312
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          50.08908271789551
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          18.270000457763672
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          13.95,
+          29.84,
+          12.069999999999999
+        ],
+        [
+          35.761686189858494,
+          70.33842715101407,
+          18.27
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -10.905839920043945,
+          -20.249082565307617,
+          0.0
+        ],
+        [
+          10.905839920043945,
+          20.249082565307617,
+          6.200000762939453
+        ]
+      ],
+      "volume_cad_mm3": 1322.991112033718,
+      "volume_print_mesh_mm3": 1322.963671105648,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 5.026140392772049e-07
+      },
+      "sha256": {
+        "brep": "4368d8150b3b3eaed03e8322fa5317d908c467d77b9dc4b2e9d5e64535692c01",
+        "step": "6004617d17df0c7d85d4595a18e6a816dc8b61d5819ec8e0711632e584ac3b06",
+        "stl": "e070684a95a90fc049601f3f482656b4caa09774c3140ab1cb4c3b9d8bfedd35",
+        "assembly": "fc9372ec98602d433cfd1bd3a3355a1e57c419ccdc322c2e1b9549a48c21eb90"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured.",
+        "The broad shoulder covers the functional shaft opening; a 1.13 mm rear cosmetic seat clearance remains."
+      ],
+      "accessory_configuration": "antennas",
+      "socket_orientation": "landscape"
+    },
+    "eye-left": {
+      "name": "eye-left",
+      "label": "Eye \u00b7 left",
+      "role": "accessory",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/eye-left.step",
+        "brep": "cad/eye-left.brep"
+      },
+      "stl": "stl/eye-left.stl",
+      "assembly": "assembly/eye-left.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          13.399956702805053
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          44.78996467590332
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          18.270000457763672
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          -21.9,
+          29.84,
+          12.069999999999999
+        ],
+        [
+          -4.9,
+          59.74,
+          18.27
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -8.499493598937988,
+          -14.94996452331543,
+          0.0
+        ],
+        [
+          8.499493598937988,
+          14.94996452331543,
+          6.200000762939453
+        ]
+      ],
+      "volume_cad_mm3": 1791.8090552491867,
+      "volume_print_mesh_mm3": 1791.6317576113663,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 4.772181405598985e-07
+      },
+      "sha256": {
+        "brep": "3c368fbdab7ed5db0d371496e06722c0748764b4c404cb2a342925d28b5d9b0f",
+        "step": "2dcce20db439069407c1d94c42c2f5b889b027f664e39ca9ede268bdfa988a02",
+        "stl": "db7febdad0808abf3efd6eb378820514744e6807962a96030671deb768b2c7ce",
+        "assembly": "32159125f7488a3e1c399f9923743b850461cc84d4b4e329c5279ad5b75df9c2"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured.",
+        "The broad shoulder covers the functional shaft opening; a 1.13 mm rear cosmetic seat clearance remains."
+      ],
+      "accessory_configuration": "eyes",
+      "socket_orientation": "landscape"
+    },
+    "eye-right": {
+      "name": "eye-right",
+      "label": "Eye \u00b7 right",
+      "role": "accessory",
+      "quantity": 1,
+      "cad": {
+        "step": "cad/eye-right.step",
+        "brep": "cad/eye-right.brep"
+      },
+      "stl": "stl/eye-right.stl",
+      "assembly": "assembly/eye-right.stl",
+      "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+      "native_to_print": [
+        [
+          1.0,
+          0.0,
+          0.0,
+          -19.399956703186035
+        ],
+        [
+          0.0,
+          -1.0,
+          0.0,
+          44.78996467590332
+        ],
+        [
+          0.0,
+          0.0,
+          -1.0,
+          18.270000457763672
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "units": "millimetres",
+      "bounds_cad_mm": [
+        [
+          10.899999999999999,
+          29.84,
+          12.069999999999999
+        ],
+        [
+          27.9,
+          59.74,
+          18.27
+        ]
+      ],
+      "bounds_print_mm": [
+        [
+          -8.499493598937988,
+          -14.94996452331543,
+          0.0
+        ],
+        [
+          8.499493598937988,
+          14.94996452331543,
+          6.200000762939453
+        ]
+      ],
+      "volume_cad_mm3": 1791.8090552491908,
+      "volume_print_mesh_mm3": 1791.631807117765,
+      "geometry_checks": {
+        "valid_cad": true,
+        "cad_solids": 1,
+        "watertight_mesh": true,
+        "winding_consistent": true,
+        "mesh_components": 1,
+        "positive_volume": true,
+        "print_base_at_z0": true,
+        "proper_rigid_print_pose": true,
+        "maximum_same_mesh_pose_error_mm": 3.552713678800501e-15
+      },
+      "sha256": {
+        "brep": "830a61d556762222a98719219be79bca01542f298785a070aadc2e915b548586",
+        "step": "8e8a7543a090338f26d5c04633653afe0845125b91536792eea3845e30d8b5f1",
+        "stl": "c39f516a0549085ccbe89540277ed61cec0d0b969a04196c8b8776dc7cca00f8",
+        "assembly": "e2fa8b2df44f33cf444b07da7e92855cc9ca31f30a7eba2b43c02226e893b910"
+      },
+      "notes": [
+        "Fuller keyed 6.24 x 4.24 mm peg with shallow tapered grip ribs. Nominal socket fit is checked; actual pull force and cycle life are unmeasured.",
+        "The broad shoulder covers the functional shaft opening; a 1.13 mm rear cosmetic seat clearance remains."
+      ],
+      "accessory_configuration": "eyes",
+      "socket_orientation": "landscape"
+    }
+  },
+  "assembly_variants": {
+    "bunny-ear-left-portrait": {
+      "assembly": "assembly/bunny-ear-left-portrait.stl",
+      "print_part": "bunny-ear-left",
+      "transform_from_canonical_assembly": [
+        [
+          0.0,
+          -1.0,
+          0.0,
+          -8.259999999999998
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -3.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "sha256": "8e35ab8a28b6c2721176e438c39db72ac7ed1a0f8d5b33dfc91f5b3ff2a7a9d0",
+      "note": "Same physical part; optional portrait-socket visualization pose only."
+    },
+    "bunny-ear-right-portrait": {
+      "assembly": "assembly/bunny-ear-right-portrait.stl",
+      "print_part": "bunny-ear-right",
+      "transform_from_canonical_assembly": [
+        [
+          0.0,
+          -1.0,
+          0.0,
+          -8.259999999999998
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -3.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "sha256": "996854ab8dc0bb86c899b211ad7f1d99f5b49d7c49f474f8f05e4e6432a2d91f",
+      "note": "Same physical part; optional portrait-socket visualization pose only."
+    },
+    "tv-antenna-left-portrait": {
+      "assembly": "assembly/tv-antenna-left-portrait.stl",
+      "print_part": "tv-antenna-left",
+      "transform_from_canonical_assembly": [
+        [
+          0.0,
+          -1.0,
+          0.0,
+          -8.259999999999998
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -3.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "sha256": "eeff094b3f3c323a94703c85a56e32b6c1325ed4b0df6aa9e54e088fa08ca3af",
+      "note": "Same physical part; optional portrait-socket visualization pose only."
+    },
+    "tv-antenna-right-portrait": {
+      "assembly": "assembly/tv-antenna-right-portrait.stl",
+      "print_part": "tv-antenna-right",
+      "transform_from_canonical_assembly": [
+        [
+          0.0,
+          -1.0,
+          0.0,
+          -8.259999999999998
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -3.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "sha256": "cf0e1ac577a1be4f680266b5014db1b03408670dbf8261c8756cbeef5248d24d",
+      "note": "Same physical part; optional portrait-socket visualization pose only."
+    },
+    "eye-left-portrait": {
+      "assembly": "assembly/eye-left-portrait.stl",
+      "print_part": "eye-left",
+      "transform_from_canonical_assembly": [
+        [
+          0.0,
+          -1.0,
+          0.0,
+          -8.259999999999998
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -3.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "sha256": "4f8d46162bae26c8fd12e491b4647a9af163dbf6e39cb420c7f66e450487fb11",
+      "note": "Same physical part; optional portrait-socket visualization pose only."
+    },
+    "eye-right-portrait": {
+      "assembly": "assembly/eye-right-portrait.stl",
+      "print_part": "eye-right",
+      "transform_from_canonical_assembly": [
+        [
+          0.0,
+          -1.0,
+          0.0,
+          -8.259999999999998
+        ],
+        [
+          1.0,
+          0.0,
+          0.0,
+          -3.0
+        ],
+        [
+          0.0,
+          0.0,
+          1.0,
+          0.0
+        ],
+        [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ]
+      ],
+      "sha256": "7aa4287d3b1ede3db732b70593ad979b36214dd8fc187b0104c5b951b0f6a7d1",
+      "note": "Same physical part; optional portrait-socket visualization pose only."
+    }
+  },
+  "default_assembly": {
+    "step": "cad/portable-r45-landscape-assembly.step",
+    "parts": [
+      "purple-body",
+      "purple-rear-cover",
+      "battery-tray",
+      "usb-tunnel",
+      "display-carrier-left",
+      "display-carrier-right",
+      "rear-screw-cap-1",
+      "rear-screw-cap-2",
+      "rear-screw-cap-3",
+      "rear-screw-cap-4",
+      "accessory-cap-landscape-left",
+      "accessory-cap-landscape-right",
+      "accessory-cap-portrait-left",
+      "accessory-cap-portrait-right",
+      "landscape-stand",
+      "button-compact"
+    ],
+    "coordinate_frame": "case-native-X-right-Y-top-Z-rear",
+    "sha256": "efd58c69c38abe07c29ac9e204540246e33abd95087fd7387bcf48db4e213952",
+    "note": "Authored enclosure parts only; no board, display, battery, speakers or fasteners are redistributed."
+  },
+  "source_editability": "STEP and BREP contain exact analytic shapes for direct editing, not the original parametric construction history.",
+  "frame_notes": [
+    "All parts except the portrait stand use the case-native CAD frame. Print STLs already use their recorded bed pose.",
+    "The portrait stand CAD, assembly mesh and print mesh use its authored world Z-up frame; native_to_print is identity.",
+    "The viewer maps that Z-up stand frame with a proper -90 degree X rotation. Its former browser-only Y/Z-exchange mesh is excluded."
+  ],
+  "validation_limits": [
+    "Nominal CAD and mesh checks do not establish printed tolerances, bed adhesion, insert strength, button lifetime or accessory holding force.",
+    "Accessory grip and cycle life require physical checking; use gentle pressure and trim only the tiny raised ribs if necessary.",
+    "The retained portrait stand has no released printer recipe. Current geometry must be sliced and checked for the selected machine.",
+    "Mechanical battery space does not qualify a battery/charger combination or connector wiring."
+  ]
+}

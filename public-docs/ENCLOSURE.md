@@ -1,56 +1,49 @@
-# Pebble landscape — current public prototype
+# Portable r45 enclosure
 
-The current public snapshot is [Pebble r26 prototype v2](../enclosure/public/pebble-r26-prototype-v2/README.md):
-**r25 fitted body and continuous white cradle**, compatible **r24 internal parts**,
-and the **r26 angled body print trial**. r26 changes print orientation/supports,
-not body CAD. The supported V1 display uses USB-right landscape, rotation 3,
-at 320 × 240. The nominal purple envelope is approximately 88 × 64 × 15.64 mm;
-the white cradle is approximately 95 × 52 × 15.8 mm. Exact bounds and coordinate
-frames are in the package manifest.
+The current public files are in
+[Portable r45](../enclosure/public/portable-r45/README.md). The removable pod
+contains the display, a battery space and two speakers. Landscape and portrait
+stands are separate passive supports. Matching front and rear shells use a
+centered four-screw closure; there is no separate underside battery hatch.
 
-The clean opening exposes the board's native USB-C port. The factory glass is
-exposed, with its wider black chin to the right. A carrier attaches to the board's
-factory posts; keyed saddles mount the pod at an 18° backward desk tilt. The rear
-service cover and underside hatch are removable. Optional ears, antennas and
-eyes use the top sockets. Follow the current package's hardware quantities and
-assembly sequence; earlier extension-port/liner instructions do not apply to
-this fitted body.
+## Current files
 
-## Editable source and downloads
+The curated snapshot includes 23 print STLs, editable STEP/BREP and an original
+parts assembly. A self-contained viewer shows the selected geometry, synthetic
+screen content and generic measured hardware envelopes. Manufacturer PCB CAD
+and live system data are excluded.
 
-The package includes original analytic STEP/BREP parts, an own-parts STEP
-assembly, 34 regenerated watertight meshes, five actual-CAD renders, a portable
-mesh exporter, notices and SHA256SUMS. STEP/BREP support direct CAD editing;
-they do not contain the original parametric construction history. Individual
-STLs retain recorded source frames and are **not a released print recipe**.
+Portable OrcaSlicer layouts contain current parts and authored process settings.
+Printer connections, vendor presets, macros, calibration data and G-code are
+excluded. Select the intended printer and filament and slice again before
+printing. Package notes distinguish retained layout geometry from newly
+exported or unreviewed poses.
 
-The original CAD and geometry meshes use CERN-OHL-P-2.0. Generic exporter tools,
-documentation and renders use MIT. Preserve the adjacent per-asset notices and
-full license texts. Manufacturer board geometry, private fit references, printer
-profiles, G-code, Orca projects, dispatch records and live telemetry are excluded.
+The current front uses its matching internal USB-C tunnel. The display carrier
+is two rails; BAT_PWR uses a single button with integral springs and inside-wall
+glue tabs. The landscape cradle has a continuous exterior front and a hidden
+upward-open button well. Accessories include thicker ears, TV antennas, eyes
+and four curved plugs with fuller keyed stems and shallow grip ribs.
 
-The old `enclosure/pebble-landscape/` r19 parametric design remains historical
-source. It is not the current fitted geometry. Use the v2 prototype package for
-the current direct-edit source, fit notes and generated meshes.
+## Source and validation
 
-## Validation boundary
+STEP/BREP provide analytic direct-edit source, not parametric feature history.
+The snapshot preserves selected geometry and documented coordinate frames.
+Nominal CAD and original toolpath checks are limited evidence: complete printed
+assembly, surface quality, support removal, grip, spring life and battery
+compatibility need physical checks. A portrait stand does not establish
+firmware portrait support.
 
-CAD checks and mesh regeneration passed within the package's recorded scope.
-The full assembly is physically unverified. The earlier upright body print
-failed; the r26 45° trial was unverified when this snapshot was prepared. The
-continuous cradle is unsliced and unprinted. A body print does not prove complete
-fit, service access, switch travel/return, insert strength, saddle rigidity or
-bed adhesion. Re-slicing needs new support and passage-clearance review; local
-postprocessed trial toolpaths are not encoded in the STLs.
+The measured battery envelope is 60.5 × 50.2 × 7.4 mm; each speaker envelope is
+30 × 20 × 4.7 mm. Mechanical space does not establish connector polarity, pack
+interchangeability or a suitable charging configuration. Qualify battery
+operation against the actual board and cell documentation.
 
-Renders show smooth nominal CAD with a synthetic dashboard, not a product photo,
-a guaranteed print finish or the latest installed firmware. The exploded view
-separates parts for visibility; it does not define their installation paths.
+Original geometry uses CERN-OHL-P-2.0. Original viewer code, documentation,
+metadata and generic tools use MIT; third-party code retains its notices.
+Keep the full texts and adjacent asset notices with redistributed files.
+See the package README, LICENSE, manifest and SHA256SUMS.
 
-## Battery boundary
-
-This remains a **USB-powered prototype**. Reserved battery space and a BAT_PWR
-mechanical input do not qualify a battery product. The firmware's approximate
-voltage indicator is not a fuel gauge or charging-state detector. Electrical
-compatibility, connector polarity, actual pack envelope and assembly require
-separate verification; follow the selected board and cell documentation.
+The earlier [Pebble r26 snapshot](../enclosure/public/pebble-r26-prototype-v2/README.md)
+remains historical work with its original validation limits. Its separate hatch
+and saddle assembly are not the current construction.

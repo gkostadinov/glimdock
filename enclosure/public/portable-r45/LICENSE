@@ -1,0 +1,14 @@
+Copyright (c) 2026 Glimdock contributors.
+
+Original enclosure geometry in cad/, stl/ and assembly/ uses the CERN Open
+Hardware Licence Version 2 - Permissive (SPDX: CERN-OHL-P-2.0), reproduced in
+LICENSES/CERN-OHL-P-2.0.txt. Geometry contained in print-projects/ retains that
+license. Editable STEP/BREP is the direct-edit source for these parts.
+
+Original documentation, metadata, authored process settings, generic tools and
+viewer application code use MIT, reproduced in LICENSES/MIT.txt. This does not
+replace the geometry license. The viewer's third-party library retains its own
+MIT notice. Keep all applicable notices when redistributing files.
+
+Manufacturer PCB CAD, vendor printer profiles, G-code, live telemetry, printer
+connection details and private development records are not part of this release.

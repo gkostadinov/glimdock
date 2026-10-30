@@ -16,3 +16,9 @@
 *.pdf -text
 *.stl -text
 *.3mf -text
+
+# Analytic CAD exports retain exporter bytes and are reviewed as CAD, not prose.
+enclosure/public/portable-r45/cad/*.step -text -diff
+enclosure/public/portable-r45/cad/*.brep -text -diff
+# Keep the licensed upstream viewer library unchanged, including its formatting.
+enclosure/public/portable-r45/viewer/vendor/** -whitespace
