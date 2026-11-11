@@ -1,7 +1,10 @@
 //! Glimdock's native Rust monitoring runtime. No Python collection engine.
 pub mod config;
+pub mod cpulist;
+pub mod energy;
 pub mod faults;
 pub mod gpus;
+pub mod guest_config;
 pub mod guest_feeds;
 pub mod guests;
 pub mod hub;

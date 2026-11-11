@@ -1,6 +1,8 @@
 //! Native local collector: independent single-flight, expiring source caches.
 use crate::{
     config::Config,
+    energy::{EnergyMeter, Input as EnergyInput},
+    guest_config::{GuestConfigReader, Roster},
     guests::{GuestEpoch, GuestReader, GPU_METRICS},
     procfs::ProcReader,
     proxmox::ProxmoxReader,
@@ -312,6 +314,8 @@ impl Source {
 }
 pub struct LocalCollector {
     proc: ProcReader,
+    energy: EnergyMeter,
+    guest_roster: Roster,
     sources: BTreeMap<String, Source>,
     guest_epochs: BTreeMap<u64, GuestEpoch>,
     guest_states: BTreeMap<u64, (String, Option<f64>, Option<f64>)>,
@@ -441,6 +445,34 @@ impl LocalCollector {
                 !proxmox,
             ),
         );
+        // Guest CPU configuration is its own source: a slow `pvesh` config read
+        // never delays the guest inventory, and each guest is read at most once
+        // a minute. It exists only where the Proxmox source does.
+        let guest_roster = Roster::default();
+        if proxmox {
+            let reader = Arc::new(Mutex::new(GuestConfigReader::new(
+                if c.node.is_empty() {
+                    crate::procfs::hostname()
+                } else {
+                    c.node.clone()
+                },
+                guest_roster.clone(),
+            )));
+            sources.insert(
+                "guest_configs".into(),
+                Source::new(
+                    Arc::new(move || {
+                        reader
+                            .lock()
+                            .map_err(|_| anyhow::anyhow!("Guest configuration state unavailable"))?
+                            .read()
+                    }),
+                    c.proxmox_interval_s,
+                    (3. * c.proxmox_interval_s).max(30.),
+                    true,
+                ),
+            );
+        }
         let mut guest_epochs = BTreeMap::new();
         for id in c.qga_guest_ids.iter().filter(|_| proxmox) {
             let epoch = GuestEpoch::default();
@@ -463,6 +495,8 @@ impl LocalCollector {
         }
         Self {
             proc: ProcReader::default(),
+            energy: EnergyMeter::open(c.state_dir.as_deref(), "/sys", wall()),
+            guest_roster,
             sources,
             guest_epochs,
             guest_states: BTreeMap::new(),
@@ -474,6 +508,11 @@ impl LocalCollector {
         for source in self.sources.values_mut() {
             source.initialize().await
         }
+    }
+    /// Continue another collector's running energy counter (a configuration
+    /// reload builds a replacement; the counter must not restart or lose time).
+    pub fn take_energy_from(&mut self, other: &mut Self) {
+        std::mem::swap(&mut self.energy, &mut other.energy);
     }
     fn observe_guests(&mut self, guests: &[Value], c: &Config, wall: f64) {
         let mut present = BTreeSet::new();
@@ -542,7 +581,8 @@ impl LocalCollector {
         let pve = self.sources["proxmox"].current(mono).cloned();
         if let Some(pve) = pve.as_ref() {
             if let Some(guests) = pve["guests"].as_array() {
-                self.observe_guests(guests, c, now)
+                self.observe_guests(guests, c, now);
+                crate::guest_config::publish_roster(&self.guest_roster, guests)
             }
         }
         for (name, source) in &self.sources {
@@ -697,6 +737,15 @@ impl LocalCollector {
             &snapshot["sources"]["proxmox"],
             now
         ));
+        if let Some(data) = self
+            .sources
+            .get("guest_configs")
+            .and_then(|s| s.current(mono))
+        {
+            if let Some(guests) = snapshot["guests"].as_array_mut() {
+                crate::guest_config::apply(guests, &data["configs"])
+            }
+        }
         if let Some(inv) = self.sources["gpus"].current(mono) {
             if let Some(gpus) = inv["gpus"].as_array() {
                 let mut gpus = crate::gpus::merge_gpus(
@@ -732,6 +781,14 @@ impl LocalCollector {
             snapshot["power"]["cpu_temp_c"] = json!(max)
         }
         snapshot["sensors"] = json!(crate::sensors::merge_power_sensors(&snapshot, c));
+        // The energy counter is a reading of its own: present only on a host
+        // that has an energy source, so other snapshots keep their exact shape.
+        self.energy
+            .observe(&EnergyInput::from_snapshot(&snapshot), now, mono);
+        if let Some(energy) = self.energy.snapshot() {
+            snapshot["energy"] = energy;
+            snapshot["sources"]["energy"] = self.energy.status(now);
+        }
         let disks = snapshot["disks"].as_array_mut().unwrap();
         for disk in disks.iter_mut() {
             if let Some((read, write)) = disk["name"]
@@ -1373,5 +1430,223 @@ mod assembly_tests {
             .as_str()
             .unwrap()
             .starts_with("NAS/"));
+    }
+}
+
+#[cfg(test)]
+mod thread_energy_tests {
+    use super::*;
+    use crate::guest_config::Kind;
+    use std::{fs, path::Path};
+
+    /// A fake /proc and /sys with four CPU rows and nothing else of interest.
+    fn fake_host(root: &Path) {
+        let proc = root.join("proc");
+        fs::create_dir_all(proc.join("net")).unwrap();
+        fs::create_dir_all(root.join("sys/block")).unwrap();
+        let rows = (0..4)
+            .map(|n| format!("cpu{n} 100 0 20 80 10 0 0 0\n"))
+            .collect::<String>();
+        for (file, content) in [
+            ("stat", format!("cpu 400 0 80 320 40 0 0 0\n{rows}")),
+            ("meminfo", "MemTotal: 100 kB\nMemAvailable: 50 kB\n".into()),
+            ("uptime", "100 0\n".into()),
+            ("loadavg", "0.1 0.2 0.3 1/10 100\n".into()),
+            ("diskstats", String::new()),
+            (
+                "net/dev",
+                "eth0: 100 0 0 0 0 0 0 0 100 0 0 0 0 0 0 0\n".into(),
+            ),
+            (
+                "net/route",
+                "Iface Destination Gateway Flags\neth0 00000000 00000000 0003\n".into(),
+            ),
+        ] {
+            fs::write(proc.join(file), content).unwrap();
+        }
+    }
+    fn write(path: &Path, content: &str) {
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, content).unwrap();
+    }
+    /// A collector that reads only the fake host and runs no external probe.
+    fn collector(c: &Config, root: &Path) -> LocalCollector {
+        let mut collector = LocalCollector::new(c);
+        collector.proc = ProcReader::new(root.join("proc"), root.join("sys"));
+        collector.energy = EnergyMeter::open(None, root.join("sys"), wall());
+        for source in collector.sources.values_mut() {
+            source.next_run = f64::INFINITY;
+        }
+        collector
+    }
+    fn quiet(local_type: &str) -> Config {
+        Config {
+            local_type: local_type.into(),
+            node: "pve".into(),
+            enable_gpus: false,
+            enable_faults: false,
+            enable_turbostat: false,
+            ..Config::default()
+        }
+    }
+
+    #[tokio::test]
+    async fn host_without_thread_or_energy_sources_keeps_its_snapshot_shape() {
+        let root = tempfile::tempdir().unwrap();
+        fake_host(root.path());
+        let c = quiet("server");
+        let snapshot = collector(&c, root.path()).collect(&c, 1).await;
+        assert!(snapshot.get("energy").is_none());
+        assert!(snapshot["host"].get("cpu_core_kinds").is_none());
+        for name in ["energy", "guest_configs"] {
+            assert!(snapshot["sources"].get(name).is_none(), "{name}");
+        }
+        let keys = snapshot
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        assert_eq!(
+            keys,
+            BTreeSet::from([
+                "schema",
+                "sequence",
+                "generated_at",
+                "host",
+                "power",
+                "guests",
+                "storage",
+                "disks",
+                "sensors",
+                "gpus",
+                "alerts",
+                "sources",
+                "faults",
+                "limits",
+                "platform"
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn proxmox_snapshot_gains_thread_kinds_guest_pinning_and_energy() {
+        let root = tempfile::tempdir().unwrap();
+        fake_host(root.path());
+        let sys = root.path().join("sys");
+        write(&sys.join("devices/cpu_core/cpus"), "0-1\n");
+        write(&sys.join("devices/cpu_atom/cpus"), "2-3\n");
+        let zone = sys.join("class/powercap/intel-rapl:0");
+        write(&zone.join("name"), "package-0\n");
+        write(&zone.join("energy_uj"), "5000000\n");
+        write(&zone.join("max_energy_range_uj"), "262143328850\n");
+        let c = quiet("proxmox");
+        let mut collector = collector(&c, root.path());
+        let (now, mono) = (wall(), monotonic());
+        let guests = json!([
+            {"id":100,"name":"pinned","type":"vm","status":"running","mem_used_bytes":5,"mem_total_bytes":10},
+            {"id":101,"name":"free","type":"vm","status":"running","mem_used_bytes":5,"mem_total_bytes":10},
+            {"id":102,"name":"box","type":"lxc","status":"running","mem_used_bytes":5,"mem_total_bytes":10},
+            {"id":103,"name":"unread","type":"vm","status":"stopped","mem_used_bytes":null,"mem_total_bytes":10}
+        ]);
+        let configs = json!({"configs":{
+            "100":{"cpu_affinity":[2,3],"cpu_count":2},
+            "101":{"cpu_affinity":null,"cpu_count":4},
+            "102":{"cpu_affinity":null}
+        },"error":null});
+        for (name, data) in [
+            (
+                "proxmox",
+                json!({"guests":guests,"storage":[],"node_error":null,"io_wait_pct":null}),
+            ),
+            ("guest_configs", configs),
+        ] {
+            collector
+                .sources
+                .get_mut(name)
+                .unwrap()
+                .commit((0, Ok(data)), mono, now);
+        }
+        let snapshot = collector.collect(&c, 1).await;
+        assert_eq!(
+            snapshot["host"]["cpu_core_kinds"],
+            json!(["performance", "performance", "efficiency", "efficiency"])
+        );
+        let g = &snapshot["guests"];
+        assert_eq!(g[0]["cpu_affinity"], json!([2, 3]));
+        assert_eq!(g[0]["cpu_count"], 2);
+        assert!(g[1]["cpu_affinity"].is_null());
+        assert!(g[1].as_object().unwrap().contains_key("cpu_affinity"));
+        assert_eq!(g[1]["cpu_count"], 4);
+        assert!(g[2]["cpu_affinity"].is_null());
+        assert!(g[2].get("cpu_count").is_none());
+        assert!(
+            g[3].get("cpu_affinity").is_none(),
+            "a guest whose configuration was not read stays unknown"
+        );
+        assert_eq!(g[0]["mem_total_bytes"], 10, "existing fields are untouched");
+        assert_eq!(
+            *collector.guest_roster.lock().unwrap(),
+            [
+                (100, Kind::Qemu),
+                (101, Kind::Qemu),
+                (102, Kind::Lxc),
+                (103, Kind::Qemu)
+            ],
+            "the configuration source is told which guests exist"
+        );
+        let energy = &snapshot["energy"];
+        assert_eq!(energy["scope"], "components");
+        assert_eq!(energy["persistent"], false);
+        assert_eq!(energy["domains"][0]["id"], "cpu-package");
+        assert_eq!(energy["domains"][0]["source"], "rapl");
+        assert!(energy["since"].as_u64().unwrap() > 0);
+        assert_eq!(snapshot["sources"]["energy"]["ok"], true);
+        assert_eq!(snapshot["sources"]["guest_configs"]["ok"], true);
+        assert!(serde_json::to_vec(&snapshot).unwrap().len() <= crate::MAX_PAYLOAD);
+    }
+
+    #[tokio::test]
+    async fn a_failed_guest_configuration_read_never_blocks_the_snapshot() {
+        let root = tempfile::tempdir().unwrap();
+        fake_host(root.path());
+        let c = quiet("proxmox");
+        let mut collector = collector(&c, root.path());
+        let (now, mono) = (wall(), monotonic());
+        collector.sources.get_mut("proxmox").unwrap().commit(
+            (
+                0,
+                Ok(json!({"guests":[{"id":100,"name":"a","type":"vm","status":"running"}],"storage":[],"node_error":null,"io_wait_pct":null})),
+            ),
+            mono,
+            now,
+        );
+        collector.sources.get_mut("guest_configs").unwrap().commit(
+            (0, Err(anyhow::anyhow!("pvesh timed out"))),
+            mono,
+            now,
+        );
+        let snapshot = collector.collect(&c, 1).await;
+        assert_eq!(snapshot["guests"][0]["name"], "a");
+        assert!(snapshot["guests"][0].get("cpu_affinity").is_none());
+        assert_eq!(snapshot["sources"]["proxmox"]["ok"], true);
+        assert_eq!(snapshot["sources"]["guest_configs"]["ok"], false);
+    }
+
+    #[test]
+    fn a_replacement_collector_continues_the_running_energy_counter() {
+        let root = tempfile::tempdir().unwrap();
+        let zone = root.path().join("class/powercap/intel-rapl:0");
+        write(&zone.join("name"), "package-0\n");
+        write(&zone.join("energy_uj"), "1000\n");
+        let c = Config::default();
+        let mut old = LocalCollector::new(&c);
+        old.energy = EnergyMeter::open(None, root.path(), 1000.);
+        old.energy.observe(&EnergyInput::default(), 1000., 1.);
+        let mut new = LocalCollector::new(&c);
+        new.energy = EnergyMeter::open(None, root.path(), 9999.);
+        new.take_energy_from(&mut old);
+        assert_eq!(new.energy.snapshot().unwrap()["since"], 1000);
+        assert!(old.energy.snapshot().is_none());
     }
 }

@@ -206,6 +206,10 @@ pub struct Config {
     pub agent_operations: Option<crate::operations::OperationsConfig>,
     #[serde(skip)]
     pub source_path: Option<PathBuf>,
+    /// Where the collector keeps state that must survive restarts (the energy
+    /// counter). Given on the command line, never read from the config file.
+    #[serde(skip)]
+    pub state_dir: Option<PathBuf>,
     pub expected_running_guests: Vec<u64>,
     pub qga_guest_ids: Vec<u64>,
     pub guest_memory_sources: Vec<crate::guest_feeds::GuestMemorySource>,
@@ -259,6 +263,7 @@ impl Default for Config {
             push_agents: vec![],
             agent_operations: None,
             source_path: None,
+            state_dir: None,
             expected_running_guests: vec![],
             qga_guest_ids: vec![],
             guest_memory_sources: vec![],

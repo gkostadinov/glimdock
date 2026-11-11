@@ -261,7 +261,9 @@ impl Hub {
             http,
             ready: details,
         } = self;
-        let config = Config::read(&state.config)?;
+        let mut config = Config::read(&state.config)?;
+        // The energy counter lives beside the hub's other private state.
+        config.state_dir = Some(state.directory.clone());
         let (stop, workers_stop) = watch::channel(false);
         let mut workers = JoinSet::new();
         workers.spawn(configuration.run(workers_stop.clone()));

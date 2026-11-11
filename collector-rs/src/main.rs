@@ -42,6 +42,10 @@ enum Commands {
         output: PathBuf,
         #[arg(long)]
         snapshot_group: Option<String>,
+        /// Private directory where the energy counter is kept across restarts.
+        /// Without it the counter lives in memory and starts when the collector does.
+        #[arg(long)]
+        state_dir: Option<PathBuf>,
         #[arg(long)]
         once: bool,
         /// Reload validated node edits without a service manager (useful on macOS).
@@ -56,6 +60,9 @@ enum Commands {
         output: PathBuf,
         #[arg(long)]
         snapshot_group: Option<String>,
+        /// Private directory where the energy counter is kept across restarts.
+        #[arg(long)]
+        state_dir: Option<PathBuf>,
     },
     /// Serve snapshots as the unprivileged reader (display and setup roles differ).
     Serve {
@@ -111,6 +118,12 @@ fn main() {
         std::process::exit(1);
     }
 }
+/// An absolute state directory, so a later change of working directory cannot
+/// move the saved counter.
+fn with_state_dir(mut config: Config, state_dir: Option<PathBuf>) -> Result<Config> {
+    config.state_dir = state_dir.map(|d| std::path::absolute(&d)).transpose()?;
+    Ok(config)
+}
 async fn run() -> Result<()> {
     match Cli::parse().command {
         Commands::Run {
@@ -140,11 +153,12 @@ async fn run() -> Result<()> {
             config,
             output,
             snapshot_group,
+            state_dir,
             once,
             watch_config,
         } => {
             runtime::run(
-                Config::read(&config)?,
+                with_state_dir(Config::read(&config)?, state_dir)?,
                 &output,
                 once,
                 snapshot_group.as_deref(),
@@ -156,9 +170,10 @@ async fn run() -> Result<()> {
             config,
             output,
             snapshot_group,
+            state_dir,
         } => {
             runtime::run(
-                Config::read(&config)?,
+                with_state_dir(Config::read(&config)?, state_dir)?,
                 &output,
                 true,
                 snapshot_group.as_deref(),

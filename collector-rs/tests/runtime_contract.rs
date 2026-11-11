@@ -355,6 +355,41 @@ fn nested_inventory_bounds_derive_only_unsigned_known_omission_metadata() {
     assert!(serde_json::to_vec(&bounded).unwrap().len() <= MAX_PAYLOAD);
 }
 #[test]
+fn thread_kinds_and_energy_are_bounded_and_never_appear_unasked() {
+    let plain = runtime::bounded_snapshot(local(1000.));
+    assert!(plain.get("energy").is_none(), "no null placeholder either");
+    assert!(plain["host"].get("cpu_core_kinds").is_none());
+    assert_eq!(runtime::bounded_snapshot(plain.clone()), plain);
+
+    let mut sample = local(1000.);
+    sample["host"]["cpu_cores"] = json!((0..70).collect::<Vec<_>>());
+    sample["host"]["cpu_core_kinds"] = json!((0..70)
+        .map(|i| if i < 8 { "performance" } else { "efficiency" })
+        .collect::<Vec<_>>());
+    sample["energy"] = json!({"since":1,"updated_at":2,"total_kwh":1.0,"scope":"components",
+        "domains":(0..12).map(|i| json!({"id":format!("gpu-{i}"),"kwh":0.1})).collect::<Vec<_>>()});
+    let bounded = runtime::bounded_snapshot(sample);
+    let rows = bounded["host"]["cpu_cores"].as_array().unwrap().len();
+    assert_eq!(rows, 64);
+    assert_eq!(
+        bounded["host"]["cpu_core_kinds"].as_array().unwrap().len(),
+        rows,
+        "kinds keep one entry per kept CPU row"
+    );
+    assert_eq!(bounded["energy"]["domains"].as_array().unwrap().len(), 8);
+    assert_eq!(runtime::bounded_snapshot(bounded.clone()), bounded);
+    assert!(serde_json::to_vec(&bounded).unwrap().len() <= MAX_PAYLOAD);
+
+    let mut malformed = local(1000.);
+    malformed["energy"] = json!("not an object");
+    assert!(runtime::bounded_snapshot(malformed).get("energy").is_none());
+}
+#[test]
+fn state_directory_is_a_command_line_choice_never_a_config_key() {
+    assert!(Config::from_value(json!({"state_dir":"/var/lib/homelab-monitor"})).is_err());
+    assert!(Config::default().state_dir.is_none());
+}
+#[test]
 fn oversized_base_cannot_exceed_wire_cap() {
     let mut sample = local(1000.);
     sample["power"]["malformed"] = json!("x".repeat(MAX_PAYLOAD * 2));
@@ -488,6 +523,30 @@ fn remote_registry_and_unknown_top_level_extensions_are_dropped() {
     let result = reader.validate(upstream, 1000.).unwrap();
     assert!(result["snapshot"].get("nodes").is_none());
     assert!(result["snapshot"].get("private_extension").is_none());
+}
+
+#[test]
+fn remote_feed_carries_thread_kinds_guest_pinning_and_energy_but_not_a_malformed_energy() {
+    let energy = json!({"since":1,"updated_at":2,"total_kwh":0.5,"scope":"components",
+        "domains":[{"id":"cpu-package","label":"CPU package","kwh":0.5,"source":"rapl","watts":40.0}]});
+    let mut upstream = local(1000.);
+    upstream["host"]["cpu_core_kinds"] = json!(["performance", null]);
+    upstream["guests"] = json!([{"id":100,"cpu_affinity":[0,1],"cpu_count":2}]);
+    upstream["energy"] = energy.clone();
+    let mut reader = RemoteCollectorReader::new(source()).unwrap();
+    let result = reader.validate(upstream.clone(), 1000.).unwrap();
+    assert_eq!(result["snapshot"]["energy"], energy);
+    assert_eq!(
+        result["snapshot"]["host"]["cpu_core_kinds"],
+        json!(["performance", null])
+    );
+    assert_eq!(
+        result["snapshot"]["guests"][0]["cpu_affinity"],
+        json!([0, 1])
+    );
+    upstream["energy"] = json!([1, 2]);
+    let mut reader = RemoteCollectorReader::new(source()).unwrap();
+    assert!(reader.validate(upstream, 1000.).is_err());
 }
 
 fn store(nodes: Vec<Value>, now: f64) -> (tempfile::TempDir, SnapshotStore) {

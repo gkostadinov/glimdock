@@ -1,12 +1,14 @@
 //! Linux counters. First samples and counter resets are unknown, never boot totals.
 use crate::{
     config::Config,
+    cpulist::parse_cpu_list,
     probes::{num, round, text},
 };
 use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
     fs,
+    io::Read,
     path::{Path, PathBuf},
 };
 
@@ -154,6 +156,48 @@ pub fn arc_size(input: &str) -> Option<f64> {
         }
     })
 }
+/// Kernel hybrid-CPU lists: the performance and efficiency core PMUs.
+const PERFORMANCE_CPUS: &str = "devices/cpu_core/cpus";
+const EFFICIENCY_CPUS: &str = "devices/cpu_atom/cpus";
+/// A CPU list file from sysfs; unreadable, oversized or malformed is unknown.
+pub fn read_cpu_list(path: &Path) -> Option<Vec<u32>> {
+    let mut raw = String::new();
+    fs::File::open(path)
+        .ok()?
+        .take(4096)
+        .read_to_string(&mut raw)
+        .ok()?;
+    parse_cpu_list(&raw).ok()
+}
+/// One kind per CPU row, by the row's logical CPU number. `None` when the
+/// kernel publishes no usable hybrid list, so a host that is not hybrid has no
+/// field at all. A CPU that is in neither list is unknown (`null`); kinds are
+/// never inferred from the model name.
+pub fn core_kinds(
+    numbers: &[u32],
+    performance: Option<&[u32]>,
+    efficiency: Option<&[u32]>,
+) -> Option<Vec<Option<&'static str>>> {
+    if performance.is_none() && efficiency.is_none() {
+        return None;
+    }
+    let listed =
+        |list: Option<&[u32]>, cpu: u32| list.is_some_and(|l| l.binary_search(&cpu).is_ok());
+    Some(
+        numbers
+            .iter()
+            .map(|cpu| {
+                if listed(performance, *cpu) {
+                    Some("performance")
+                } else if listed(efficiency, *cpu) {
+                    Some("efficiency")
+                } else {
+                    None
+                }
+            })
+            .collect(),
+    )
+}
 pub fn hostname() -> String {
     fs::read_to_string("/proc/sys/kernel/hostname")
         .or_else(|_| fs::read_to_string("/etc/hostname"))
@@ -276,11 +320,22 @@ impl ProcReader {
                     .filter(|k| k.as_str() != "cpu")
                     .collect::<Vec<_>>();
                 cores.sort_by_key(|k| k[3..].parse::<u32>().unwrap_or(0));
+                cores.truncate(128);
                 host["cpu_cores"] = json!(cores
-                    .into_iter()
-                    .take(128)
-                    .map(|k| cpu_delta(&current[k], self.cpu.get(k)).0)
+                    .iter()
+                    .map(|k| cpu_delta(&current[*k], self.cpu.get(*k)).0)
                     .collect::<Vec<_>>());
+                let numbers = cores
+                    .iter()
+                    .map(|k| k[3..].parse::<u32>().unwrap_or(u32::MAX))
+                    .collect::<Vec<_>>();
+                let performance = read_cpu_list(&self.sys.join(PERFORMANCE_CPUS));
+                let efficiency = read_cpu_list(&self.sys.join(EFFICIENCY_CPUS));
+                if let Some(kinds) =
+                    core_kinds(&numbers, performance.as_deref(), efficiency.as_deref())
+                {
+                    host["cpu_core_kinds"] = json!(kinds);
+                }
                 self.cpu = current
             }
             Err(e) => {
@@ -435,5 +490,187 @@ mod tests {
             parse_diskstats("259 0 nvme0n1 2 0 8 0 1 0 12 0").unwrap()["nvme0n1"],
             (4096., 6144.)
         )
+    }
+}
+
+#[cfg(test)]
+mod hybrid_tests {
+    use super::*;
+
+    /// A fake /proc and /sys with the given CPU rows and optional hybrid lists.
+    fn host(cpus: &[u32], performance: Option<&str>, efficiency: Option<&str>) -> Value {
+        let dir = tempfile::tempdir().unwrap();
+        let proc = dir.path().join("proc");
+        let sys = dir.path().join("sys");
+        fs::create_dir_all(&proc).unwrap();
+        let mut stat = String::from(
+            "cpu 100 0 20 80 10 0 0 0
+",
+        );
+        for cpu in cpus {
+            stat.push_str(&format!(
+                "cpu{cpu} 100 0 20 80 10 0 0 0
+"
+            ));
+        }
+        fs::write(proc.join("stat"), stat).unwrap();
+        for (name, list) in [("cpu_core", performance), ("cpu_atom", efficiency)] {
+            if let Some(list) = list {
+                let device = sys.join("devices").join(name);
+                fs::create_dir_all(&device).unwrap();
+                fs::write(device.join("cpus"), list).unwrap();
+            }
+        }
+        fs::create_dir_all(&sys).unwrap();
+        ProcReader::new(proc, sys).read(&Config::default(), 1.)["host"].clone()
+    }
+    fn kinds(host: &Value) -> Vec<Value> {
+        host["cpu_core_kinds"].as_array().unwrap().clone()
+    }
+
+    #[test]
+    fn hybrid_lists_label_each_cpu_row_in_order() {
+        let h = host(
+            &[0, 1, 2, 3, 4, 5, 6, 7],
+            Some(
+                "0-3
+",
+            ),
+            Some(
+                "4-7
+",
+            ),
+        );
+        assert_eq!(
+            kinds(&h),
+            [
+                "performance",
+                "performance",
+                "performance",
+                "performance",
+                "efficiency",
+                "efficiency",
+                "efficiency",
+                "efficiency"
+            ]
+        );
+        assert_eq!(kinds(&h).len(), h["cpu_cores"].as_array().unwrap().len());
+    }
+
+    #[test]
+    fn mixed_lists_with_singles_and_ranges() {
+        let h = host(&[0, 1, 2, 3, 4, 5], Some("0,2-3"), Some("1,4-5"));
+        assert_eq!(
+            kinds(&h),
+            [
+                "performance",
+                "efficiency",
+                "performance",
+                "performance",
+                "efficiency",
+                "efficiency"
+            ]
+        );
+    }
+
+    #[test]
+    fn offline_cpus_do_not_shift_the_kinds_onto_the_wrong_rows() {
+        // cpu1 and cpu3 are offline, so /proc/stat has no rows for them.
+        let h = host(&[0, 2, 4, 5], Some("0-3"), Some("4-7"));
+        assert_eq!(
+            kinds(&h),
+            ["performance", "performance", "efficiency", "efficiency"]
+        );
+        assert_eq!(h["cpu_cores"].as_array().unwrap().len(), 4);
+    }
+
+    #[test]
+    fn host_without_hybrid_lists_has_no_kinds_field() {
+        let h = host(&[0, 1, 2, 3], None, None);
+        assert!(h.get("cpu_core_kinds").is_none());
+        assert_eq!(h["cpu_cores"].as_array().unwrap().len(), 4);
+    }
+
+    #[test]
+    fn a_cpu_in_neither_list_is_unknown_not_guessed() {
+        let h = host(&[0, 1, 2, 3], Some("0-1"), Some("2"));
+        assert_eq!(
+            kinds(&h),
+            [
+                json!("performance"),
+                json!("performance"),
+                json!("efficiency"),
+                Value::Null
+            ]
+        );
+    }
+
+    #[test]
+    fn one_list_alone_labels_only_its_cpus() {
+        let h = host(&[0, 1, 2, 3], Some("0-1"), None);
+        assert_eq!(
+            kinds(&h),
+            [
+                json!("performance"),
+                json!("performance"),
+                Value::Null,
+                Value::Null
+            ]
+        );
+        let empty_atom = host(
+            &[0, 1],
+            Some("0-1"),
+            Some(
+                "
+",
+            ),
+        );
+        assert_eq!(kinds(&empty_atom), ["performance", "performance"]);
+    }
+
+    #[test]
+    fn a_malformed_list_is_unknown_and_never_partly_trusted() {
+        let h = host(&[0, 1, 2, 3], Some("0-x"), Some("2-3"));
+        assert_eq!(
+            kinds(&h),
+            [
+                Value::Null,
+                Value::Null,
+                json!("efficiency"),
+                json!("efficiency")
+            ]
+        );
+        let both = host(&[0, 1], Some("1,,2"), Some("-"));
+        assert!(both.get("cpu_core_kinds").is_none());
+    }
+
+    #[test]
+    fn core_kinds_function_follows_the_numbers_it_is_given() {
+        assert_eq!(core_kinds(&[0, 1], None, None), None);
+        assert_eq!(
+            core_kinds(&[3, 9, 10], Some(&[3, 10]), Some(&[9])),
+            Some(vec![
+                Some("performance"),
+                Some("efficiency"),
+                Some("performance")
+            ])
+        );
+        assert_eq!(core_kinds(&[], Some(&[0]), None), Some(vec![]));
+    }
+
+    #[test]
+    fn unreadable_or_oversized_list_files_are_unknown() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(read_cpu_list(&dir.path().join("missing")), None);
+        let big = dir.path().join("big");
+        fs::write(&big, "0,".repeat(4000)).unwrap();
+        assert_eq!(read_cpu_list(&big), None, "cut at the bound, so malformed");
+        let ok = dir.path().join("ok");
+        fs::write(
+            &ok, "2-3,0
+",
+        )
+        .unwrap();
+        assert_eq!(read_cpu_list(&ok), Some(vec![0, 2, 3]));
     }
 }

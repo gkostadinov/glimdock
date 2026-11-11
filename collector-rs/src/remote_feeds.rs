@@ -23,6 +23,7 @@ const FIELDS: &[&str] = &[
     "sources",
     "faults",
     "limits",
+    "energy",
 ];
 pub struct RemoteCollectorReader {
     pub config: NodeConfig,
@@ -89,7 +90,7 @@ impl RemoteCollectorReader {
         {
             bail!("Invalid remote sources");
         }
-        for field in ["power", "platform", "limits", "faults"] {
+        for field in ["power", "platform", "limits", "faults", "energy"] {
             if document.get(field).is_some_and(|v| !v.is_object()) {
                 bail!("Invalid remote object");
             }

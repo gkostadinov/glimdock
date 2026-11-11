@@ -118,6 +118,31 @@ pub fn bounded_snapshot(mut snapshot: Value) -> Value {
             snapshot["limits"][format!("max_{count_key}")] = json!(cap);
         }
     }
+    // Thread kinds are one entry per kept CPU row, so they follow its bound.
+    // Optional readings are only touched when present: indexing a missing key
+    // mutably would add a null field to a snapshot that never had it.
+    if let Some(kinds) = snapshot
+        .get_mut("host")
+        .and_then(|host| host.get_mut("cpu_core_kinds"))
+        .and_then(Value::as_array_mut)
+    {
+        kinds.truncate(64);
+    }
+    if snapshot
+        .get("energy")
+        .is_some_and(|energy| !energy.is_object())
+    {
+        if let Some(object) = snapshot.as_object_mut() {
+            object.remove("energy");
+        }
+    }
+    if let Some(domains) = snapshot
+        .get_mut("energy")
+        .and_then(|energy| energy.get_mut("domains"))
+        .and_then(Value::as_array_mut)
+    {
+        domains.truncate(crate::energy::MAX_DOMAINS);
+    }
     if let Some(names) = snapshot["limits"]
         .get_mut("network_interfaces")
         .and_then(Value::as_array_mut)
@@ -476,6 +501,15 @@ impl Collector {
         }
         Ok(aggregate)
     }
+    /// A replacement inventory continues the running energy counter instead of
+    /// reloading what was last saved, so no reading is lost across an edit.
+    fn adopt_energy(&mut self, previous: &mut Collector) {
+        if let (Some(LocalCollector::Linux(new)), Some(LocalCollector::Linux(old))) =
+            (self.local.as_mut(), previous.local.as_mut())
+        {
+            new.take_energy_from(old);
+        }
+    }
     pub async fn initialize(&mut self) {
         for source in self.printers.iter_mut().chain(self.remotes.iter_mut()) {
             source.initialized().await;
@@ -563,6 +597,7 @@ pub async fn run_controlled(
     let mut reload_hash = reload_path
         .and_then(|path| config::read_bounded(path, 64 * 1024).ok())
         .map(|bytes| config::sha256(&bytes));
+    let state_dir = config.state_dir.clone();
     let mut collector = Collector::new(config)?;
     let mut interval = tokio::time::interval(period);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -575,11 +610,14 @@ pub async fn run_controlled(
                     reload_hash = Some(hash);
                     match config::strict_json(&bytes)
                         .and_then(Config::from_value)
-                        .and_then(Collector::new)
-                    {
+                        .and_then(|mut replacement| {
+                            replacement.state_dir = state_dir.clone();
+                            Collector::new(replacement)
+                        }) {
                         Ok(mut replacement) => {
                             replacement.config.source_path = Some(path.to_path_buf());
                             replacement.sequence = collector.sequence;
+                            replacement.adopt_energy(&mut collector);
                             interval = tokio::time::interval(Duration::from_secs_f64(
                                 replacement.config.interval_s,
                             ));
