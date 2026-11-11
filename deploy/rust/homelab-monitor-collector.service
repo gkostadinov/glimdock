@@ -10,7 +10,10 @@ User=root
 Group=root
 SupplementaryGroups=homelab-monitor
 WorkingDirectory=/opt/homelab-monitor
-ExecStart=/opt/homelab-monitor/glimdock-collector collect --config /etc/homelab-monitor/config.json --output /run/homelab-monitor/snapshot.json --snapshot-group homelab-monitor
+# The cumulative energy counter survives restarts here (private to root).
+StateDirectory=homelab-monitor
+StateDirectoryMode=0700
+ExecStart=/opt/homelab-monitor/glimdock-collector collect --config /etc/homelab-monitor/config.json --output /run/homelab-monitor/snapshot.json --snapshot-group homelab-monitor --state-dir /var/lib/homelab-monitor
 # The configuration service alone owns the shared runtime directory.
 UMask=0027
 Restart=on-failure

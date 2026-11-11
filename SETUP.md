@@ -14,7 +14,7 @@ glimdock-collector run --state-dir ./glimdock-state --bind 127.0.0.1 --port 8765
 
 Open `http://127.0.0.1:8765/`. The command runs collection, node configuration and the built-in web interface together. Loopback access works without manually entering keys. It initializes missing state and retains existing configuration and tokens. Stop it with Ctrl-C; use your OS service manager to run it persistently.
 
-The state directory contains `config.json`, separate `display.token` and `setup.token` credentials, `snapshot.json`, and nonsecret `run.json` metadata. It is private to the running account; configuration and token files are mode 0600. Keys are generated from OS randomness and are not printed. The private runtime socket and process lock are managed by the command. Omit `--state-dir` to use `.glimdock`, or supply `--config /ABSOLUTE/PATH/config.json` for an existing external configuration.
+The state directory contains `config.json`, separate `display.token` and `setup.token` credentials, `snapshot.json`, and nonsecret `run.json` metadata. It is private to the running account; configuration and token files are mode 0600. Keys are generated from OS randomness and are not printed. The private runtime socket and process lock are managed by the command. The collector's cumulative energy counter (CPU package and GPU energy since the counter began) is kept there as `energy.json` and continues across restarts. Omit `--state-dir` to use `.glimdock`, or supply `--config /ABSOLUTE/PATH/config.json` for an existing external configuration.
 
 A fresh collector monitors its own native host as a Server / device node. Basic native telemetry does not require root. Linux SMART, CPU power, restricted kernel logs and Proxmox guest probes may require additional tools or permissions. Missing capabilities remain unavailable; they do not prevent ordinary server monitoring. Proxmox is an optional capability selected explicitly on a Linux Proxmox host.
 
@@ -118,6 +118,8 @@ sudo systemctl enable --now homelab-monitor-config homelab-monitor-collector hom
 ```
 
 The installer retains existing configuration and tokens. New installations bind to loopback until `HOMELAB_BIND` in `server.env` is set to the desired listening address. The private environment file contains `HOMELAB_DISPLAY_TOKEN` and `HOMELAB_SETUP_TOKEN`. The installer changes no firewall rules or probe packages. For an update, use the same installer with `--start`. `deploy/install-rust.sh` remains a compatibility wrapper.
+
+The collector unit keeps its cumulative energy counter in a private state directory, `/var/lib/homelab-monitor` (`StateDirectory=homelab-monitor`, mode 0700, owned by root), passed with `collect --state-dir /var/lib/homelab-monitor`. Without `--state-dir` the counter lives in memory and starts again with every restart. An existing installation that adds the directory to its unit needs `systemctl daemon-reload` and a collector restart. On a host with CPU RAPL counters or GPU power readings the snapshot then carries a top-level `energy` object; deleting the directory only restarts the counter.
 
 Systemd node edits apply through the private configuration socket and restart only monitoring collection. The HTTP service keeps running. After manual configuration edits, validate the file and restart `homelab-monitor-collector`. Existing `homelab-monitor-*` names and `/etc/homelab-monitor` paths are retained for upgrade compatibility.
 
