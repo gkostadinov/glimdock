@@ -134,6 +134,9 @@ does not make elevated privileges a requirement.
 | Host CPU, RAM, swap, ARC, network and block I/O | `/proc` and `/sys` | A new sample every publication |
 | Ordinary Linux host filesystem capacity | Fixed local `df -P -B1 -l` read | At least 90 seconds, or three polling intervals |
 | Proxmox guests, storage and I/O wait | Fixed `pvesh get` endpoints | At least 30 seconds, or three polling intervals |
+| Guest pinned threads and virtual CPU count | Fixed `pvesh get` of each guest's configuration | Each guest at most once a minute; the last good value is kept ten minutes |
+| Performance and efficiency CPU threads | `/sys/devices/cpu_core/cpus` and `cpu_atom/cpus` | A new sample every publication |
+| CPU package and GPU energy | RAPL `energy_uj` counters, else package watts; GPU board watts integrated | A new sample every publication; saved at most once a minute |
 | Temperatures, fans, voltage and supported current/watts | `sensors -j` | At least 20 seconds, or three polling intervals |
 | CPU package, cores and graphics-domain power | Fixed one-second `turbostat --Summary` sample | At least 20 seconds, or three polling intervals |
 | Local drive health and temperature | `smartctl` JSON; standby checks for ATA/SCSI | At least 900 seconds, or three polling intervals |
@@ -150,9 +153,99 @@ available. Linux diskstats sectors use 512 bytes even on disks with 4K sectors.
 Windows NVIDIA memory is converted from MiB into bytes.
 
 All output is bounded to the display contract: 48 guests, 64 sensors, 16 storage
-items, 16 disks, 8 GPUs, 24 alerts and 16 fault events, within a 48 KiB node
-snapshot. Omitted items remain visible through limits/counts. NaN, infinity,
+items, 16 disks, 8 GPUs, 8 energy domains, 24 alerts and 16 fault events, within a
+48 KiB node snapshot. Omitted items remain visible through limits/counts. NaN, infinity,
 invalid ranges and boolean values cannot become numeric telemetry.
+
+## CPU thread kinds, pinned guests and energy
+
+These three readings are additive to schema 1. A host that cannot supply one
+lacks the field; nothing that already existed changes shape or meaning, and a
+value that cannot be read is absent or `null`, never zero.
+
+**`host.cpu_core_kinds`** exists on a native Linux host whose kernel publishes
+hybrid CPU lists, `/sys/devices/cpu_core/cpus` and `/sys/devices/cpu_atom/cpus`.
+It is an array parallel to `host.cpu_cores`: one entry per CPU row, in the same
+order, each `"performance"`, `"efficiency"` or `null` (the CPU is in neither
+list, or a list was unreadable). The lists are kernel CPU lists such as `0-15`
+or `20-23,28-31`; a malformed list is unknown, never partly used. Kinds are
+never inferred from a model name, and the field is absent on machines that are
+not hybrid, on macOS and Windows, and when neither list is usable. Rows follow
+`/proc/stat`, so when CPUs are offline a row's index is not its CPU number; its
+kind still belongs to its row.
+
+**`guests[].cpu_affinity` and `guests[].cpu_count`** are added to each Proxmox
+guest. `cpu_affinity` is the sorted list of host logical CPU numbers from the
+guest configuration's `affinity` option (for example `4-15`), `null` when the
+guest is not pinned (it may run on any thread; LXC has no such option), and
+absent when the configuration could not be read, the option is malformed or it
+names more than 256 threads. `cpu_count` is the number of virtual CPUs: `vcpus`
+when set, else `cores` times `sockets` (QEMU, each defaulting to one), or `cores`
+for LXC when set. Existing memory fields are unchanged.
+
+The configuration comes from the same fixed read-only request style as the rest
+of Proxmox: `pvesh get /nodes/NODE/qemu/ID/config --output-format json` (or
+`lxc`), no shell, a five second timeout and a 128 KiB response bound. A separate
+source (`sources.guest_configs`) reads each guest at most once a minute and at
+most four guests per poll, so a slow `pvesh` cannot delay the guest inventory or
+other nodes. Only the CPU fields are kept. A guest whose read fails keeps its last
+good value for ten minutes and then loses the fields. Values are as Proxmox
+reports them, including pending changes. Pinning applies to QEMU guests; the
+collector never changes a configuration.
+
+**`energy`** is a cumulative counter for the CPU package and GPU boards, saved
+across restarts:
+
+```json
+"energy": {
+  "since": 1794380000,
+  "updated_at": 1794381234,
+  "total_kwh": 12.3456,
+  "domains": [
+    {"id": "cpu-package", "label": "CPU package", "kwh": 11.9, "source": "rapl", "watts": 48.2},
+    {"id": "gpu-0", "label": "GPU 0", "kwh": 0.4456, "source": "power", "watts": 3.1,
+     "device": "pci:0000:01:00.0"}
+  ],
+  "scope": "components",
+  "persistent": true
+}
+```
+
+`scope: "components"` means CPU and GPU only, not the machine at the wall;
+`"wall"` is reserved for a future wall meter. `since` is when the counter began
+and survives restarts and reboots; `updated_at` is the last update, both Unix
+seconds. `total_kwh` is the sum of the domains, which never go down. `watts` is a
+domain's latest power, `null` when unknown. `persistent` is `false` when no state
+directory is configured. At most eight domains are reported.
+
+- `cpu-package` sums the RAPL package counters (`/sys/class/powercap/intel-rapl:N`
+  zones named `package-*`; sub-zones and the whole-platform `psys` zone are not
+  packages). They are cumulative hardware counters, so no energy is lost between
+  reads. A counter that goes down wraps at its `max_energy_range_uj`; a step that
+  is implausible for the elapsed time (above 2 kW per package) is a reset and is
+  skipped. When RAPL cannot be read, the existing turbostat package watts are
+  integrated instead and the domain's `source` is `"power"`. Reading RAPL
+  normally needs root.
+- `gpu-N` integrates each GPU's `power_w` with the trapezoid rule between its
+  consecutive source readings. A silence longer than five minutes is not bridged.
+  `N` is assigned once per card (kept with its `device`, the GPU's `id`) and never
+  changes, even if the inventory order does. A GPU's power covers the board; an
+  integrated GPU's power is already part of the CPU package, so a source that
+  reports both counts that share twice.
+- The first reading only sets a baseline. Energy used while the collector is not
+  running is counted for the CPU package after a restart (the hardware counter
+  kept counting) but not for GPUs, whose power is not measured meanwhile.
+
+`collect` and `once` take `--state-dir DIR`; `run` uses its own state directory.
+The counter is saved as `energy.json` in that directory with a temporary file
+and rename, at most once a minute and when the collector stops, and read at
+start. Without a state directory the counter is kept in memory and starts when
+the collector does. A state file that cannot be read or fails validation is kept
+as `energy.json.corrupt` and a new counter starts; it is never guessed at. A
+directory that cannot be written is reported in `sources.energy`, and the
+counter keeps running. A configuration reload keeps the running counter. The
+file is small (under a kilobyte) and holds no snapshot, name or address. The save
+is a small synchronous write, so keep the directory on local storage.
 
 ## QEMU guest agent
 

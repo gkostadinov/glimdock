@@ -39,6 +39,11 @@ An OS/platform identifies the readings and labels available on a server node;
 it does not imply a special display firmware. Proxmox supplies extra guest,
 storage and GPU information. Klipper supplies a job and heater model.
 
+On Linux the collector can also keep one small private file in a state directory it is
+given: the cumulative CPU package and GPU energy counter, so the total continues across
+restarts. Without a state directory that counter lives in memory. It is not a telemetry
+backlog, and no other measurement is stored.
+
 Device agents normalize native OS readings, SNMP OIDs or selected API fields
 into schema-1 snapshots. Windows runs the device agent; the central collector's
 private configuration service requires Unix. Agent enrollment is explicit through a one-time key. The collector assigns a
