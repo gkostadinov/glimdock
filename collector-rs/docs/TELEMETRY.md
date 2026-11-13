@@ -152,6 +152,17 @@ counter deltas: the first reading and resets stay unknown until a baseline is
 available. Linux diskstats sectors use 512 bytes even on disks with 4K sectors.
 Windows NVIDIA memory is converted from MiB into bytes.
 
+GPU ownership follows the bound host kernel driver. A saved Proxmox `hostpci`
+assignment is used while the device is bound to VFIO/PCI stub or is unbound;
+a native host driver makes the GPU host-owned even when that assignment remains
+in a stopped VM's config. This lets a host reclaim a passthrough card for a Linux
+AI container and keep reporting power, utilization, VRAM, temperature, clocks
+and fan speed. Native NVIDIA collection runs a bounded `nvidia-smi` query only
+while the `nvidia` driver owns the card. Each query exits after sampling, without
+a persistent NVML connection. Returning the card to VFIO resumes the configured
+guest's telemetry path, where stopped or stale guests still yield unavailable
+metrics rather than old readings.
+
 All output is bounded to the display contract: 48 guests, 64 sensors, 16 storage
 items, 16 disks, 8 GPUs, 8 energy domains, 24 alerts and 16 fault events, within a
 48 KiB node snapshot. Omitted items remain visible through limits/counts. NaN, infinity,

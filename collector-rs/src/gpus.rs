@@ -83,6 +83,18 @@ pub fn ownership(root: &Path) -> BTreeMap<String, String> {
     }
     owners
 }
+fn effective_owner<'a>(configured_owner: Option<&'a str>, driver: &str) -> &'a str {
+    // A saved hostpci assignment survives when the host reclaims a GPU. Only
+    // passthrough/unbound devices should still resolve through that assignment.
+    if matches!(driver, "" | "vfio-pci" | "vfio_pci" | "pci-stub") {
+        configured_owner.unwrap_or("host")
+    } else {
+        "host"
+    }
+}
+fn host_nvidia(gpu: &Value) -> bool {
+    gpu["owner"] == "host" && gpu["vendor"] == "NVIDIA" && gpu["driver"] == "nvidia"
+}
 fn file_number(path: impl AsRef<Path>, scale: f64) -> Option<f64> {
     fs::read_to_string(path)
         .ok()
@@ -148,7 +160,7 @@ pub fn read_gpus() -> anyhow::Result<Value> {
             .ok()
             .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
             .unwrap_or_default();
-        let owner = owners.get(&slot).map(String::as_str).unwrap_or("host");
+        let owner = effective_owner(owners.get(&slot).map(String::as_str), &driver);
         let mut gpu = json!({"id":format!("pci:{slot}"),"name":text(name,96),"vendor":vendor_name,"kind":gpu_kind(vendor,name,device),"owner":owner,"driver":text(&driver,48),"status":"inventory","updated_at":now,"age_s":0,"error":null,"_vendor_id":vendor,"_device_id":device,"utilization_kind":"gpu"});
         for k in GPU_METRICS {
             gpu[k] = Value::Null
@@ -192,10 +204,7 @@ pub fn read_gpus() -> anyhow::Result<Value> {
         validate_gpu_metrics(&mut gpu);
         result.push(gpu)
     }
-    if result
-        .iter()
-        .any(|g| g["owner"] == "host" && g["vendor"] == "NVIDIA")
-    {
+    if result.iter().any(host_nvidia) {
         let query = format!("--query-gpu={NVIDIA_FIELDS}");
         match command(
             "nvidia-smi",
@@ -210,7 +219,7 @@ pub fn read_gpus() -> anyhow::Result<Value> {
                         .and_then(pci_id)
                         .map(|v| format!("pci:{v}"));
                     for gpu in &mut result {
-                        if gpu["owner"] == "host" && id.as_deref() == gpu["id"].as_str() {
+                        if host_nvidia(gpu) && id.as_deref() == gpu["id"].as_str() {
                             for key in GPU_METRICS {
                                 gpu[key] = row[key].clone()
                             }
@@ -222,7 +231,7 @@ pub fn read_gpus() -> anyhow::Result<Value> {
             }
             Err(_) => {
                 for gpu in &mut result {
-                    if gpu["owner"] == "host" && gpu["vendor"] == "NVIDIA" {
+                    if host_nvidia(gpu) {
                         gpu["error"] = json!("NVIDIA metrics unavailable")
                     }
                 }
@@ -322,6 +331,57 @@ mod tests {
         assert_eq!(gpu_kind("8086", "Raptor Lake UHD", "a780"), "integrated");
         assert_eq!(gpu_kind("8086", "Intel Arc A770", "56a0"), "discrete");
         assert_eq!(gpu_kind("1002", "unidentified", "abcd"), "unknown")
+    }
+    #[test]
+    fn native_driver_overrides_saved_passthrough_assignment() {
+        for driver in ["nvidia", "amdgpu", "i915", "xe", "nouveau"] {
+            assert_eq!(effective_owner(Some("vm:100"), driver), "host");
+        }
+        for driver in ["", "vfio-pci", "vfio_pci", "pci-stub"] {
+            assert_eq!(effective_owner(Some("vm:100"), driver), "vm:100");
+            assert_eq!(effective_owner(None, driver), "host");
+        }
+    }
+    #[test]
+    fn nvidia_poll_requires_the_host_driver() {
+        for driver in ["", "vfio-pci", "vfio_pci", "pci-stub", "nouveau"] {
+            assert!(!host_nvidia(
+                &json!({"owner":"host","vendor":"NVIDIA","driver":driver})
+            ));
+        }
+        assert!(host_nvidia(
+            &json!({"owner":"host","vendor":"NVIDIA","driver":"nvidia"})
+        ));
+        assert!(!host_nvidia(
+            &json!({"owner":"vm:100","vendor":"NVIDIA","driver":"nvidia"})
+        ));
+    }
+    #[test]
+    fn host_reclaimed_gpu_keeps_host_metrics_when_guest_telemetry_is_stale() {
+        let inv = json!({"id":"pci:0000:01:00.0","vendor":"NVIDIA",
+            "owner":effective_owner(Some("vm:100"), "nvidia"),
+            "driver":"nvidia","status":"active","updated_at":100.,
+            "power_w":220.,"utilization_pct":98.,"error":null,
+            "_vendor_id":"10de","_device_id":"2702"});
+        let data = BTreeMap::from([(
+            100,
+            json!({"generated_at":90.,"gpus":[{"vendor_id":"10de","device_id":"2702","power_w":300.}]}),
+        )]);
+        for status in ["stopped", "running"] {
+            let cards = merge_gpus(
+                std::slice::from_ref(&inv),
+                &data,
+                &[json!({"id":100,"status":status})],
+                &json!({"guest_100":{"ok":true}}),
+                105.,
+            );
+            assert_eq!(cards[0]["owner"], "host");
+            assert_eq!(cards[0]["power_w"], 220.);
+            assert_eq!(cards[0]["utilization_pct"], 98.);
+            assert_eq!(cards[0]["status"], "active");
+            assert_eq!(cards[0]["age_s"], 5.);
+            assert!(cards[0].get("_vendor_id").is_none());
+        }
     }
     #[test]
     fn passthrough_guest_identity_not_pci_bus() {
