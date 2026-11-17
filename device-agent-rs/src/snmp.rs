@@ -374,7 +374,12 @@ pub fn storage_oids(index: u32) -> [String; 3] {
 }
 
 pub fn requested_oids(config: &SnmpConfig) -> Result<Vec<String>> {
-    let mut values = vec![SYS_UPTIME.into(), HOST_UPTIME.into()];
+    let mut values = vec![SYS_UPTIME.into()];
+    // Appliance cards need not implement HOST-RESOURCES-MIB; some return a
+    // packet-wide noSuchName instead of an SNMPv2 per-variable exception.
+    if config.ups_profile.is_none() {
+        values.push(HOST_UPTIME.into());
+    }
     values.extend(
         config
             .cpu_oids

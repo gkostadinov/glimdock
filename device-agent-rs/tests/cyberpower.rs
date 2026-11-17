@@ -1,6 +1,6 @@
 use glimdock_agent::{
     cyberpower::ROOT,
-    snmp::{SnmpCollector, SnmpConfig, SYS_UPTIME},
+    snmp::{SnmpCollector, SnmpConfig, HOST_UPTIME, SYS_UPTIME},
     Collector,
 };
 use serde_json::{json, Value};
@@ -48,10 +48,14 @@ impl Fixture {
     }
     fn collector(&self) -> SnmpCollector {
         let values = self.values.clone();
+        let ups = self.config.ups_profile.is_some();
         SnmpCollector::with_runner(self.config.clone(), move |request| {
             assert_eq!(&request.args[..2], &["-Cf", "-OnqteU"]);
             assert_eq!(request.args[6], "udp:192.0.2.210:161");
             assert!(!request.args.join(" ").contains("synthetic"));
+            if ups {
+                assert!(!request.args.iter().any(|oid| oid == HOST_UPTIME));
+            }
             let values = values.lock().unwrap();
             Ok(request
                 .args
