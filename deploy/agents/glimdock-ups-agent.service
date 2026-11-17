@@ -1,0 +1,31 @@
+[Unit]
+Description=Glimdock read-only UPS SNMP adapter
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=glimdock-agent
+Group=glimdock-agent
+StateDirectory=glimdock-agent-ups
+StateDirectoryMode=0700
+UMask=0077
+# Replace the URL/binary path. Add --allow-insecure-http only for trusted LAN HTTP.
+ExecStart=/usr/local/bin/glimdock-agent --collector-url https://collector.example.com --state-dir /var/lib/glimdock-agent-ups --enrollment-key-file /etc/glimdock-agent/ups/enrollment.key --snmp-config /etc/glimdock-agent/ups/snmp.json
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=64M
+TasksMax=16
+
+[Install]
+WantedBy=multi-user.target

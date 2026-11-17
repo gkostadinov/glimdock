@@ -111,6 +111,8 @@ pub struct SnmpConfig {
     pub cpu_oids: Vec<String>,
     pub host_metrics: BTreeMap<String, ScalarConfig>,
     pub sensors: Vec<SensorConfig>,
+    /// Optional read-only vendor UPS interpretation; generic SNMP stays unchanged.
+    pub ups_profile: Option<String>,
 }
 
 impl Default for SnmpConfig {
@@ -130,6 +132,7 @@ impl Default for SnmpConfig {
             cpu_oids: vec![],
             host_metrics: BTreeMap::new(),
             sensors: vec![],
+            ups_profile: None,
         }
     }
 }
@@ -183,6 +186,12 @@ impl SnmpConfig {
         validate_identity(&self.id)?;
         label(&self.name, 96, false)?;
         validate_platform(&self.platform)?;
+        ensure!(
+            self.ups_profile
+                .as_deref()
+                .is_none_or(|p| p == "cyberpower" && self.platform == "other"),
+            "Unsupported UPS profile or platform"
+        );
         let hostname = !self.address.is_empty()
             && self.address.len() <= 253
             && self.address.as_bytes()[0].is_ascii_alphanumeric()
@@ -387,6 +396,9 @@ pub fn requested_oids(config: &SnmpConfig) -> Result<Vec<String>> {
     }
     for mapping in config.host_metrics.values() {
         values.push(oid(&mapping.oid)?);
+    }
+    if config.ups_profile.as_deref() == Some("cyberpower") {
+        values.extend(crate::cyberpower::oids());
     }
     let mut seen = BTreeSet::new();
     values.retain(|v| seen.insert(v.clone()));
@@ -945,6 +957,9 @@ impl SnmpCollector {
             result["sensors"] = json!(rows);
             result["alerts"] = json!(alerts);
             set_status(&mut result, "snmp_sensors", now, available);
+        }
+        if self.config.ups_profile.as_deref() == Some("cyberpower") {
+            crate::cyberpower::apply(&mut result, values, now);
         }
         finish_snapshot(result, &self.descriptor)
     }

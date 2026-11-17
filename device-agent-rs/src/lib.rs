@@ -1,5 +1,6 @@
 //! Native portable collectors; no interpreter or Linux hub dependency.
 pub mod config;
+pub mod cyberpower;
 pub mod host;
 pub mod json_device;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]

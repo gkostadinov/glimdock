@@ -17,6 +17,34 @@ To recover after publishing access is revoked, issue **Re-pair** for the existin
 
 Use `--snmp-config /absolute/path/snmp.json` or `--json-config /absolute/path/json.json` instead of `--config` to push readings gathered by a native adapter. Such adapters still need to query the target router or appliance; their connection to the central collector is outbound. Give each device/adapter its own state directory and pairing key.
 
+For CyberPower UPS network cards, use
+[`snmp-ups-cyberpower.json`](../../examples/agents/snmp-ups-cyberpower.json).
+The optional `ups_profile: "cyberpower"` enables direct, read-only CPS-MIB queries
+to the UPS at its own address. Pair it as platform `other`, with its own state
+directory and publishing credential. The adapter uses the existing Net-SNMP
+credential-file support; credentials stay outside configuration arguments and
+telemetry. It does not read NUT, change NUT settings or send UPS control commands.
+
+The profile publishes battery charge, estimated runtime, load, measured output
+watts, input/output voltage and frequency, output current and battery voltage.
+Supported temperature sensors appear when the device provides them. Missing or
+invalid values remain unknown. Raw runtime TimeTicks are converted from
+hundredths of a second to seconds in metadata and minutes in the sensor list;
+load percentage is never used to infer watts. Battery status, Eco/bypass/output
+mode and fault codes become readable metadata and monitoring alerts. The
+standard battery metadata is also populated. CPU/RAM and CPU package power
+remain unknown for the UPS.
+
+Numeric CPS-MIB assignments and states can be cross-checked against the
+[upstream UPS interoperability table](https://github.com/networkupstools/nut/blob/master/drivers/cyberpower-mib.c).
+The adapter contains independent Rust interpretation of protocol data; it does
+not embed the NUT driver. An existing NUT shutdown monitor can continue polling
+the same UPS independently. No shutdown or power-failure test is needed to add
+this monitoring node. If all four root cards are occupied, place the new node in
+an existing group; the display supports eight total active nodes.
+[`glimdock-ups-agent.service`](glimdock-ups-agent.service) is a systemd template;
+replace its collector URL and binary path before enabling it.
+
 ## Linux
 
 Install the binary at `/usr/local/bin/glimdock-agent`. Create a dedicated `glimdock-agent` system user and `/etc/glimdock-agent` directory. Put the host configuration and pairing key there, owned by the service user; use directory mode `0700` and key mode `0600`. Copy `glimdock-agent.service` to `/etc/systemd/system/`, replace its collector URL, then run `systemctl daemon-reload` and `systemctl enable --now glimdock-agent`. Systemd creates the private state directory. Read status with `systemctl status glimdock-agent` and logs with `journalctl -u glimdock-agent`. Adapter instances need separate service names and state directories.

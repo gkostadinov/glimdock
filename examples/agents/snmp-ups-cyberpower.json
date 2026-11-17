@@ -1,0 +1,11 @@
+{
+  "id": "ups",
+  "name": "UPS",
+  "platform": "other",
+  "address": "192.0.2.210",
+  "port": 161,
+  "credential_file": "/absolute/private/path/ups.credentials.json",
+  "interval_s": 10,
+  "timeout_s": 2,
+  "ups_profile": "cyberpower"
+}
